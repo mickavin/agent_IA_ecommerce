@@ -1,100 +1,22 @@
 import { NextApiRequest, NextApiResponse } from 'next'
+import { OpenAIService } from '../../../lib/services/openai.service'
 
 /**
- * IA spécialisée dans les recommandations d'outfits complets
+ * IA spécialisée dans les suggestions d'outfits complets
+ * Utilise OpenAI pour créer des tenues cohérentes et stylées
  */
 
-type OutfitItem = {
-  id: string
-  name: string
-  category: 'top' | 'bottom' | 'shoes' | 'accessory'
-  price: number
-  colors: string[]
-  style: string
-}
-
-type Outfit = {
-  id: string
-  name: string
-  description: string
-  occasion: string
-  style: string
-  totalPrice: number
-  items: OutfitItem[]
-  compatibilityScore: number
-}
-
-// Base de données d'articles pour outfits
-const outfitItemsDatabase: OutfitItem[] = [
-  {
-    id: 'top-1',
-    name: 'Chemise blanche classique',
-    category: 'top',
-    price: 59.99,
-    colors: ['blanc'],
-    style: 'chic'
-  },
-  {
-    id: 'top-2',
-    name: 'T-shirt noir basique',
-    category: 'top',
-    price: 29.99,
-    colors: ['noir'],
-    style: 'casual'
-  },
-  {
-    id: 'bottom-1',
-    name: 'Pantalon de costume noir',
-    category: 'bottom',
-    price: 99.99,
-    colors: ['noir'],
-    style: 'chic'
-  },
-  {
-    id: 'bottom-2',
-    name: 'Jean délavé bleu',
-    category: 'bottom',
-    price: 79.99,
-    colors: ['bleu'],
-    style: 'casual'
-  },
-  {
-    id: 'shoes-1',
-    name: 'Escarpins noirs',
-    category: 'shoes',
-    price: 129.99,
-    colors: ['noir'],
-    style: 'chic'
-  },
-  {
-    id: 'shoes-2',
-    name: 'Sneakers blanches',
-    category: 'shoes',
-    price: 99.99,
-    colors: ['blanc'],
-    style: 'casual'
-  }
-]
-
+/**
+ * Analyse si le message correspond à une demande d'outfit
+ */
 function canHandleOutfits(message: string): { canHandle: boolean; confidence: number } {
   const lowerMessage = message.toLowerCase().trim()
   let confidence = 0
 
-  // Refuser les salutations et questions générales
-  const generalPatterns = [
-    /^(bonjour|salut|hello|hey|bonsoir|coucou)$/i,
-    /^(aide|help|au revoir|bye|merci)$/i
-  ]
-  
-  if (generalPatterns.some(pattern => pattern.test(lowerMessage))) {
-    return { canHandle: false, confidence: 0 }
-  }
-
-  // Mots-clés spécifiques aux outfits
+  // Mots-clés d'outfits et tenues
   const outfitKeywords = [
-    'outfit', 'tenue', 'look', 'style', 'ensemble', 'coordination',
-    'assortir', 'porter ensemble', 'tenue complète', 'look complet',
-    'comment m\'habiller', 'que porter'
+    'tenue', 'outfit', 'look', 'ensemble', 'style', 'coordonner',
+    'assortir', 'harmoniser', 'composer', 'créer', 'stylé'
   ]
 
   const outfitMatches = outfitKeywords.filter(keyword => 
@@ -102,196 +24,141 @@ function canHandleOutfits(message: string): { canHandle: boolean; confidence: nu
   ).length
 
   // Occasions spécifiques
-  const occasions = [
-    'travail', 'bureau', 'professionnel', 'entretien',
-    'soirée', 'sortie', 'fête', 'dîner',
-    'mariage', 'cocktail', 'événement',
-    'weekend', 'vacances', 'casual'
+  const occasionKeywords = [
+    'travail', 'bureau', 'professionnel', 'réunion', 'entretien',
+    'soirée', 'fête', 'mariage', 'cérémonie', 'cocktail',
+    'décontracté', 'weekend', 'sortie', 'rendez-vous', 'date',
+    'sport', 'gym', 'jogging', 'yoga', 'fitness',
+    'vacances', 'voyage', 'plage', 'montagne', 'ville',
+    'hiver', 'été', 'printemps', 'automne', 'saison'
   ]
 
-  const occasionMatches = occasions.filter(occasion => 
-    lowerMessage.includes(occasion)
+  const occasionMatches = occasionKeywords.filter(keyword => 
+    lowerMessage.includes(keyword)
   ).length
 
-  // Patterns spécifiques aux outfits
-  const outfitPatterns = [
-    /tenue.*(pour|de)/i,
-    /look.*(pour|de)/i,
-    /outfit.*(pour|de)/i,
-    /comment.*habiller/i,
-    /que.*porter/i
+  // Demandes de conseils style
+  const styleKeywords = [
+    'comment m\'habiller', 'que porter', 'quoi mettre',
+    'conseil style', 'aide style', 'stylisme', 'mode',
+    'tendance', 'fashion', 'chic', 'élégant', 'casual'
   ]
 
-  const patternMatches = outfitPatterns.filter(pattern => 
-    pattern.test(lowerMessage)
+  const styleMatches = styleKeywords.filter(keyword => 
+    lowerMessage.includes(keyword)
+  ).length
+
+  // Expressions complètes
+  const fullPhrases = [
+    /comment.*habiller.*pour/i,
+    /que.*porter.*pour/i,
+    /tenue.*pour/i,
+    /outfit.*pour/i,
+    /look.*pour/i,
+    /comment.*stylé/i,
+    /aide.*composer/i,
+    /conseil.*tenue/i
+  ]
+
+  const phraseMatches = fullPhrases.filter(phrase => 
+    phrase.test(lowerMessage)
   ).length
 
   // Calcul de la confiance
   confidence += outfitMatches * 0.4
   confidence += occasionMatches * 0.3
-  confidence += patternMatches * 0.4
+  confidence += styleMatches * 0.2
+  confidence += phraseMatches * 0.4
+
+  // Bonus pour les demandes spécifiques d'occasions
+  if (outfitMatches > 0 && occasionMatches > 0) {
+    confidence += 0.3
+  }
+
+  // Bonus pour les questions complètes
+  if (phraseMatches > 0) {
+    confidence += 0.2
+  }
+
+  // Bonus pour les mots-clés de style
+  if (lowerMessage.includes('pour') && (outfitMatches > 0 || styleMatches > 0)) {
+    confidence += 0.2
+  }
 
   confidence = Math.min(Math.max(confidence, 0), 1)
 
   return {
-    canHandle: confidence > 0.4,
+    canHandle: confidence > 0.5,
     confidence
   }
 }
 
-function analyzeOutfitRequest(message: string) {
+/**
+ * Extrait les informations de contexte pour l'outfit
+ */
+function extractOutfitContext(message: string): any {
   const lowerMessage = message.toLowerCase()
-  
-  return {
-    occasion: extractOccasion(lowerMessage),
-    style: extractStyle(lowerMessage)
-  }
-}
+  const context: any = {}
 
-function extractOccasion(message: string): string {
+  // Extraction de l'occasion
   const occasions = {
-    'travail': ['travail', 'bureau', 'professionnel', 'entretien'],
-    'soirée': ['soirée', 'sortie', 'fête', 'dîner'],
-    'casual': ['weekend', 'casual', 'décontracté', 'quotidien']
+    'professionnel': ['travail', 'bureau', 'professionnel', 'réunion', 'entretien', 'business'],
+    'soirée': ['soirée', 'fête', 'mariage', 'cérémonie', 'cocktail', 'gala'],
+    'décontracté': ['décontracté', 'casual', 'weekend', 'repos', 'détente'],
+    'sport': ['sport', 'gym', 'jogging', 'yoga', 'fitness', 'training'],
+    'voyage': ['vacances', 'voyage', 'plage', 'montagne', 'city-trip'],
+    'romantique': ['rendez-vous', 'date', 'romantique', 'séduction']
   }
 
   for (const [occasion, keywords] of Object.entries(occasions)) {
-    if (keywords.some(keyword => message.includes(keyword))) {
-      return occasion
+    if (keywords.some(keyword => lowerMessage.includes(keyword))) {
+      context.occasion = occasion
+      break
     }
   }
-  return 'casual'
-}
 
-function extractStyle(message: string): string {
+  // Extraction de la saison
+  const seasons = {
+    'hiver': ['hiver', 'froid', 'neige', 'décembre', 'janvier', 'février'],
+    'été': ['été', 'chaud', 'chaleur', 'juin', 'juillet', 'août'],
+    'printemps': ['printemps', 'mars', 'avril', 'mai'],
+    'automne': ['automne', 'septembre', 'octobre', 'novembre']
+  }
+
+  for (const [season, keywords] of Object.entries(seasons)) {
+    if (keywords.some(keyword => lowerMessage.includes(keyword))) {
+      context.season = season
+      break
+    }
+  }
+
+  // Extraction du style souhaité
   const styles = {
-    'chic': ['chic', 'élégant', 'sophistiqué', 'classe'],
-    'casual': ['casual', 'décontracté', 'simple', 'confortable']
+    'élégant': ['élégant', 'chic', 'sophistiqué', 'classe', 'raffiné'],
+    'décontracté': ['décontracté', 'casual', 'relax', 'confort'],
+    'moderne': ['moderne', 'tendance', 'fashion', 'à la mode'],
+    'classique': ['classique', 'intemporel', 'traditionnel'],
+    'rock': ['rock', 'edgy', 'rebel', 'grunge'],
+    'bohème': ['bohème', 'boho', 'hippie', 'libre']
   }
 
   for (const [style, keywords] of Object.entries(styles)) {
-    if (keywords.some(keyword => message.includes(keyword))) {
-      return style
+    if (keywords.some(keyword => lowerMessage.includes(keyword))) {
+      context.style = style
+      break
     }
   }
-  return 'casual'
-}
 
-function generateOutfits(analysis: any): Outfit[] {
-  const { occasion, style } = analysis
-  
-  let availableItems = outfitItemsDatabase.filter(item => {
-    if (style === 'chic' && item.style !== 'chic') return false
-    return true
-  })
-
-  const outfits: Outfit[] = []
-  
-  if (occasion === 'travail') {
-    outfits.push(createWorkOutfit(availableItems))
-  } else if (occasion === 'soirée') {
-    outfits.push(createEveningOutfit(availableItems))
-  } else {
-    outfits.push(createCasualOutfit(availableItems))
+  // Extraction des couleurs préférées
+  const colors = ['noir', 'blanc', 'rouge', 'bleu', 'vert', 'jaune', 'rose', 'gris', 'beige', 'marron']
+  for (const color of colors) {
+    if (lowerMessage.includes(color)) {
+      context.preferredColor = color
+      break
+    }
   }
 
-  outfits.forEach(outfit => {
-    outfit.totalPrice = outfit.items.reduce((sum, item) => sum + item.price, 0)
-    outfit.compatibilityScore = 0.8
-  })
-
-  return outfits.slice(0, 2)
-}
-
-function createWorkOutfit(items: OutfitItem[]): Outfit {
-  const top = items.find(item => item.category === 'top' && item.style === 'chic')
-  const bottom = items.find(item => item.category === 'bottom' && item.style === 'chic')
-  const shoes = items.find(item => item.category === 'shoes' && item.style === 'chic')
-
-  const outfitItems = [top, bottom, shoes].filter(Boolean) as OutfitItem[]
-
-  return {
-    id: 'work-outfit-1',
-    name: 'Look Professionnel',
-    description: 'Tenue élégante pour le bureau',
-    occasion: 'travail',
-    style: 'chic',
-    totalPrice: 0,
-    items: outfitItems,
-    compatibilityScore: 0
-  }
-}
-
-function createEveningOutfit(items: OutfitItem[]): Outfit {
-  const top = items.find(item => item.category === 'top' && item.style === 'chic')
-  const bottom = items.find(item => item.category === 'bottom')
-  const shoes = items.find(item => item.category === 'shoes' && item.style === 'chic')
-
-  const outfitItems = [top, bottom, shoes].filter(Boolean) as OutfitItem[]
-
-  return {
-    id: 'evening-outfit-1',
-    name: 'Look Soirée',
-    description: 'Tenue élégante pour vos sorties',
-    occasion: 'soirée',
-    style: 'chic',
-    totalPrice: 0,
-    items: outfitItems,
-    compatibilityScore: 0
-  }
-}
-
-function createCasualOutfit(items: OutfitItem[]): Outfit {
-  const top = items.find(item => item.category === 'top' && item.style === 'casual')
-  const bottom = items.find(item => item.category === 'bottom' && item.style === 'casual')
-  const shoes = items.find(item => item.category === 'shoes' && item.style === 'casual')
-
-  const outfitItems = [top, bottom, shoes].filter(Boolean) as OutfitItem[]
-
-  return {
-    id: 'casual-outfit-1',
-    name: 'Look Décontracté',
-    description: 'Tenue confortable pour le quotidien',
-    occasion: 'casual',
-    style: 'casual',
-    totalPrice: 0,
-    items: outfitItems,
-    compatibilityScore: 0
-  }
-}
-
-function formatOutfitResponse(outfits: Outfit[], analysis: any): string {
-  if (outfits.length === 0) {
-    return `😔 Je n'ai pas pu créer d'outfits correspondant à vos critères.
-
-💡 Essayez de préciser l'occasion ou le style souhaité !`
-  }
-
-  let response = `✨ **Mes suggestions d'outfits pour ${analysis.occasion}**\n\n`
-
-  outfits.forEach((outfit, index) => {
-    const emoji = ['🏆', '⭐'][index] || '👍'
-    response += `${emoji} **${outfit.name}** - ${outfit.totalPrice.toFixed(2)}€\n`
-    response += `   📝 ${outfit.description}\n\n`
-    
-    response += `   **Composition:**\n`
-    outfit.items.forEach(item => {
-      const categoryEmoji = {
-        'top': '👕',
-        'bottom': '👖',
-        'shoes': '👠',
-        'accessory': '👜'
-      }[item.category] || '📦'
-      
-      response += `   ${categoryEmoji} ${item.name} - ${item.price}€\n`
-    })
-    
-    response += `\n`
-  })
-
-  response += `💬 Besoin d'ajustements ou d'autres suggestions ?`
-
-  return response
+  return context
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -300,7 +167,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { message, context = {} } = req.body
+    const { message, context = {}, chatbotConfig = {} } = req.body
 
     if (!message?.trim()) {
       return res.status(400).json({ error: 'Message requis' })
@@ -318,9 +185,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     }
 
-    const requestAnalysis = analyzeOutfitRequest(userMessage)
-    const outfits = generateOutfits(requestAnalysis)
-    const content = formatOutfitResponse(outfits, requestAnalysis)
+    // Extraction du contexte outfit
+    const outfitContext = extractOutfitContext(userMessage)
+    
+    // Ajout du contexte enrichi
+    const enhancedContext = {
+      ...context,
+      outfitRequest: outfitContext,
+      userPreferences: context.userPreferences || {}
+    }
+
+    // Construction du prompt enrichi avec le contexte
+    let contextualInfo = ''
+    if (Object.keys(outfitContext).length > 0) {
+      contextualInfo = `\n\nCONTEXTE DÉTECTÉ:\n`
+      if (outfitContext.occasion) contextualInfo += `- Occasion: ${outfitContext.occasion}\n`
+      if (outfitContext.season) contextualInfo += `- Saison: ${outfitContext.season}\n`
+      if (outfitContext.style) contextualInfo += `- Style: ${outfitContext.style}\n`
+      if (outfitContext.preferredColor) contextualInfo += `- Couleur préférée: ${outfitContext.preferredColor}\n`
+      contextualInfo += '\nAdapte tes suggestions d\'outfits en fonction de ce contexte.'
+    }
+
+    // Génération de la réponse via OpenAI
+    const openAIService = new OpenAIService()
+    const systemPrompt = OpenAIService.createSystemPrompt('outfits', chatbotConfig.personality) + contextualInfo
+    
+    const startTime = Date.now()
+    const content = await openAIService.generateResponse({
+      systemPrompt,
+      userMessage,
+      context: enhancedContext,
+      maxTokens: 1200,
+      temperature: 0.9
+    })
+    const processingTime = Date.now() - startTime
 
     return res.status(200).json({
       success: true,
@@ -330,11 +228,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         type: 'bot',
         timestamp: new Date().toISOString(),
         metadata: {
-          intent: 'outfit_recommendation',
+          intent: 'outfit_creation',
           confidence: analysis.confidence,
           aiType: 'outfits',
-          outfits,
-          criteria: requestAnalysis
+          processingTime,
+          model: 'openai',
+          outfitContext,
+          routedTo: 'outfits'
         }
       }
     })
@@ -344,7 +244,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     return res.status(500).json({
       success: false,
-      error: 'Erreur lors de la génération de recommandations d\'outfits',
+      error: 'Erreur lors de la création d\'outfits',
       details: error.message
     })
   }

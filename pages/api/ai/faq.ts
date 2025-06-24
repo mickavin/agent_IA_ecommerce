@@ -1,61 +1,10 @@
 import { NextApiRequest, NextApiResponse } from 'next'
+import { OpenAIService } from '../../../lib/services/openai.service'
 
 /**
  * IA spécialisée dans les réponses FAQ
- * Traite les questions fréquemment posées
+ * Utilise OpenAI pour générer des réponses intelligentes aux questions fréquentes
  */
-
-type FAQItem = {
-  id: string
-  question: string
-  answer: string
-  category: string
-  tags: string[]
-  popularity: number
-}
-
-const faqDatabase: FAQItem[] = [
-  {
-    id: 'faq-001',
-    question: 'Quels sont les délais de livraison ?',
-    answer: 'Nos délais de livraison sont de 2-3 jours ouvrés en France métropolitaine, 4-5 jours pour la Corse et les DOM-TOM. Livraison gratuite dès 50€ d\'achat.',
-    category: 'Livraison',
-    tags: ['livraison', 'délais', 'transport'],
-    popularity: 150
-  },
-  {
-    id: 'faq-002',
-    question: 'Comment puis-je retourner un article ?',
-    answer: 'Vous avez 30 jours pour retourner un article. Connectez-vous à votre compte, accédez à vos commandes, sélectionnez l\'article à retourner et suivez les instructions. Le retour est gratuit.',
-    category: 'Retours',
-    tags: ['retour', 'échange', 'remboursement'],
-    popularity: 120
-  },
-  {
-    id: 'faq-003',
-    question: 'Quels moyens de paiement acceptez-vous ?',
-    answer: 'Nous acceptons les cartes bancaires (Visa, Mastercard, American Express), PayPal, Apple Pay, Google Pay et les virements bancaires.',
-    category: 'Paiements',
-    tags: ['paiement', 'carte', 'paypal'],
-    popularity: 100
-  },
-  {
-    id: 'faq-004',
-    question: 'Comment connaître ma taille ?',
-    answer: 'Consultez notre guide des tailles disponible sur chaque fiche produit. En cas de doute, commandez une taille au-dessus. Notre service client peut vous conseiller au 01 23 45 67 89.',
-    category: 'Produits',
-    tags: ['taille', 'guide', 'mesure'],
-    popularity: 95
-  },
-  {
-    id: 'faq-005',
-    question: 'Puis-je modifier ma commande ?',
-    answer: 'Vous pouvez modifier votre commande dans les 2 heures suivant sa validation, depuis votre espace client. Passé ce délai, contactez notre service client.',
-    category: 'Commandes',
-    tags: ['commande', 'modification', 'annulation'],
-    popularity: 80
-  }
-]
 
 /**
  * Analyse si le message correspond à une question FAQ
@@ -91,7 +40,9 @@ function canHandleFAQ(message: string): { canHandle: boolean; confidence: number
     'livraison', 'délais', 'retour', 'échange', 'remboursement',
     'paiement', 'carte', 'paypal', 'commande', 'commander',
     'taille', 'guide', 'politique', 'service client', 'contact',
-    'garantie', 'problème', 'bug', 'erreur', 'support'
+    'garantie', 'problème', 'bug', 'erreur', 'support',
+    'prix', 'frais', 'coût', 'promotion', 'reduction',
+    'compte', 'inscription', 'connexion', 'mot de passe'
   ]
 
   const keywordMatches = faqKeywords.filter(keyword => 
@@ -130,7 +81,7 @@ function canHandleFAQ(message: string): { canHandle: boolean; confidence: number
   }
 
   // Pénalité si c'est clairement une demande de produits
-  const productKeywords = ['recommande', 'suggère', 'trouve', 'cherche.*vêtement', 'tenue pour']
+  const productKeywords = ['recommande', 'suggère', 'trouve', 'cherche.*vêtement', 'tenue pour', 'outfit', 'look']
   if (productKeywords.some(keyword => new RegExp(keyword, 'i').test(lowerMessage))) {
     confidence -= 0.4
   }
@@ -278,7 +229,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { message, context = {} } = req.body
+    const { message, context = {}, chatbotConfig = {} } = req.body
 
     if (!message?.trim()) {
       return res.status(400).json({ error: 'Message requis' })
@@ -296,45 +247,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     }
 
-    let content = ''
-    let confidence = analysis.confidence
-
-    // Traitement spécial pour les salutations
-    const lowerMessage = userMessage.toLowerCase().trim()
-    const greetingPatterns = [
-      /^(bonjour|salut|hello|hey|bonsoir|coucou|bonne journée)$/i,
-      /^(bonjour|salut|hello|hey|bonsoir|coucou)[\s\!\.]*$/i
-    ]
+    // Génération de la réponse via OpenAI
+    const openAIService = new OpenAIService()
+    const systemPrompt = OpenAIService.createSystemPrompt('faq', chatbotConfig.personality)
     
-    if (greetingPatterns.some(pattern => pattern.test(lowerMessage))) {
-      content = handleGreeting()
-      confidence = 0.9
-    } else {
-      // Traitement spécial pour les demandes d'aide générales
-      const helpPatterns = [
-        /^(aide|help|que peux-tu faire|qu'est-ce que tu fais|qui es-tu)$/i,
-        /comment.*marche/i,
-        /comment.*fonctionne/i,
-        /peux.*aider/i
-      ]
-      
-      if (helpPatterns.some(pattern => pattern.test(lowerMessage))) {
-        content = handleGeneralHelp()
-        confidence = 0.8
-      } else {
-        // Recherche des FAQ correspondantes
-        const matches = findMatchingFAQs(userMessage)
-        
-        if (matches.length > 0) {
-          const bestMatch = matches[0]
-          content = formatFAQResponse(bestMatch, matches)
-          confidence = bestMatch.score
-        } else {
-          content = getNoMatchResponse()
-          confidence = 0.1
-        }
-      }
-    }
+    const startTime = Date.now()
+    const content = await openAIService.generateResponse({
+      systemPrompt,
+      userMessage,
+      context,
+      maxTokens: 800,
+      temperature: 0.7
+    })
+    const processingTime = Date.now() - startTime
 
     return res.status(200).json({
       success: true,
@@ -345,9 +270,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         timestamp: new Date().toISOString(),
         metadata: {
           intent: 'faq_query',
-          confidence,
+          confidence: analysis.confidence,
           aiType: 'faq',
-          processingTime: Date.now()
+          processingTime,
+          model: 'openai',
+          routedTo: 'faq'
         }
       }
     })

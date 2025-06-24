@@ -1,382 +1,387 @@
 #!/usr/bin/env node
 /**
- * Script de validation complète de la migration IA Master
- * Teste tous les points d'intégration et vérifie la compatibilité
+ * Script de test complet pour la nouvelle architecture IA Master
+ * Version 2.0 - Architectures IAs spécialisées
  */
 
-const { execSync } = require('child_process')
+const fetch = require('node-fetch')
 
-const API_BASE = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+const API_BASE = process.env.API_BASE || 'http://localhost:3000'
 
-console.log('🚀 VALIDATION COMPLÈTE DE LA MIGRATION IA MASTER')
-console.log('=' .repeat(60))
-console.log()
+// Messages de test pour chaque IA spécialisée
+const testSuite = {
+  faq: [
+    'Bonjour',
+    'Comment ça marche ?', 
+    'Quels sont vos délais de livraison ?',
+    'Comment retourner un produit ?',
+    'Quels moyens de paiement acceptez-vous ?'
+  ],
+  articles: [
+    'Je cherche un t-shirt noir',
+    'Recommande-moi une chemise pour moins de 60€',
+    'Je veux des sneakers blanches',
+    'Trouve-moi une robe d\'été',
+    'Conseille-moi un jean slim'
+  ],
+  outfits: [
+    'Je veux une tenue pour le travail',
+    'Quel outfit pour une soirée ?',
+    'Comment m\'habiller pour un entretien ?',
+    'Tenue décontractée pour le weekend',
+    'Look élégant pour un mariage'
+  ],
+  master: [
+    'Peux-tu m\'aider ?',
+    'Je ne sais pas quoi porter',
+    'Conseil mode urgente',
+    'Aide shopping'
+  ]
+}
 
-// Tests prédéfinis
-const TEST_CASES = [
+// Personnalités à tester
+const personalities = [
   {
-    name: "FAQ - Question retour produit",
-    message: "Comment puis-je retourner un produit ?",
-    expectedAI: "faq",
-    expectedConfidence: 0.4
+    name: 'Professionnel',
+    config: { tone: 'Professionnel', formality: 'Vouvoiement', verbosity: 'Concis' }
   },
   {
-    name: "Outfit - Tenue soirée",
-    message: "Je veux une tenue élégante pour une soirée",
-    expectedAI: "outfit_recommendation", 
-    expectedConfidence: 0.5
+    name: 'Amical',
+    config: { tone: 'Amical', formality: 'Tutoiement', verbosity: 'Détaillé' }
   },
   {
-    name: "Produit - Recherche spécifique",
-    message: "Cherche un sweatshirt noir en taille L sous 60€",
-    expectedAI: "individual_clothing_recommendation",
-    expectedConfidence: 0.4
-  },
-  {
-    name: "Général - Salutation",
-    message: "Bonjour, comment allez-vous ?",
-    expectedAI: "faq", // Par défaut
-    expectedConfidence: 0.3
+    name: 'Humoristique',
+    config: { tone: 'Humoristique', formality: 'Tutoiement', empathy: 'Élevée', proactivity: 'Très proactif' }
   }
 ]
 
+let stats = {
+  totalTests: 0,
+  successTests: 0,
+  failedTests: 0,
+  routingAccuracy: {},
+  personalityTests: 0
+}
+
 /**
- * Teste l'API IA Master directement
+ * Test d'une IA spécialisée
  */
-async function testIAMasterAPI() {
-  console.log('1️⃣ Test API IA Master Principale')
-  console.log('-' .repeat(40))
-  
-  for (const testCase of TEST_CASES) {
-    try {
-      const startTime = Date.now()
-      
-      const response = await fetch(`${API_BASE}/api/ia`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: testCase.message,
-          userId: 'test-migration',
-          context: {
-            conversationHistory: [],
-            userPreferences: {}
-          }
-        })
+async function testSpecializedAI(aiType, message) {
+  try {
+    const response = await fetch(`${API_BASE}/api/ai/${aiType}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message,
+        context: {}
       })
+    })
 
-      const processingTime = Date.now() - startTime
-      const data = await response.json()
+    stats.totalTests++
 
-      if (data.success) {
-        const isCorrectAI = data.data.aiType === testCase.expectedAI
-        const hasMinConfidence = data.data.confidence >= testCase.expectedConfidence
-        
-        console.log(`✅ ${testCase.name}`)
-        console.log(`   IA utilisée: ${data.data.aiType} ${isCorrectAI ? '✓' : '✗'}`)
-        console.log(`   Confiance: ${Math.round(data.data.confidence * 100)}% ${hasMinConfidence ? '✓' : '✗'}`)
-        console.log(`   Temps: ${processingTime}ms`)
-        console.log(`   Réponse: ${data.data.content.substring(0, 60)}...`)
-        
-        if (!isCorrectAI || !hasMinConfidence) {
-          console.log(`   ⚠️ Résultat inattendu`)
-        }
-      } else {
-        console.log(`❌ ${testCase.name}`)
-        console.log(`   Erreur: ${data.error}`)
-      }
-      
-      console.log()
-      
-      // Petite pause entre les tests
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-    } catch (error) {
-      console.log(`❌ ${testCase.name}`)
-      console.log(`   Erreur réseau: ${error.message}`)
-      console.log()
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
     }
-  }
-}
 
-/**
- * Teste la compatibilité avec les anciennes API
- */
-async function testLegacyAPICompatibility() {
-  console.log('2️⃣ Test Compatibilité Anciennes API')
-  console.log('-' .repeat(40))
-  
-  const legacyEndpoints = [
-    { url: '/api/chat', name: 'API Chat Classique' },
-    { url: '/api/chat-stream', name: 'API Chat Streaming' }
-  ]
-  
-  for (const endpoint of legacyEndpoints) {
-    try {
-      console.log(`🔄 Test ${endpoint.name}...`)
-      
-      if (endpoint.url === '/api/chat-stream') {
-        // Test streaming
-        const response = await fetch(`${API_BASE}${endpoint.url}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: "Test de compatibilité streaming",
-            context: { userId: 'test-legacy' }
-          })
-        })
-        
-        if (response.headers.get('content-type')?.includes('text/event-stream')) {
-          console.log(`   ✅ Streaming compatible`)
-        } else {
-          console.log(`   ⚠️ Format de réponse inattendu`)
-        }
-        
-      } else {
-        // Test API classique
-        const response = await fetch(`${API_BASE}${endpoint.url}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: "Test de compatibilité",
-            context: { userId: 'test-legacy' }
-          })
-        })
-        
-        const data = await response.json()
-        
-        if (data.success && data.response?.content) {
-          console.log(`   ✅ Format legacy maintenu`)
-          console.log(`   IA Type: ${data.response.metadata?.aiType || 'N/A'}`)
-        } else {
-          console.log(`   ⚠️ Format de réponse incompatible`)
-        }
+    const data = await response.json()
+    
+    if (data.success) {
+      stats.successTests++
+      return {
+        success: true,
+        confidence: data.response?.metadata?.confidence || 0,
+        content: data.response?.content || '',
+        aiType: data.response?.metadata?.aiType || aiType
       }
-      
-    } catch (error) {
-      console.log(`   ❌ Erreur: ${error.message}`)
-    }
-    
-    console.log()
-  }
-}
-
-/**
- * Teste les endpoints d'administration
- */
-async function testAdminEndpoints() {
-  console.log('3️⃣ Test Endpoints Administration')
-  console.log('-' .repeat(40))
-  
-  const adminEndpoints = [
-    { action: 'stats', name: 'Statistiques' },
-    { action: 'config', name: 'Configuration' },
-    { action: 'logs', name: 'Logs de routage' },
-    { action: 'test-routing', name: 'Test de routage' }
-  ]
-  
-  for (const endpoint of adminEndpoints) {
-    try {
-      const response = await fetch(`${API_BASE}/api/ia?action=${endpoint.action}`)
-      const data = await response.json()
-      
-      if (data.success) {
-        console.log(`✅ ${endpoint.name}`)
-        
-        switch (endpoint.action) {
-          case 'stats':
-            console.log(`   Total requêtes: ${data.data.totalRequests || 0}`)
-            console.log(`   IA performances: ${Object.keys(data.data.performanceByAI || {}).length} types`)
-            break
-          case 'config':
-            console.log(`   IA par défaut: ${data.data.defaultAI}`)
-            console.log(`   Seuil confiance: ${data.data.confidenceThreshold}`)
-            break
-          case 'logs':
-            console.log(`   Entrées de log: ${data.data.logs?.length || 0}`)
-            break
-          case 'test-routing':
-            console.log(`   Tests routage: ${data.data.tests?.length || 0}`)
-            break
-        }
-      } else {
-        console.log(`❌ ${endpoint.name}`)
-        console.log(`   Erreur: ${data.error}`)
-      }
-      
-    } catch (error) {
-      console.log(`❌ ${endpoint.name}`)
-      console.log(`   Erreur: ${error.message}`)
-    }
-    
-    console.log()
-  }
-}
-
-/**
- * Teste les performances générales
- */
-async function testPerformance() {
-  console.log('4️⃣ Test Performance & Stress')
-  console.log('-' .repeat(40))
-  
-  const testMessages = [
-    "Comment retourner un produit ?",
-    "Je veux une tenue de sport",
-    "Cherche un t-shirt bleu",
-    "Quels sont vos délais de livraison ?"
-  ]
-  
-  console.log('🚀 Test de charge (10 requêtes parallèles)...')
-  
-  const startTime = Date.now()
-  const promises = []
-  
-  for (let i = 0; i < 10; i++) {
-    const message = testMessages[i % testMessages.length]
-    
-    promises.push(
-      fetch(`${API_BASE}/api/ia`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: `${message} (test ${i + 1})`,
-          userId: `stress-test-${i}`,
-          context: { conversationHistory: [] }
-        })
-      }).then(r => r.json())
-    )
-  }
-  
-  try {
-    const results = await Promise.all(promises)
-    const totalTime = Date.now() - startTime
-    const successCount = results.filter(r => r.success).length
-    const avgTime = totalTime / 10
-    
-    console.log(`✅ Test de charge terminé`)
-    console.log(`   Requêtes réussies: ${successCount}/10`)
-    console.log(`   Temps total: ${totalTime}ms`)
-    console.log(`   Temps moyen/requête: ${avgTime.toFixed(0)}ms`)
-    
-    if (successCount === 10 && avgTime < 5000) {
-      console.log(`   🎉 Performance excellente !`)
-    } else if (successCount >= 8 && avgTime < 10000) {
-      console.log(`   👍 Performance correcte`)
     } else {
-      console.log(`   ⚠️ Performance à améliorer`)
+      stats.failedTests++
+      return { success: false, error: data.error }
     }
-    
   } catch (error) {
-    console.log(`❌ Test de charge échoué: ${error.message}`)
+    stats.failedTests++
+    return { success: false, error: error.message }
   }
-  
-  console.log()
 }
 
 /**
- * Vérification de l'état du serveur
+ * Test de l'IA Master avec routage
  */
-async function checkServerStatus() {
-  console.log('🔍 Vérification de l\'état du serveur...')
+async function testMasterAI(message, personality = {}) {
+  try {
+    const response = await fetch(`${API_BASE}/api/ai/master`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message,
+        context: {
+          conversationHistory: [],
+          userPreferences: {},
+          userId: `test-${Date.now()}`
+        },
+        chatbotConfig: {
+          personality: {
+            tone: 'Amical',
+            formality: 'Tutoiement',
+            verbosity: 'Détaillé',
+            empathy: 'Élevée',
+            proactivity: 'Proactif',
+            ...personality
+          }
+        }
+      })
+    })
+
+    stats.totalTests++
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const data = await response.json()
+    
+    if (data.success && data.response) {
+      stats.successTests++
+      
+      const routedTo = data.response.metadata?.routedTo
+      if (routedTo) {
+        stats.routingAccuracy[routedTo] = (stats.routingAccuracy[routedTo] || 0) + 1
+      }
+      
+      return {
+        success: true,
+        routedTo,
+        confidence: data.response.metadata?.confidence || 0,
+        content: data.response.content,
+        personalityApplied: data.response.metadata?.personalityApplied
+      }
+    } else {
+      stats.failedTests++
+      return { success: false, error: data.error }
+    }
+  } catch (error) {
+    stats.failedTests++
+    return { success: false, error: error.message }
+  }
+}
+
+/**
+ * Test des IAs spécialisées individuellement
+ */
+async function testAllSpecializedAIs() {
+  console.log('\n🎯 Tests des IAs spécialisées...')
+  console.log('=' * 50)
+  
+  for (const [aiType, messages] of Object.entries(testSuite)) {
+    if (aiType === 'master') continue
+    
+    console.log(`\n📚 Test IA ${aiType.toUpperCase()}:`)
+    
+    for (const message of messages) {
+      const result = await testSpecializedAI(aiType, message)
+      
+      if (result.success) {
+        console.log(`  ✅ "${message}" → Confiance: ${Math.round(result.confidence * 100)}%`)
+      } else {
+        console.log(`  ❌ "${message}" → Erreur: ${result.error}`)
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 200))
+    }
+  }
+}
+
+/**
+ * Test du routage de l'IA Master
+ */
+async function testMasterRouting() {
+  console.log('\n🧠 Tests de routage IA Master...')
+  console.log('=' * 50)
+  
+  for (const [expectedAI, messages] of Object.entries(testSuite)) {
+    if (expectedAI === 'master') continue
+    
+    console.log(`\n🎯 Test routage vers ${expectedAI.toUpperCase()}:`)
+    
+    for (const message of messages) {
+      const result = await testMasterAI(message)
+      
+      if (result.success) {
+        const routedTo = result.routedTo
+        const isCorrect = routedTo === expectedAI
+        const icon = isCorrect ? '✅' : '⚠️'
+        
+        console.log(`  ${icon} "${message}"`)
+        console.log(`     → Routé vers: ${routedTo} (attendu: ${expectedAI})`)
+        console.log(`     → Confiance: ${Math.round(result.confidence * 100)}%`)
+      } else {
+        console.log(`  ❌ "${message}" → Erreur: ${result.error}`)
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 300))
+    }
+  }
+}
+
+/**
+ * Test des personnalités
+ */
+async function testPersonalities() {
+  console.log('\n🎭 Tests de personnalisation...')
+  console.log('=' * 50)
+  
+  const testMessage = 'Je cherche une tenue pour une soirée'
+  
+  for (const personality of personalities) {
+    console.log(`\n🎨 Test personnalité ${personality.name}:`)
+    
+    const result = await testMasterAI(testMessage, personality.config)
+    
+    if (result.success) {
+      stats.personalityTests++
+      console.log(`  ✅ Message: "${testMessage}"`)
+      console.log(`  🎯 Routé vers: ${result.routedTo}`)
+      console.log(`  🎭 Personnalité appliquée:`, result.personalityApplied)
+      console.log(`  💬 Extrait réponse: ${result.content.substring(0, 100)}...`)
+    } else {
+      console.log(`  ❌ Erreur: ${result.error}`)
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 500))
+  }
+}
+
+/**
+ * Test de l'API de compatibilité
+ */
+async function testCompatibilityAPI() {
+  console.log('\n🔗 Test API de compatibilité...')
+  console.log('=' * 50)
   
   try {
-    const response = await fetch(`${API_BASE}/api/ia?action=config`)
+    const response = await fetch(`${API_BASE}/api/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: 'Test de compatibilité',
+        chatbotConfig: {
+          personality: {
+            tone: 'Professionnel',
+            formality: 'Vouvoiement'
+          }
+        }
+      })
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      console.log('✅ API de compatibilité fonctionne')
+      console.log(`   🤖 Modèle: ${data.response?.metadata?.model}`)
+      console.log(`   🎯 Routé vers: ${data.response?.metadata?.routedTo}`)
+      console.log(`   💬 Réponse: ${data.response?.content.substring(0, 100)}...`)
+    } else {
+      console.log('❌ API de compatibilité échoue')
+    }
+  } catch (error) {
+    console.log(`❌ Erreur API compatibilité: ${error.message}`)
+  }
+}
+
+/**
+ * Affichage des statistiques finales
+ */
+function displayStats() {
+  console.log('\n\n📊 STATISTIQUES FINALES')
+  console.log('=' * 60)
+  
+  console.log(`📈 Tests exécutés:`)
+  console.log(`   • Total: ${stats.totalTests}`)
+  console.log(`   • Réussis: ${stats.successTests}`)
+  console.log(`   • Échoués: ${stats.failedTests}`)
+  console.log(`   • Taux de réussite: ${Math.round(stats.successTests / stats.totalTests * 100)}%`)
+  
+  console.log(`\n🎯 Répartition du routage:`)
+  for (const [ai, count] of Object.entries(stats.routingAccuracy)) {
+    console.log(`   • ${ai}: ${count} fois`)
+  }
+  
+  console.log(`\n🎭 Tests de personnalité: ${stats.personalityTests}`)
+  
+  console.log(`\n🏗️ Architecture testée:`)
+  console.log(`   • 🧠 IA Master: /api/ai/master`)
+  console.log(`   • 📚 IA FAQ: /api/ai/faq`)
+  console.log(`   • 👕 IA Articles: /api/ai/articles`)
+  console.log(`   • 👗 IA Outfits: /api/ai/outfits`)
+  console.log(`   • 🔗 Compatibilité: /api/chat`)
+  
+  if (stats.failedTests === 0) {
+    console.log('\n🎉 Tous les tests sont passés ! L\'architecture IA est opérationnelle.')
+  } else {
+    console.log('\n⚠️ Certains tests ont échoué. Vérifiez les logs ci-dessus.')
+  }
+}
+
+/**
+ * Vérification de santé préalable
+ */
+async function healthCheck() {
+  console.log('🏥 Vérification de santé...')
+  
+  try {
+    const response = await fetch(`${API_BASE}/api/health-check`)
     
     if (response.ok) {
-      console.log('✅ Serveur Next.js actif et accessible')
+      console.log('✅ Serveur en ligne')
       return true
     } else {
-      console.log(`❌ Serveur répond avec le statut ${response.status}`)
+      console.log('❌ Serveur indisponible')
       return false
     }
   } catch (error) {
-    console.log(`❌ Impossible de joindre le serveur: ${error.message}`)
-    console.log(`   Assurez-vous que Next.js est démarré sur ${API_BASE}`)
+    console.log('❌ Impossible de contacter le serveur')
+    console.log('   • Vérifiez que le serveur Next.js est démarré')
+    console.log('   • URL de base:', API_BASE)
     return false
   }
 }
 
 /**
- * Résumé final de la migration
- */
-function displayMigrationSummary() {
-  console.log()
-  console.log('🎉 RÉSUMÉ DE LA MIGRATION IA MASTER')
-  console.log('=' .repeat(60))
-  console.log()
-  console.log('✅ MIGRATION TERMINÉE AVEC SUCCÈS !')
-  console.log()
-  console.log('📋 Composants migrés :')
-  console.log('   • API Routes : /api/chat-stream, /api/chat → /api/ia')
-  console.log('   • Services : IntelligentChatbotService → IA Master wrapper')
-  console.log('   • Composants React : intelligent-chatbot.tsx')
-  console.log('   • Widget Public : chatbot-generator.js')
-  console.log('   • Pages Admin : bots/[id]/test/page.tsx')
-  console.log('   • Debug Tools : stream-debug.tsx')
-  console.log()
-  console.log('🤖 IA spécialisées actives :')
-  console.log('   • IA FAQ - Questions fréquentes (confiance: 40%)')
-  console.log('   • IA Outfit - Recommandations de tenues (confiance: 50%)')
-  console.log('   • IA Produits - Recommandations individuelles (confiance: 40%)')
-  console.log()
-  console.log('⚙️ Fonctionnalités disponibles :')
-  console.log('   • Routage intelligent multi-critères')
-  console.log('   • Gestion d\'erreurs avec fallback')
-  console.log('   • Logging et analytics automatiques')
-  console.log('   • Configuration dynamique')
-  console.log('   • API d\'administration complète')
-  console.log()
-  console.log('🔧 Prochaines étapes recommandées :')
-  console.log('   1. Tester l\'interface de test : /components/ia-test-client')
-  console.log('   2. Configurer les variables d\'environnement pour l\'IA externe')
-  console.log('   3. Ajuster les seuils de confiance selon vos besoins')
-  console.log('   4. Étendre la base de FAQ avec vos propres questions')
-  console.log('   5. Personnaliser les règles de style des outfits')
-  console.log()
-  console.log('📊 Monitoring :')
-  console.log('   • GET /api/ia?action=stats - Statistiques de performance')
-  console.log('   • GET /api/ia?action=logs - Logs de routage détaillés')
-  console.log('   • GET /api/ia?action=config - Configuration actuelle')
-  console.log()
-  console.log('🎯 L\'architecture IA Master est opérationnelle !')
-  console.log('   Toutes les anciennes API redirigent automatiquement.')
-  console.log('   Aucune modification client requise.')
-  console.log()
-}
-
-/**
- * Script principal
+ * Fonction principale
  */
 async function main() {
-  const serverOk = await checkServerStatus()
+  console.log('🚀 Test Suite - Nouvelle Architecture IA Master')
+  console.log('================================================')
+  console.log(`🌐 URL de base: ${API_BASE}`)
+  console.log(`📅 Démarré le: ${new Date().toLocaleString()}`)
   
-  if (!serverOk) {
-    console.log()
-    console.log('💡 Pour démarrer le serveur :')
-    console.log('   npm run dev  # ou  yarn dev  # ou  pnpm dev')
-    console.log()
+  // Vérification de santé
+  const isHealthy = await healthCheck()
+  if (!isHealthy) {
     process.exit(1)
   }
   
-  console.log()
+  // Exécution des tests
+  await testAllSpecializedAIs()
+  await testMasterRouting()
+  await testPersonalities()
+  await testCompatibilityAPI()
   
-  // Exécution séquentielle des tests
-  await testIAMasterAPI()
-  await testLegacyAPICompatibility()
-  await testAdminEndpoints()
-  await testPerformance()
-  
-  displayMigrationSummary()
+  // Statistiques finales
+  displayStats()
 }
 
-// Gestion des erreurs globales
-process.on('unhandledRejection', (error) => {
-  console.error('❌ Erreur non gérée:', error.message)
-  process.exit(1)
-})
+// Exécution si appelé directement
+if (require.main === module) {
+  main().catch(console.error)
+}
 
-// Exécution
-main().catch(error => {
-  console.error('❌ Erreur fatale:', error.message)
-  process.exit(1)
-}) 
+module.exports = {
+  testSpecializedAI,
+  testMasterAI,
+  testPersonalities
+} 

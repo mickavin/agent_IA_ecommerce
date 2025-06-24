@@ -1,334 +1,280 @@
-'use client'
+"use client"
 
-import { useState } from 'react'
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+
+type LogEntry = {
+  id: string
+  timestamp: string
+  type: 'info' | 'success' | 'error' | 'warning'
+  message: string
+  data?: any
+}
 
 export function StreamDebug() {
-  const [logs, setLogs] = useState<string[]>([])
-  const [message, setMessage] = useState('Bonjour, peux-tu me conseiller ?')
+  const [logs, setLogs] = useState<LogEntry[]>([])
+  const [testMessage, setTestMessage] = useState("Je cherche une robe pour une soirée")
   const [isLoading, setIsLoading] = useState(false)
-  const [testType, setTestType] = useState<'streaming' | 'direct'>('direct')
 
-  const addLog = (log: string) => {
-    const timestamp = new Date().toLocaleTimeString()
-    setLogs(prev => [...prev, `[${timestamp}] ${log}`])
-    console.log(log)
+  const addLog = (message: string, type: LogEntry['type'] = 'info', data?: any) => {
+    const log: LogEntry = {
+      id: Date.now().toString(),
+      timestamp: new Date().toLocaleTimeString(),
+      type,
+      message,
+      data
+    }
+    setLogs(prev => [...prev, log])
   }
 
-  const testIAMaster = async () => {
-    if (isLoading) return
-    
+  const testNewArchitecture = async () => {
     setIsLoading(true)
-    setLogs([])
-    addLog('🚀 Démarrage test IA Master (API directe)')
-
+    addLog('🚀 Test de la nouvelle architecture IA Master...')
+    
     try {
-      addLog('📤 Envoi requête vers /api/ia...')
-      const response = await fetch('/api/ia', {
+      addLog('📤 Envoi requête vers /api/ai/master...')
+      const response = await fetch('/api/ai/master', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message,
-          userId: 'debug-user',
+          message: testMessage,
           context: {
             conversationHistory: [],
-            userPreferences: {
-              budget: { min: 0, max: 100 }
-            }
-          }
-        })
-      })
-
-      addLog(`📡 Status: ${response.status}`)
-      addLog(`📡 Content-Type: ${response.headers.get('content-type')}`)
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        addLog(`❌ Erreur HTTP: ${errorText}`)
-        return
-      }
-
-      const data = await response.json()
-      addLog(`📋 Réponse reçue: ${JSON.stringify(data, null, 2)}`)
-
-      if (data.success) {
-        addLog(`✅ IA utilisée: ${data.data.aiType}`)
-        addLog(`✅ Confiance: ${Math.round(data.data.confidence * 100)}%`)
-        addLog(`✅ Contenu: ${data.data.content.substring(0, 100)}...`)
-        addLog(`✅ Temps de traitement: ${data.data.metadata?.processingTime || 'N/A'}ms`)
-      } else {
-        addLog(`❌ Erreur IA Master: ${data.error}`)
-      }
-
-    } catch (error: any) {
-      addLog(`❌ Erreur client: ${error.message}`)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const testStreamingCompatibility = async () => {
-    if (isLoading) return
-    
-    setIsLoading(true)
-    setLogs([])
-    addLog('🚀 Démarrage test compatibilité streaming (via /api/chat-stream)')
-
-    try {
-      addLog('📤 Envoi requête...')
-      const response = await fetch('/api/chat-stream', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message,
-          context: {
-            userId: 'test-debug',
-            userPreferences: {
-              budget: { min: 0, max: 100 }
-            }
+            userPreferences: {},
+            userId: `debug-${Date.now()}`
           },
           chatbotConfig: {
             personality: {
               tone: "Amical",
-              formality: "Tutoiement"
+              formality: "Tutoiement",
+              verbosity: "Détaillé",
+              empathy: "Élevée",
+              proactivity: "Proactif"
             }
           }
         })
       })
 
-      addLog(`📡 Status: ${response.status}`)
-      addLog(`📡 Content-Type: ${response.headers.get('content-type')}`)
+      addLog(`📥 Réponse reçue: ${response.status} ${response.statusText}`)
 
       if (!response.ok) {
-        const errorText = await response.text()
-        addLog(`❌ Erreur HTTP: ${errorText}`)
-        return
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
 
-      addLog('📖 Début lecture stream...')
-      const reader = response.body?.getReader()
-      
-      if (!reader) {
-        addLog('❌ Reader non disponible')
-        return
+      const data = await response.json()
+      addLog('✅ Données parsées avec succès', 'success', data)
+
+      if (data.success && data.response) {
+        addLog(`🤖 IA utilisée: ${data.response.metadata?.routedTo || 'non spécifiée'}`, 'success')
+        addLog(`📊 Confiance: ${Math.round((data.response.metadata?.confidence || 0) * 100)}%`, 'info')
+        addLog(`🎭 Personnalité appliquée: ${JSON.stringify(data.response.metadata?.personalityApplied)}`, 'info')
+        addLog(`💬 Réponse: ${data.response.content.substring(0, 100)}...`, 'success')
+      } else {
+        addLog(`❌ Erreur dans la réponse: ${data.error}`, 'error')
       }
 
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let chunkCount = 0
-      let fullResponse = ''
+    } catch (error: any) {
+      addLog(`💥 Erreur: ${error.message}`, 'error')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-      while (true) {
-        const { done, value } = await reader.read()
-        
-        if (done) {
-          addLog('✅ Stream terminé (done=true)')
-          break
-        }
-
-        chunkCount++
-        const chunk = decoder.decode(value, { stream: true })
-        buffer += chunk
-
-        if (chunkCount <= 3) {
-          addLog(`📦 Chunk ${chunkCount}: ${chunk.substring(0, 50)}...`)
-        }
-
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          if (line.trim() === '' || line.trim() === 'data: [DONE]') continue
-          
-          if (line.startsWith('data: ')) {
-            try {
-              const jsonStr = line.slice(6).trim()
-              if (!jsonStr) continue
-              
-              const data = JSON.parse(jsonStr)
-              addLog(`📋 Event: ${data.type} (${data.data?.fullResponse?.length || 0} chars)`)
-
-              if (data.type === 'content') {
-                fullResponse = data.data.fullResponse
-              } else if (data.type === 'complete') {
-                addLog(`🎉 Complete: ${JSON.stringify(data.data.stats)}`)
-                addLog(`✅ IA Type: ${data.data.stats?.aiType || 'N/A'}`)
-                addLog(`✅ Confiance: ${Math.round((data.data.stats?.confidence || 0) * 100)}%`)
-                break
-              } else if (data.type === 'error') {
-                addLog(`❌ Erreur serveur: ${data.data.error}`)
-                break
-              }
-            } catch (parseError) {
-              addLog(`❌ Parse error: ${parseError} | Line: ${line}`)
+  const testCompatibilityAPI = async () => {
+    setIsLoading(true)
+    addLog('🔗 Test de l\'API de compatibilité /api/chat...')
+    
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: testMessage,
+          chatbotConfig: {
+            personality: {
+              tone: "Professionnel",
+              formality: "Vouvoiement"
             }
           }
-        }
+        })
+      })
+
+      addLog(`📥 Réponse API compatibilité: ${response.status}`)
+
+      if (response.ok) {
+        const data = await response.json()
+        addLog('✅ API de compatibilité fonctionne', 'success', data)
+        addLog(`🤖 Modèle: ${data.response?.metadata?.model}`, 'info')
+        addLog(`🎯 Routé vers: ${data.response?.metadata?.routedTo}`, 'info')
+      } else {
+        addLog('❌ API de compatibilité échoue', 'error')
       }
 
-      addLog(`✅ Streaming terminé: ${chunkCount} chunks, réponse: ${fullResponse.length} chars`)
-
     } catch (error: any) {
-      addLog(`❌ Erreur client: ${error.message}`)
+      addLog(`💥 Erreur API compatibilité: ${error.message}`, 'error')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const testAdminEndpoints = async () => {
-    if (isLoading) return
-    
+  const testSpecializedAIs = async () => {
     setIsLoading(true)
-    setLogs([])
-    addLog('🚀 Test des endpoints d\'administration IA Master')
+    addLog('🧪 Test des IAs spécialisées...')
 
-    try {
-      // Test des stats
-      addLog('📊 Test GET /api/ia?action=stats')
-      const statsResponse = await fetch('/api/ia?action=stats')
-      const statsData = await statsResponse.json()
-      addLog(`📊 Stats: ${JSON.stringify(statsData, null, 2)}`)
+    const tests = [
+      { name: 'FAQ', endpoint: 'faq', message: 'Bonjour, comment ça marche ?' },
+      { name: 'Articles', endpoint: 'articles', message: 'Je cherche un t-shirt noir' },
+      { name: 'Outfits', endpoint: 'outfits', message: 'Je veux une tenue pour le travail' }
+    ]
 
-      // Test de la configuration
-      addLog('⚙️ Test GET /api/ia?action=config')
-      const configResponse = await fetch('/api/ia?action=config')
-      const configData = await configResponse.json()
-      addLog(`⚙️ Config: ${JSON.stringify(configData, null, 2)}`)
+    for (const test of tests) {
+      try {
+        addLog(`🎯 Test IA ${test.name}...`)
+        
+        const response = await fetch(`/api/ai/${test.endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: test.message,
+            context: {}
+          })
+        })
 
-      // Test de routage
-      addLog('🧭 Test GET /api/ia?action=test-routing')
-      const routingResponse = await fetch('/api/ia?action=test-routing')
-      const routingData = await routingResponse.json()
-      addLog(`🧭 Routage: ${JSON.stringify(routingData, null, 2)}`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            addLog(`✅ IA ${test.name} fonctionne`, 'success')
+            addLog(`📊 Confiance: ${Math.round((data.response?.metadata?.confidence || 0) * 100)}%`)
+          } else {
+            addLog(`⚠️ IA ${test.name} refuse la requête`, 'warning')
+          }
+        } else {
+          addLog(`❌ IA ${test.name} erreur HTTP ${response.status}`, 'error')
+        }
 
-    } catch (error: any) {
-      addLog(`❌ Erreur test admin: ${error.message}`)
-    } finally {
-      setIsLoading(false)
+      } catch (error: any) {
+        addLog(`💥 Erreur IA ${test.name}: ${error.message}`, 'error')
+      }
     }
+
+    setIsLoading(false)
   }
 
-  const runTest = () => {
-    if (testType === 'streaming') {
-      testStreamingCompatibility()
-    } else {
-      testIAMaster()
+  const clearLogs = () => {
+    setLogs([])
+  }
+
+  const getLogBadgeColor = (type: LogEntry['type']) => {
+    switch (type) {
+      case 'success': return 'bg-green-100 text-green-800'
+      case 'error': return 'bg-red-100 text-red-800'
+      case 'warning': return 'bg-yellow-100 text-yellow-800'
+      default: return 'bg-blue-100 text-blue-800'
     }
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h2 className="text-2xl font-bold mb-4">🧪 Debug IA Master & Compatibilité</h2>
-      
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-2">Message de test:</label>
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            className="w-full p-2 border rounded"
-            placeholder="Votre message..."
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">Type de test:</label>
-          <div className="flex gap-4">
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="testType"
-                value="direct"
-                checked={testType === 'direct'}
-                onChange={(e) => setTestType(e.target.value as 'direct' | 'streaming')}
-                className="mr-2"
-              />
-              API IA Master directe
-            </label>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="testType"
-                value="streaming"
-                checked={testType === 'streaming'}
-                onChange={(e) => setTestType(e.target.value as 'direct' | 'streaming')}
-                className="mr-2"
-              />
-              Compatibilité Streaming
-            </label>
+    <Card className="w-full max-w-4xl">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          🔍 Debug - Nouvelle Architecture IA
+        </CardTitle>
+        <CardDescription>
+          Testez et déboguez la nouvelle architecture IA Master avec les IAs spécialisées
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Contrôles de test */}
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Message de test"
+              value={testMessage}
+              onChange={(e) => setTestMessage(e.target.value)}
+              className="flex-1"
+            />
+          </div>
+          
+          <div className="flex gap-2 flex-wrap">
+            <Button onClick={testNewArchitecture} disabled={isLoading}>
+              🧠 Test IA Master
+            </Button>
+            <Button onClick={testCompatibilityAPI} disabled={isLoading} variant="outline">
+              🔗 Test Compatibilité
+            </Button>
+            <Button onClick={testSpecializedAIs} disabled={isLoading} variant="outline">
+              🎯 Test IAs Spécialisées
+            </Button>
+            <Button onClick={clearLogs} variant="outline">
+              🗑️ Effacer
+            </Button>
           </div>
         </div>
 
-        <div className="flex gap-4">
-          <button
-            onClick={runTest}
-            disabled={isLoading}
-            className="bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-400"
-          >
-            {isLoading ? '⏳ Test en cours...' : '🚀 Tester API'}
-          </button>
+        <Separator />
 
-          <button
-            onClick={testAdminEndpoints}
-            disabled={isLoading}
-            className="bg-green-500 text-white px-4 py-2 rounded disabled:bg-gray-400"
-          >
-            📊 Tester Admin
-          </button>
-        </div>
-
-        <div className="border rounded p-4 bg-gray-50">
-          <h3 className="font-medium mb-2">Logs de debug:</h3>
-          <div className="bg-black text-green-400 p-3 rounded font-mono text-sm h-96 overflow-y-auto">
+        {/* Logs */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Logs de Debug</h3>
+            <Badge variant="outline">{logs.length} entrées</Badge>
+          </div>
+          
+          <ScrollArea className="h-[400px] w-full border rounded-md p-4">
             {logs.length === 0 ? (
-              <div className="text-gray-500">En attente de test...</div>
+              <p className="text-muted-foreground text-center py-8">
+                Aucun log pour le moment. Lancez un test pour commencer.
+              </p>
             ) : (
-              logs.map((log, index) => (
-                <div key={index}>{log}</div>
-              ))
+              <div className="space-y-2">
+                {logs.map((log) => (
+                  <div key={log.id} className="flex items-start gap-2 text-sm">
+                    <Badge className={getLogBadgeColor(log.type)} variant="outline">
+                      {log.timestamp}
+                    </Badge>
+                    <div className="flex-1">
+                      <div className="font-mono">{log.message}</div>
+                      {log.data && (
+                        <details className="mt-1">
+                          <summary className="cursor-pointer text-muted-foreground">
+                            Voir les détails
+                          </summary>
+                          <pre className="mt-1 text-xs bg-muted p-2 rounded overflow-auto">
+                            {JSON.stringify(log.data, null, 2)}
+                          </pre>
+                        </details>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
-          </div>
+          </ScrollArea>
         </div>
 
-        <div className="text-sm text-gray-600">
-          <p><strong>Instructions:</strong></p>
-          <ul className="list-disc list-inside space-y-1">
-            <li><strong>API IA Master directe:</strong> Teste la nouvelle architecture directement</li>
-            <li><strong>Compatibilité Streaming:</strong> Teste la redirection depuis l'ancienne API</li>
-            <li><strong>Admin:</strong> Teste les endpoints d'administration (stats, config, routage)</li>
-            <li>Vérifiez que les réponses incluent le type d'IA et la confiance</li>
-            <li>Le serveur doit tourner sur localhost:3000</li>
+        {/* Informations sur l'architecture */}
+        <Separator />
+        
+        <div className="text-sm text-muted-foreground space-y-2">
+          <h4 className="font-semibold text-foreground">Architecture actuelle :</h4>
+          <ul className="space-y-1 pl-4">
+            <li>• 🧠 <strong>IA Master</strong> : /api/ai/master (Orchestrateur intelligent)</li>
+            <li>• 📚 <strong>IA FAQ</strong> : /api/ai/faq (Questions fréquentes)</li>
+            <li>• 👕 <strong>IA Articles</strong> : /api/ai/articles (Recommandations produits)</li>
+            <li>• 👗 <strong>IA Outfits</strong> : /api/ai/outfits (Suggestions tenues)</li>
+            <li>• 🔗 <strong>Compatibilité</strong> : /api/chat et /api/chat-stream</li>
           </ul>
         </div>
-
-        <div className="bg-blue-50 border border-blue-200 rounded p-4">
-          <h4 className="font-medium text-blue-800 mb-2">Exemples de messages à tester:</h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm">
-            <button 
-              onClick={() => setMessage('Comment retourner un produit ?')}
-              className="text-left p-2 bg-white border rounded hover:bg-blue-100"
-            >
-              <strong>FAQ:</strong> Comment retourner un produit ?
-            </button>
-            <button 
-              onClick={() => setMessage('Je veux une tenue pour une soirée')}
-              className="text-left p-2 bg-white border rounded hover:bg-blue-100"
-            >
-              <strong>Outfit:</strong> Je veux une tenue pour une soirée
-            </button>
-            <button 
-              onClick={() => setMessage('Cherche un t-shirt noir en M')}
-              className="text-left p-2 bg-white border rounded hover:bg-blue-100"
-            >
-              <strong>Produit:</strong> Cherche un t-shirt noir en M
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 } 

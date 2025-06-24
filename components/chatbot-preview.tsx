@@ -46,6 +46,7 @@ export function ChatbotPreview({
   ])
   const [inputMessage, setInputMessage] = useState("")
   const [isTyping, setIsTyping] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   // Mettre à jour le message de bienvenue quand la config change
   useEffect(() => {
@@ -201,53 +202,75 @@ export function ChatbotPreview({
     }
   }
 
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() || !interactive) return
+  const handleSendMessage = async (message: string) => {
+    if (!message.trim() || isLoading) return
 
-    const userMessage: ChatMessage = {
+    const userMessage = {
       id: `user-${Date.now()}`,
-      content: inputMessage,
-      type: "user",
+      content: message,
+      type: 'user' as const,
       timestamp: new Date().toISOString()
     }
 
     setMessages(prev => [...prev, userMessage])
-    setInputMessage("")
-    setIsTyping(true)
+    setIsLoading(true)
 
-    // Génération de réponse intelligente
-    setTimeout(async () => {
-      try {
-        const intelligentResponse = await generateIntelligentResponse(userMessage.content)
-        
-        const botMessage: ChatMessage = {
-          id: `bot-${Date.now()}`,
-          content: intelligentResponse.content,
-          type: "bot",
-          timestamp: new Date().toISOString(),
-          metadata: intelligentResponse.metadata
-        }
-        
-        setMessages(prev => [...prev, botMessage])
-        
-      } catch (error) {
-        const errorMessage: ChatMessage = {
-          id: `bot-error-${Date.now()}`,
-          content: "😅 Désolé, j'ai eu un petit problème. Pouvez-vous réessayer ?",
-          type: "bot",
-          timestamp: new Date().toISOString()
-        }
-        setMessages(prev => [...prev, errorMessage])
-      } finally {
-        setIsTyping(false)
+    try {
+      const response = await fetch('/api/ai/master', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message,
+          context: {
+            conversationHistory: messages.slice(-5),
+            userPreferences: {},
+            userId: `preview-${Date.now()}`
+          },
+          chatbotConfig: {
+            personality: personality,
+            visualConfig: visualConfig
+          }
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`)
       }
-    }, 800 + Math.random() * 800)
+
+      const data = await response.json()
+      
+      if (data.success && data.response) {
+        const botMessage = {
+          id: data.response.id,
+          content: data.response.content,
+          type: 'bot' as const,
+          timestamp: data.response.timestamp,
+          metadata: data.response.metadata
+        }
+        setMessages(prev => [...prev, botMessage])
+      } else {
+        throw new Error(data.error || 'Erreur de réponse')
+      }
+    } catch (error) {
+      console.error('Erreur chatbot preview:', error)
+      const errorMessage = {
+        id: `error-${Date.now()}`,
+        content: "Désolé, une erreur s'est produite. Veuillez réessayer.",
+        type: 'bot' as const,
+        timestamp: new Date().toISOString()
+      }
+      setMessages(prev => [...prev, errorMessage])
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSendMessage()
+      handleSendMessage(inputMessage)
     }
   }
 
@@ -511,7 +534,7 @@ export function ChatbotPreview({
                     disabled={isTyping}
                   />
                   <Button 
-                    onClick={handleSendMessage}
+                    onClick={() => handleSendMessage(inputMessage)}
                     disabled={!inputMessage.trim() || isTyping}
                     className={`${borderRadiusClass}`}
                     style={{

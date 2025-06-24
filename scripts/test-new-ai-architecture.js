@@ -5,7 +5,8 @@
  * Teste les 4 IAs : FAQ, Articles, Outfits et Master
  */
 
-const fetch = require('node-fetch')
+// Utilisation du fetch natif de Node.js 20+
+// const fetch = require('node-fetch') // Remplacé par fetch natif
 
 const BASE_URL = process.env.NEXTAUTH_URL || 'http://localhost:3000'
 

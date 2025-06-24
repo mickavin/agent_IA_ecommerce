@@ -82,6 +82,7 @@ export default function TestBotPage() {
     intentAccuracy: 0
   })
   const [debugLogs, setDebugLogs] = useState<string[]>([])
+  const [isLoading, setIsLoading] = useState(false)
 
   const addDebugLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString()
@@ -90,120 +91,73 @@ export default function TestBotPage() {
     console.log(logEntry)
   }
 
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim()) return
+  const handleSendMessage = async (message: string) => {
+    if (!message.trim() || isLoading) return
 
-    const userMessage: ChatMessage = {
+    const userMessage = {
       id: `user-${Date.now()}`,
-      content: inputMessage,
-      type: "user",
+      content: message,
+      type: 'user' as const,
       timestamp: new Date().toISOString()
     }
 
     setMessages(prev => [...prev, userMessage])
-    setInputMessage("")
-    setIsTyping(true)
+    setIsLoading(true)
 
     try {
-      const startTime = Date.now()
-      addDebugLog('🚀 Démarrage requête IA Master...')
-      
-      // Appel à la nouvelle API IA Master
-      const response = await fetch('/api/ia', {
+      const response = await fetch('/api/ai/master', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: inputMessage,
-          userId: `test-user-${botId}`,
+          message,
           context: {
-            conversationHistory: messages.slice(-6).map(msg => ({
-              id: msg.id,
-              content: msg.content,
-              type: msg.type === 'user' ? 'user' : 'bot',
-              timestamp: msg.timestamp
-            })),
-            userPreferences: {
-              budget: { min: 0, max: 200 },
-              sizes: ['M', 'L'],
-              colors: ['Noir', 'Blanc', 'Bleu'],
-              chatbotPersonality: chatbot.personality
+            conversationHistory: messages.slice(-10),
+            userPreferences: {},
+            userId: `test-${botId}-${Date.now()}`
+          },
+          chatbotConfig: {
+            personality: {
+              tone: "Amical",
+              formality: "Tutoiement", 
+              verbosity: "Détaillé",
+              empathy: "Élevée",
+              proactivity: "Proactif"
             }
           }
         })
       })
 
-      addDebugLog(`📡 Réponse API reçue: ${response.status}`)
-
       if (!response.ok) {
-        throw new Error(`Erreur API: ${response.status} - ${response.statusText}`)
+        throw new Error(`Erreur HTTP: ${response.status}`)
       }
 
       const data = await response.json()
-      addDebugLog(`📋 Données reçues: ${JSON.stringify(data, null, 2)}`)
-
-      if (data.success) {
-        const totalResponseTime = Date.now() - startTime
-        
-        // Message bot avec métadonnées enrichies
-        const botMessage: ChatMessage = {
-          id: data.data.id,
-          content: data.data.content,
-          type: "bot",
-          timestamp: data.timestamp,
-          metadata: {
-            intent: data.data.metadata?.intent || 'unknown',
-            confidence: data.data.confidence,
-            entities: data.data.metadata?.entities || []
-          }
+      
+      if (data.success && data.response) {
+        const botMessage = {
+          id: data.response.id,
+          content: data.response.content,
+          type: 'bot' as const,
+          timestamp: data.response.timestamp,
+          metadata: data.response.metadata
         }
-
         setMessages(prev => [...prev, botMessage])
-        
-        addDebugLog(`✅ IA utilisée: ${data.data.aiType}`)
-        addDebugLog(`✅ Confiance: ${Math.round(data.data.confidence * 100)}%`)
-        addDebugLog(`✅ Intent détecté: ${data.data.metadata?.intent || 'N/A'}`)
-        addDebugLog(`✅ Temps de traitement: ${data.data.metadata?.processingTime || totalResponseTime}ms`)
-        
-        if (data.data.metadata?.recommendations?.length) {
-          addDebugLog(`✅ Recommandations: ${data.data.metadata.recommendations.length} produits`)
-        }
-
-        // Mise à jour des statistiques
-        setSessionStats(prev => ({
-          messagesCount: prev.messagesCount + 1,
-          avgResponseTime: prev.messagesCount === 0 ? totalResponseTime : 
-                          (prev.avgResponseTime * prev.messagesCount + totalResponseTime) / (prev.messagesCount + 1),
-          productsRecommended: prev.productsRecommended + (data.data.metadata?.recommendations?.length || 0),
-          intentAccuracy: data.data.confidence > 0.6 ? 
-                         (prev.intentAccuracy * prev.messagesCount + data.data.confidence) / (prev.messagesCount + 1) :
-                         prev.intentAccuracy
-        }))
-
       } else {
-        throw new Error(data.error || 'Erreur IA Master')
+        throw new Error(data.error || 'Erreur de réponse')
       }
-
-    } catch (error: any) {
-      addDebugLog(`❌ Erreur: ${error.message}`)
-      
-      // Message d'erreur
-      const errorMessage: ChatMessage = {
+    } catch (error) {
+      console.error('Erreur test chatbot:', error)
+      const errorMessage = {
         id: `error-${Date.now()}`,
-        content: "😅 Désolé, j'ai rencontré un problème technique. Pouvez-vous réessayer ?",
-        type: "bot",
-        timestamp: new Date().toISOString(),
-        metadata: {
-          intent: 'error',
-          confidence: 0,
-          entities: []
-        }
+        content: "❌ Erreur lors du test. Vérifiez la console pour plus de détails.",
+        type: 'bot' as const,
+        timestamp: new Date().toISOString()
       }
-      
       setMessages(prev => [...prev, errorMessage])
     } finally {
-      setIsTyping(false)
+      setIsLoading(false)
     }
   }
 
@@ -251,7 +205,7 @@ export default function TestBotPage() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Interface de chat IA */}
         <div className="lg:col-span-3">
-          <Card className="h-[600px] flex flex-col">
+          <Card className="h-[600px] flex flex-col overflow-y-auto">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -372,14 +326,14 @@ export default function TestBotPage() {
                   <Input
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage(inputMessage)}
                     placeholder="Ex: 'Je cherche un sweat noir en M sous 60€' ou 'Conseille-moi une tenue pour l'hiver'"
                     className="flex-1"
-                    disabled={isTyping || isStreaming}
+                    disabled={isTyping || isStreaming || isLoading}
                   />
                   <Button 
-                    onClick={handleSendMessage}
-                    disabled={!inputMessage.trim() || isTyping || isStreaming}
+                    onClick={(e) => { e.preventDefault(); handleSendMessage(inputMessage); }}
+                    disabled={!inputMessage.trim() || isTyping || isStreaming || isLoading}
                     className="bg-gradient-to-r from-blue-500 to-purple-600"
                   >
                     <Send className="h-4 w-4" />
@@ -400,8 +354,8 @@ export default function TestBotPage() {
                       variant="outline"
                       size="sm"
                       className="text-xs whitespace-nowrap"
-                      onClick={() => setInputMessage(suggestion)}
-                      disabled={isTyping || isStreaming}
+                      onClick={(e) => { e.preventDefault(); setInputMessage(suggestion); }}
+                      disabled={isTyping || isStreaming || isLoading}
                     >
                       {suggestion}
                     </Button>

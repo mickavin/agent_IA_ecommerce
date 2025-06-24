@@ -1,201 +1,323 @@
 #!/usr/bin/env node
 
 /**
- * Script de test pour les réponses contextuelles de l'IA Master
- * 
- * Usage: node scripts/test-contextual-responses.js
+ * Script de test pour les réponses contextuelles de la nouvelle architecture IA
+ * Teste l'IA Master et les IAs spécialisées
  */
 
-console.log('🧪 Test des Réponses Contextuelles - IA Master\n')
+// Utilisation du fetch natif de Node.js 20+
+// const fetch = require('node-fetch') // Remplacé par fetch natif
 
-// Messages de test pour différentes intentions
-const testMessages = [
+// Configuration
+const API_ENDPOINT = 'http://localhost:3000/api/ai/master'
+const COMPATIBILITY_ENDPOINT = 'http://localhost:3000/api/chat'
+
+// Messages de test avec contexte et personnalités variées
+const testScenarios = [
   {
-    message: "Bonjour",
-    expectedIntent: "greeting",
-    description: "Test de salutation simple"
+    name: 'Salutation Simple',
+    messages: [
+      {
+        text: 'Bonjour',
+        personality: { tone: 'Amical', formality: 'Tutoiement' }
+      }
+    ],
+    expectedAI: 'faq'
   },
   {
-    message: "Salut, comment ça va ?",
-    expectedIntent: "greeting", 
-    description: "Test de salutation informelle"
+    name: 'Question FAQ Livraison',
+    messages: [
+      {
+        text: 'Quels sont vos délais de livraison ?',
+        personality: { tone: 'Professionnel', formality: 'Vouvoiement' }
+      }
+    ],
+    expectedAI: 'faq'
   },
   {
-    message: "Je veux faire du shopping",
-    expectedIntent: "shopping_general",
-    description: "Test d'intention shopping générale"
+    name: 'Recherche Article Spécifique',
+    messages: [
+      {
+        text: 'Je cherche un t-shirt noir en taille M',
+        personality: { tone: 'Décontracté', formality: 'Tutoiement' }
+      }
+    ],
+    expectedAI: 'articles'
   },
   {
-    message: "J'aimerais des conseils de style",
-    expectedIntent: "style_advice",
-    description: "Test de demande de conseils style"
+    name: 'Demande Outfit Complet',
+    messages: [
+      {
+        text: 'Je veux une tenue élégante pour une soirée',
+        personality: { tone: 'Expert', formality: 'Vouvoiement' }
+      }
+    ],
+    expectedAI: 'outfits'
   },
   {
-    message: "Combien ça coûte ?",
-    expectedIntent: "price_budget",
-    description: "Test de question prix"
+    name: 'Conversation Contextualisée',
+    messages: [
+      {
+        text: 'Bonjour, je cherche des vêtements',
+        personality: { tone: 'Amical', formality: 'Tutoiement' }
+      },
+      {
+        text: 'Plutôt pour l\'été',
+        personality: { tone: 'Amical', formality: 'Tutoiement' }
+      },
+      {
+        text: 'Des t-shirts colorés',
+        personality: { tone: 'Amical', formality: 'Tutoiement' }
+      }
+    ],
+    expectedAI: 'articles'
   },
   {
-    message: "Où puis-je trouver des jeans ?",
-    expectedIntent: "product_search",
-    description: "Test de recherche produit"
-  },
-  {
-    message: "J'ai un problème avec ma commande",
-    expectedIntent: "technical_support",
-    description: "Test de support technique"
-  },
-  {
-    message: "Je suis mécontent de mon achat",
-    expectedIntent: "complaint",
-    description: "Test de plainte"
-  },
-  {
-    message: "Blablabla xyz 123",
-    expectedIntent: "unknown",
-    description: "Test de message non reconnu"
+    name: 'Test Personnalité Humoristique',
+    messages: [
+      {
+        text: 'Aide-moi à choisir une tenue',
+        personality: { 
+          tone: 'Humoristique', 
+          formality: 'Tutoiement',
+          empathy: 'Élevée',
+          proactivity: 'Très proactif'
+        }
+      }
+    ],
+    expectedAI: 'outfits'
   }
 ]
 
-// Configuration de base
-const API_ENDPOINT = 'http://localhost:3000/api/ia'
+// Statistiques globales
+let totalTests = 0
+let successfulTests = 0
+let testResults = []
 
-/**
- * Teste l'API IA Master avec différents messages
- */
-async function testContextualResponses() {
-  console.log(`🎯 Test de ${testMessages.length} messages contextuels...\n`)
-  
-  let passedTests = 0
-  let totalTests = testMessages.length
-  
-  for (const test of testMessages) {
-    console.log(`📝 ${test.description}`)
-    console.log(`💬 Message: "${test.message}"`)
-    
-    try {
-      const response = await fetch(API_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: test.message,
-          sessionId: `test-${Date.now()}`,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      
-      // Affichage des résultats
-      console.log(`🤖 IA Sélectionnée: ${data.aiType}`)
-      console.log(`🎯 Confiance: ${Math.round(data.confidence * 100)}%`)
-      
-      if (data.metadata?.detectedIntent) {
-        console.log(`🧠 Intention détectée: ${data.metadata.detectedIntent}`)
-        console.log(`🔍 Mots-clés trouvés: ${data.metadata.keywords?.join(', ') || 'aucun'}`)
-      }
-      
-      // Vérification du résultat
-      if (data.aiType === 'contextual' && data.metadata?.detectedIntent === test.expectedIntent) {
-        console.log(`✅ Test RÉUSSI - Intention correctement détectée`)
-        passedTests++
-      } else if (data.aiType !== 'contextual') {
-        console.log(`ℹ️  Test PASSÉ À UNE IA ENFANT - ${data.aiType}`)
-        passedTests++
-      } else {
-        console.log(`❌ Test ÉCHOUÉ - Intention attendue: ${test.expectedIntent}, reçue: ${data.metadata?.detectedIntent}`)
-      }
-      
-      console.log(`💭 Réponse (extrait): "${data.content.substring(0, 100)}..."`)
-      
-    } catch (error) {
-      console.log(`❌ Erreur: ${error.message}`)
-    }
-    
-    console.log('─'.repeat(80))
-  }
-  
-  // Résumé des tests
-  console.log(`\n📊 RÉSULTATS DES TESTS`)
-  console.log(`✅ Tests réussis: ${passedTests}/${totalTests}`)
-  console.log(`📈 Taux de réussite: ${Math.round((passedTests / totalTests) * 100)}%`)
-  
-  if (passedTests === totalTests) {
-    console.log(`🎉 TOUS LES TESTS SONT PASSÉS !`)
-  } else {
-    console.log(`⚠️  ${totalTests - passedTests} test(s) à améliorer`)
-  }
-}
-
-/**
- * Teste le routage sans exécution
- */
-async function testRouting() {
-  console.log(`\n🧭 Test du Routage (sans exécution)...\n`)
-  
-  const routingMessages = [
-    "Comment retourner un article ?",
-    "Je cherche une robe rouge",
-    "Trouve-moi une tenue pour un mariage",
-    "Random text xyz"
-  ]
-  
-  for (const message of routingMessages) {
-    try {
-      const response = await fetch(`${API_ENDPOINT}?action=test-routing&message=${encodeURIComponent(message)}`)
-      
-      if (response.ok) {
-        const data = await response.json()
-        console.log(`💬 "${message}"`)
-        console.log(`🎯 → ${data.selectedAI} (confiance: ${Math.round(data.confidence * 100)}%)`)
-        console.log(`📝 Raison: ${data.reason}`)
-        console.log('─'.repeat(60))
-      }
-    } catch (error) {
-      console.log(`❌ Erreur de routage: ${error.message}`)
-    }
-  }
-}
-
-/**
- * Fonction principale
- */
-async function main() {
+async function testMessage(message, personality = {}, conversationHistory = []) {
   try {
-    // Vérifier que le serveur est accessible
-    console.log('🔍 Vérification de la connexion au serveur...')
-    const healthCheck = await fetch(`${API_ENDPOINT}?action=stats`)
+    const response = await fetch(API_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message,
+        context: {
+          conversationHistory,
+          userPreferences: {},
+          userId: `test-${Date.now()}`
+        },
+        chatbotConfig: {
+          personality: {
+            tone: 'Amical',
+            formality: 'Tutoiement',
+            verbosity: 'Détaillé',
+            empathy: 'Élevée',
+            proactivity: 'Proactif',
+            ...personality
+          }
+        }
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    const data = await response.json()
     
-    if (!healthCheck.ok) {
-      throw new Error('Serveur non accessible. Assurez-vous que Next.js est démarré.')
+    return {
+      success: data.success,
+      response: data.response,
+      error: data.error
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+}
+
+async function testCompatibilityAPI() {
+  console.log('\n🔗 Test de l\'API de compatibilité...')
+  
+  try {
+    const response = await fetch(COMPATIBILITY_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: 'Test de compatibilité',
+        chatbotConfig: {
+          personality: {
+            tone: 'Professionnel',
+            formality: 'Vouvoiement'
+          }
+        }
+      })
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      console.log('✅ API de compatibilité fonctionne')
+      console.log(`   🤖 Modèle: ${data.response?.metadata?.model}`)
+      console.log(`   🎯 Routé vers: ${data.response?.metadata?.routedTo}`)
+      return true
+    } else {
+      console.log('❌ API de compatibilité échoue')
+      return false
+    }
+  } catch (error) {
+    console.log(`❌ Erreur API compatibilité: ${error.message}`)
+    return false
+  }
+}
+
+async function runScenario(scenario) {
+  console.log(`\n📝 Scénario: ${scenario.name}`)
+  console.log('=' * 50)
+  
+  let conversationHistory = []
+  let scenarioSuccess = true
+  
+  for (let i = 0; i < scenario.messages.length; i++) {
+    const msgData = scenario.messages[i]
+    console.log(`\n${i + 1}. 💬 Message: "${msgData.text}"`)
+    console.log(`   🎭 Personnalité: ${JSON.stringify(msgData.personality)}`)
+    
+    totalTests++
+    const result = await testMessage(msgData.text, msgData.personality, conversationHistory)
+    
+    if (result.success && result.response) {
+      successfulTests++
+      
+      const routedTo = result.response.metadata?.routedTo
+      const confidence = result.response.metadata?.confidence || 0
+      const personalityApplied = result.response.metadata?.personalityApplied
+      
+      console.log(`   ✅ Succès`)
+      console.log(`   🎯 IA utilisée: ${routedTo}`)
+      console.log(`   📊 Confiance: ${Math.round(confidence * 100)}%`)
+      console.log(`   🎭 Personnalité appliquée: ${personalityApplied ? 'Oui' : 'Non'}`)
+      console.log(`   💬 Réponse (100 chars): ${result.response.content.substring(0, 100)}...`)
+      
+      // Vérification de l'IA attendue
+      if (scenario.expectedAI && routedTo === scenario.expectedAI) {
+        console.log(`   🎯 ✅ IA correcte (attendue: ${scenario.expectedAI})`)
+      } else if (scenario.expectedAI) {
+        console.log(`   🎯 ⚠️ IA différente (attendue: ${scenario.expectedAI}, obtenue: ${routedTo})`)
+      }
+      
+      // Vérification de la personnalité
+      if (personalityApplied && msgData.personality.tone) {
+        const appliedTone = personalityApplied.tone
+        if (appliedTone === msgData.personality.tone) {
+          console.log(`   🎭 ✅ Ton correct (${appliedTone})`)
+        } else {
+          console.log(`   🎭 ⚠️ Ton différent (attendu: ${msgData.personality.tone}, appliqué: ${appliedTone})`)
+        }
+      }
+      
+      // Ajouter à l'historique pour le contexte
+      conversationHistory.push(
+        { type: 'user', content: msgData.text },
+        { type: 'bot', content: result.response.content }
+      )
+      
+    } else {
+      scenarioSuccess = false
+      console.log(`   ❌ Échec: ${result.error}`)
     }
     
-    console.log('✅ Serveur accessible\n')
+    // Pause entre les messages
+    await new Promise(resolve => setTimeout(resolve, 500))
+  }
+  
+  testResults.push({
+    name: scenario.name,
+    success: scenarioSuccess,
+    messageCount: scenario.messages.length
+  })
+  
+  console.log(`\n📊 Résultat scénario: ${scenarioSuccess ? '✅ Succès' : '❌ Échec'}`)
+}
+
+async function runHealthCheck() {
+  console.log('🏥 Vérification de santé de l\'API...')
+  
+  try {
+    const response = await fetch(API_ENDPOINT.replace('/api/ai/master', '/api/health-check'))
     
-    // Exécuter les tests
-    await testContextualResponses()
-    await testRouting()
-    
-    console.log('\n🏁 Tests terminés !')
-    
+    if (response.ok) {
+      console.log('✅ API en ligne')
+      return true
+    } else {
+      console.log('❌ API hors ligne ou problème de santé')
+      return false
+    }
   } catch (error) {
-    console.error('❌ Erreur fatale:', error.message)
-    console.error('\n💡 Assurez-vous que :')
-    console.error('  • Next.js est démarré (npm run dev)')
-    console.error('  • L\'API /api/ia est accessible')
-    console.error('  • Aucun pare-feu ne bloque localhost:3000')
+    console.log('❌ API non accessible')
+    console.error('  • Vérifiez que le serveur Next.js est démarré')
+    console.error('  • L\'API /api/ai/master est accessible')
+    console.error(`  • Erreur: ${error.message}`)
+    return false
+  }
+}
+
+async function generateReport() {
+  console.log('\n\n📊 RAPPORT DE TEST')
+  console.log('=' * 60)
+  
+  console.log(`📈 Tests globaux:`)
+  console.log(`   • Total: ${totalTests}`)
+  console.log(`   • Réussis: ${successfulTests}`)
+  console.log(`   • Échoués: ${totalTests - successfulTests}`)
+  console.log(`   • Taux de réussite: ${Math.round(successfulTests / totalTests * 100)}%`)
+  
+  console.log(`\n🎭 Scénarios:`)
+  testResults.forEach(result => {
+    const status = result.success ? '✅' : '❌'
+    console.log(`   ${status} ${result.name} (${result.messageCount} messages)`)
+  })
+  
+  const successfulScenarios = testResults.filter(r => r.success).length
+  console.log(`\n📋 Scénarios réussis: ${successfulScenarios}/${testResults.length}`)
+  
+  if (successfulScenarios === testResults.length) {
+    console.log('\n🎉 Tous les tests sont passés ! La nouvelle architecture IA fonctionne correctement.')
+  } else {
+    console.log('\n⚠️ Certains tests ont échoué. Vérifiez les logs ci-dessus.')
+  }
+}
+
+async function main() {
+  console.log('🚀 Tests de réponses contextuelles - Nouvelle Architecture IA')
+  console.log('================================================================')
+  
+  // Vérification de santé
+  const isHealthy = await runHealthCheck()
+  if (!isHealthy) {
     process.exit(1)
   }
+  
+  // Test de compatibilité
+  await testCompatibilityAPI()
+  
+  // Exécution des scénarios
+  for (const scenario of testScenarios) {
+    await runScenario(scenario)
+  }
+  
+  // Rapport final
+  await generateReport()
 }
 
-// Exécution du script si appelé directement
+// Exécution
 if (require.main === module) {
-  main()
+  main().catch(console.error)
 }
 
-module.exports = { testContextualResponses, testRouting } 
+module.exports = { testMessage, runScenario } 

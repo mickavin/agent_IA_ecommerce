@@ -35,6 +35,18 @@ export function IATestClient() {
   const [isLoading, setIsLoading] = useState(false)
   const [testResults, setTestResults] = useState<TestResult[]>([])
   const [selectedExample, setSelectedExample] = useState("")
+  const [debugLogs, setDebugLogs] = useState<string[]>([])
+  const [response, setResponse] = useState<any>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  // Personnalité par défaut pour les tests
+  const selectedPersonality = {
+    tone: "Amical",
+    formality: "Tutoiement", 
+    verbosity: "Détaillé",
+    empathy: "Élevée",
+    proactivity: "Proactif"
+  }
 
   const exampleMessages = [
     {
@@ -66,14 +78,13 @@ export function IATestClient() {
     const startTime = Date.now()
 
     try {
-      const response = await fetch('/api/ia', {
+      const response = await fetch('/api/ai/master', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           message: testMessage.trim(),
-          userId: 'ia-test-client',
           context: {
             conversationHistory: testResults.slice(-3).map(result => ({
               id: `test-${result.timestamp}`,
@@ -81,8 +92,21 @@ export function IATestClient() {
               type: 'user',
               timestamp: result.timestamp
             })),
-            userPreferences: {},
-            testing: true
+            userPreferences: {
+              budget: { min: 0, max: 200 },
+              sizes: ['M', 'L'],
+              colors: ['Noir', 'Blanc', 'Bleu']
+            },
+            userId: `test-user-${Date.now()}`
+          },
+          chatbotConfig: {
+            personality: {
+              tone: selectedPersonality.tone,
+              formality: selectedPersonality.formality,
+              verbosity: selectedPersonality.verbosity,
+              empathy: selectedPersonality.empathy,
+              proactivity: selectedPersonality.proactivity
+            }
           }
         })
       })
@@ -97,9 +121,9 @@ export function IATestClient() {
       }
 
       if (data.success) {
-        result.response = data.data
-        result.aiType = data.data.aiType
-        result.confidence = data.data.confidence
+        result.response = data.response
+        result.aiType = data.response.metadata?.aiType
+        result.confidence = data.response.metadata?.confidence
       } else {
         result.error = data.error || 'Erreur inconnue'
       }
@@ -399,7 +423,7 @@ export function IATestClient() {
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <CheckCircle className="w-5 h-5 text-green-500" />
-                  <span><strong>API Routes :</strong> /api/chat-stream et /api/chat → /api/ia avec compatibilité</span>
+                  <span><strong>API Routes :</strong> /api/ai/master, /api/ai/faq, /api/ai/articles, /api/ai/outfits, /api/chat, /api/chat-stream</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <CheckCircle className="w-5 h-5 text-green-500" />
@@ -422,7 +446,7 @@ export function IATestClient() {
               <Alert>
                 <MessageSquare className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>Rétrocompatibilité garantie :</strong> Les anciennes API redirigent automatiquement vers l'IA Master. 
+                  <strong>Rétrocompatibilité garantie :</strong> Les anciennes APIs redirigent automatiquement vers l'IA Master. 
                   Aucune modification n'est requise côté client.
                 </AlertDescription>
               </Alert>
@@ -435,11 +459,12 @@ export function IATestClient() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2 text-sm">
-                <div><code className="bg-muted px-2 py-1 rounded">POST /api/ia</code> - Point d'entrée principal</div>
-                <div><code className="bg-muted px-2 py-1 rounded">GET /api/ia?action=stats</code> - Statistiques de performance</div>
-                <div><code className="bg-muted px-2 py-1 rounded">GET /api/ia?action=config</code> - Configuration actuelle</div>
-                <div><code className="bg-muted px-2 py-1 rounded">GET /api/ia?action=logs</code> - Logs de routage</div>
-                <div><code className="bg-muted px-2 py-1 rounded">GET /api/ia?action=test-routing</code> - Test du routage</div>
+                <div><code className="bg-muted px-2 py-1 rounded">POST /api/ai/master</code> - Point d'entrée principal</div>
+                <div><code className="bg-muted px-2 py-1 rounded">POST /api/ai/faq</code> - IA spécialisée FAQ</div>
+                <div><code className="bg-muted px-2 py-1 rounded">POST /api/ai/articles</code> - IA spécialisée Articles</div>
+                <div><code className="bg-muted px-2 py-1 rounded">POST /api/ai/outfits</code> - IA spécialisée Outfits</div>
+                <div><code className="bg-muted px-2 py-1 rounded">POST /api/chat</code> - API de compatibilité</div>
+                <div><code className="bg-muted px-2 py-1 rounded">POST /api/chat-stream</code> - API de compatibilité streaming</div>
               </div>
             </CardContent>
           </Card>

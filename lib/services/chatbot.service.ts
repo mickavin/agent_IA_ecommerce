@@ -302,6 +302,7 @@ export class ChatbotService {
    */
   static async update(id: string, updates: ChatbotUpdateInput): Promise<Chatbot> {
     try {
+      console.log('updates', updates)
       if (!isSupabaseConfigured() || !supabase) {
         console.warn('📱 Supabase non configuré - simulation de mise à jour')
         const index = this.mockChatbotsDB.findIndex((bot: ChatbotDB) => bot.id === id)

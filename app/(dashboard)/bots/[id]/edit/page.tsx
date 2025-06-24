@@ -146,7 +146,7 @@ export default function EditBotPage() {
   const botId = params?.id as string | undefined
 
   if (!botId) {
-    //router.push("/bots")
+    router.push("/bots")
     return null
   }
 
@@ -237,6 +237,7 @@ export default function EditBotPage() {
         const data = await ChatbotService.getById(botId)
         
         if (data) {
+          console.log('data', data)
           setBotConfig(data)
         } else {
           toast.error("Chatbot non trouvé")
@@ -303,6 +304,7 @@ export default function EditBotPage() {
       
       if (updatedBot) {
         setBotConfig(updatedBot)
+        console.log('updatedBot', updatedBot)
         toast.success("Configuration du chatbot sauvegardée avec succès !")
       }
     } catch (error) {

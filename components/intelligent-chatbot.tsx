@@ -83,6 +83,7 @@ export function IntelligentChatbot({
   const [isLoading, setIsLoading] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Styles basés sur la configuration visuelle
   const primaryBg = { backgroundColor: visualConfig.primaryColor }
@@ -90,79 +91,73 @@ export function IntelligentChatbot({
   const textColor = { color: visualConfig.textColor }
   const borderRadiusClass = `rounded-${visualConfig.borderRadius}`
 
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return
+  const handleSendMessage = async (message: string) => {
+    if (!message.trim()) return
 
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
-      content: inputMessage,
-      type: "user",
+      content: message,
+      type: 'user',
       timestamp: new Date().toISOString()
     }
 
     setMessages(prev => [...prev, userMessage])
-    setInputMessage("")
     setIsLoading(true)
+    setError(null)
 
     try {
-      // Appel vers la nouvelle API IA Master
-      const response = await fetch('/api/ia', {
+      const response = await fetch('/api/ai/master', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: inputMessage.trim(),
-          userId: `chatbot-user-${Date.now()}`,
+          message,
           context: {
-            conversationHistory: messages.slice(-6).map(msg => ({
-              id: msg.id,
-              content: msg.content,
-              type: msg.type,
-              timestamp: msg.timestamp
-            })),
-            userPreferences: {
-              personality: personality,
-              chatbotName: chatbotName
+            conversationHistory: messages.slice(-5), // Derniers 5 messages pour contexte
+            userPreferences: {},
+            userId: `session-${Date.now()}`
+          },
+          chatbotConfig: {
+            personality: {
+              tone: "Amical",
+              formality: "Tutoiement",
+              verbosity: "Détaillé",
+              empathy: "Élevée",
+              proactivity: "Proactif"
             }
           }
         })
       })
 
-      const data = await response.json()
-
-      if (data.success) {
-        const botMessage: ChatMessage = {
-          id: data.data.id,
-          content: data.data.content,
-          type: "bot",
-          timestamp: data.timestamp,
-          metadata: {
-            intent: data.data.metadata?.intent,
-            confidence: data.data.confidence,
-            aiType: data.data.aiType,
-            processingTime: data.data.metadata?.processingTime
-          }
-        }
-        
-        setMessages(prev => [...prev, botMessage])
-      } else {
-        throw new Error(data.error || 'Erreur IA Master')
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`)
       }
 
+      const data = await response.json()
+
+      if (data.success && data.response) {
+        const botMessage: ChatMessage = {
+          id: data.response.id,
+          content: data.response.content,
+          type: 'bot',
+          timestamp: data.response.timestamp,
+          metadata: data.response.metadata
+        }
+        setMessages(prev => [...prev, botMessage])
+      } else {
+        throw new Error(data.error || 'Erreur inconnue')
+      }
     } catch (error) {
-      console.error('Erreur lors de l\'appel à l\'IA Master:', error)
+      console.error('Erreur lors de l\'envoi du message:', error)
+      setError(error instanceof Error ? error.message : 'Erreur de communication')
       
+      // Message d'erreur pour l'utilisateur
       const errorMessage: ChatMessage = {
         id: `error-${Date.now()}`,
-        content: "😅 Désolé, j'ai rencontré un petit problème technique. Pouvez-vous réessayer ?",
-        type: "bot",
-        timestamp: new Date().toISOString(),
-        metadata: {
-          intent: 'error',
-          confidence: 0,
-          aiType: 'error'
-        }
+        content: "Désolé, une erreur s'est produite. Veuillez réessayer.",
+        type: 'bot',
+        timestamp: new Date().toISOString()
       }
       setMessages(prev => [...prev, errorMessage])
     } finally {
@@ -173,7 +168,7 @@ export function IntelligentChatbot({
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSendMessage()
+      handleSendMessage(inputMessage)
     }
   }
 
@@ -340,7 +335,7 @@ export function IntelligentChatbot({
               disabled={isLoading}
             />
             <Button
-              onClick={handleSendMessage}
+              onClick={() => handleSendMessage(inputMessage)}
               disabled={!inputMessage.trim() || isLoading}
               style={primaryBg}
               className="text-white"
