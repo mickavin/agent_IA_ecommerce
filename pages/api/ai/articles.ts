@@ -1,9 +1,10 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { OpenAIService } from '../../../lib/services/openai.service'
+import { ChatbotConfigService } from '../../../lib/services/chatbot-config.service'
 
 /**
  * IA spécialisée dans les recommandations d'articles individuels
- * Utilise OpenAI pour générer des recommandations personnalisées
+ * Utilise OpenAI avec personnalisation depuis Supabase
  */
 
 /**
@@ -158,7 +159,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { message, context = {}, chatbotConfig = {} } = req.body
+    const { message, context = {}, chatbotId, chatbotConfig = {} } = req.body
 
     if (!message?.trim()) {
       return res.status(400).json({ error: 'Message requis' })
@@ -175,6 +176,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         message: 'Cette IA ne peut pas traiter cette requête'
       })
     }
+
+    // Récupération de la configuration depuis Supabase
+    const configResult = await ChatbotConfigService.resolveConfig(chatbotId, chatbotConfig)
+    
+    if (!configResult.success || !configResult.config) {
+      console.warn('⚠️ Utilisation config par défaut pour IA Articles')
+    }
+
+    const { config, source } = configResult
+    console.log('config', config)
+    const personality = config?.personality || {
+      tone: "Amical",
+      formality: "Tutoiement",
+      verbosity: "Détaillé",
+      empathy: "Élevée",
+      proactivity: "Proactif"
+    }
+
+    // Log de la configuration utilisée
+    ChatbotConfigService.logConfigSource(chatbotId, source || 'default', config?.name || 'Config par défaut')
 
     // Extraction des critères de recherche
     const criteria = extractCriteria(userMessage)
@@ -199,7 +220,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Génération de la réponse via OpenAI
     const openAIService = new OpenAIService()
-    const systemPrompt = OpenAIService.createSystemPrompt('articles', chatbotConfig.personality) + contextualInfo
+    const systemPrompt = OpenAIService.createSystemPrompt('articles', personality) + contextualInfo
     
     const startTime = Date.now()
     const content = await openAIService.generateResponse({
@@ -225,7 +246,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           processingTime,
           model: 'openai',
           searchCriteria: criteria,
-          routedTo: 'articles'
+          routedTo: 'articles',
+          personalityApplied: personality,
+          configSource: source || 'default',
+          chatbotName: config?.name || 'Assistant par défaut'
         }
       }
     })

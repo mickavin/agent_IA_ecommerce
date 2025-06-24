@@ -27,6 +27,7 @@ import {
 } from "lucide-react"
 import { ChatMessage, Chatbot } from "@/lib/types"
 import { IntelligentChatbot } from "@/components/intelligent-chatbot"
+import { supabase } from "@/lib/supabase"
 
 // Simulation de données du chatbot
 const mockChatbot: Chatbot = {
@@ -83,6 +84,20 @@ export default function TestBotPage() {
   })
   const [debugLogs, setDebugLogs] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  
+  useEffect(() => {
+    const fetchChatbot = async () => {
+      if (!botId) return
+      if (supabase) {
+      const { data, error } = await supabase?.from('chatbots')
+      .select('*')
+      .eq('id', botId)
+      .single()
+      
+      }
+    }
+    fetchChatbot()
+  }, [])
 
   const addDebugLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString()

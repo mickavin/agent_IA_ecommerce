@@ -1,9 +1,10 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { OpenAIService } from '../../../lib/services/openai.service'
+import { ChatbotConfigService } from '../../../lib/services/chatbot-config.service'
 
 /**
- * IA spécialisée dans les suggestions d'outfits complets
- * Utilise OpenAI pour créer des tenues cohérentes et stylées
+ * IA spécialisée dans les recommandations d'outfits complets
+ * Utilise OpenAI avec personnalisation depuis Supabase
  */
 
 /**
@@ -167,7 +168,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { message, context = {}, chatbotConfig = {} } = req.body
+    const { message, context = {}, chatbotId, chatbotConfig = {} } = req.body
 
     if (!message?.trim()) {
       return res.status(400).json({ error: 'Message requis' })
@@ -185,38 +186,58 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     }
 
-    // Extraction du contexte outfit
-    const outfitContext = extractOutfitContext(userMessage)
+    // Récupération de la configuration depuis Supabase
+    const configResult = await ChatbotConfigService.resolveConfig(chatbotId, chatbotConfig)
     
-    // Ajout du contexte enrichi
+    if (!configResult.success || !configResult.config) {
+      console.warn('⚠️ Utilisation config par défaut pour IA Outfits')
+    }
+
+    const { config, source } = configResult
+    console.log('config', config)
+    const personality = config?.personality || {
+      tone: "Amical",
+      formality: "Tutoiement",
+      verbosity: "Détaillé",
+      empathy: "Élevée",
+      proactivity: "Proactif"
+    }
+
+    // Log de la configuration utilisée
+    ChatbotConfigService.logConfigSource(chatbotId, source || 'default', config?.name || 'Config par défaut')
+
+    // Extraction des critères
+    const criteria = extractOutfitContext(userMessage)
+    
+    // Ajout des critères au contexte
     const enhancedContext = {
       ...context,
-      outfitRequest: outfitContext,
+      outfitCriteria: criteria,
       userPreferences: context.userPreferences || {}
     }
 
-    // Construction du prompt enrichi avec le contexte
+    // Construction du prompt enrichi
     let contextualInfo = ''
-    if (Object.keys(outfitContext).length > 0) {
-      contextualInfo = `\n\nCONTEXTE DÉTECTÉ:\n`
-      if (outfitContext.occasion) contextualInfo += `- Occasion: ${outfitContext.occasion}\n`
-      if (outfitContext.season) contextualInfo += `- Saison: ${outfitContext.season}\n`
-      if (outfitContext.style) contextualInfo += `- Style: ${outfitContext.style}\n`
-      if (outfitContext.preferredColor) contextualInfo += `- Couleur préférée: ${outfitContext.preferredColor}\n`
-      contextualInfo += '\nAdapte tes suggestions d\'outfits en fonction de ce contexte.'
+    if (Object.keys(criteria).length > 0) {
+      contextualInfo = `\n\nCRITÈRES DÉTECTÉS:\n`
+      if (criteria.occasion) contextualInfo += `- Occasion: ${criteria.occasion}\n`
+      if (criteria.style) contextualInfo += `- Style: ${criteria.style}\n`
+      if (criteria.season) contextualInfo += `- Saison: ${criteria.season}\n`
+      if (criteria.budget) contextualInfo += `- Budget: ${criteria.budget}€\n`
+      contextualInfo += '\nUtilise ces critères pour tes recommandations d\'outfits.'
     }
 
-    // Génération de la réponse via OpenAI
+    // Génération via OpenAI
     const openAIService = new OpenAIService()
-    const systemPrompt = OpenAIService.createSystemPrompt('outfits', chatbotConfig.personality) + contextualInfo
+    const systemPrompt = OpenAIService.createSystemPrompt('outfits', personality) + contextualInfo
     
     const startTime = Date.now()
     const content = await openAIService.generateResponse({
       systemPrompt,
       userMessage,
       context: enhancedContext,
-      maxTokens: 1200,
-      temperature: 0.9
+      maxTokens: 800,
+      temperature: 0.8
     })
     const processingTime = Date.now() - startTime
 
@@ -228,13 +249,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         type: 'bot',
         timestamp: new Date().toISOString(),
         metadata: {
-          intent: 'outfit_creation',
+          intent: 'outfit_recommendation',
           confidence: analysis.confidence,
           aiType: 'outfits',
           processingTime,
           model: 'openai',
-          outfitContext,
-          routedTo: 'outfits'
+          outfitCriteria: criteria,
+          routedTo: 'outfits',
+          personalityApplied: personality,
+          configSource: source || 'default',
+          chatbotName: config?.name || 'Assistant par défaut'
         }
       }
     })
@@ -244,7 +268,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     return res.status(500).json({
       success: false,
-      error: 'Erreur lors de la création d\'outfits',
+      error: 'Erreur lors du traitement de la recommandation d\'outfits',
       details: error.message
     })
   }

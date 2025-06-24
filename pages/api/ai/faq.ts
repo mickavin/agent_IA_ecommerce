@@ -1,10 +1,46 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { OpenAIService } from '../../../lib/services/openai.service'
+import { ChatbotConfigService } from '../../../lib/services/chatbot-config.service'
 
 /**
  * IA spécialisée dans les réponses FAQ
- * Utilise OpenAI pour générer des réponses intelligentes aux questions fréquentes
+ * Utilise OpenAI avec personnalisation depuis Supabase
  */
+
+/**
+ * Interface pour les éléments FAQ
+ */
+interface FAQItem {
+  id: string
+  question: string
+  answer: string
+  category: string
+  tags: string[]
+  popularity: number
+  score?: number
+}
+
+/**
+ * Base de données FAQ simplifiée
+ */
+const faqDatabase: FAQItem[] = [
+  {
+    id: 'faq1',
+    question: 'Quels sont vos délais de livraison ?',
+    answer: 'Nos délais de livraison sont de 2-3 jours ouvrés en France métropolitaine.',
+    category: 'livraison',
+    tags: ['livraison', 'délais', 'France'],
+    popularity: 95
+  },
+  {
+    id: 'faq2', 
+    question: 'Comment puis-je retourner un article ?',
+    answer: 'Vous avez 30 jours pour retourner un article. Utilisez notre formulaire de retour en ligne.',
+    category: 'retour',
+    tags: ['retour', 'échange', 'remboursement'],
+    popularity: 87
+  }
+]
 
 /**
  * Analyse si le message correspond à une question FAQ
@@ -229,7 +265,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { message, context = {}, chatbotConfig = {} } = req.body
+    const { message, context = {}, chatbotId, chatbotConfig = {} } = req.body
 
     if (!message?.trim()) {
       return res.status(400).json({ error: 'Message requis' })
@@ -247,9 +283,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     }
 
-    // Génération de la réponse via OpenAI
+    // Récupération de la configuration depuis Supabase
+    const configResult = await ChatbotConfigService.resolveConfig(chatbotId, chatbotConfig)
+    
+    if (!configResult.success || !configResult.config) {
+      console.warn('⚠️ Utilisation config par défaut pour IA FAQ')
+    }
+
+    const { config, source } = configResult
+    const personality = config?.personality || {
+      tone: "Amical",
+      formality: "Tutoiement",
+      verbosity: "Détaillé",
+      empathy: "Élevée", 
+      proactivity: "Proactif"
+    }
+
+    // Log de la configuration utilisée
+    ChatbotConfigService.logConfigSource(chatbotId, source || 'default', config?.name || 'Config par défaut')
+
+    // Génération de la réponse via OpenAI avec personnalisation
     const openAIService = new OpenAIService()
-    const systemPrompt = OpenAIService.createSystemPrompt('faq', chatbotConfig.personality)
+    const systemPrompt = OpenAIService.createSystemPrompt('faq', personality)
     
     const startTime = Date.now()
     const content = await openAIService.generateResponse({
@@ -274,7 +329,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           aiType: 'faq',
           processingTime,
           model: 'openai',
-          routedTo: 'faq'
+          routedTo: 'faq',
+          personalityApplied: personality,
+          configSource: source || 'default',
+          chatbotName: config?.name || 'Assistant par défaut'
         }
       }
     })
