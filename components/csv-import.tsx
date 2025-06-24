@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { CSVImportService } from '@/lib/services/csv-import.service'
-import { toast } from '@/components/ui/use-toast'
+import { toast } from 'sonner'
 
 interface CSVImportProps {
   type: 'products' | 'clients'

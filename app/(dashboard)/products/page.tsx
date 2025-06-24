@@ -20,7 +20,15 @@ import { PlusCircle, Search, ListFilter, MoreHorizontal, Edit, Trash2, Eye, Uplo
 import Link from "next/link"
 import { ProductService } from "@/lib/services/api.service"
 import { AdvancedCSVImporter } from "@/components/advanced-csv-importer"
-import { toast } from "@/components/ui/use-toast"
+import { toast } from "sonner"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
+import { PageHeader } from "@/components/page-header"
+import { Progress } from "@/components/ui/progress"
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([])
