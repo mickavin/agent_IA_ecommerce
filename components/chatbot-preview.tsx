@@ -145,111 +145,55 @@ export function ChatbotPreview({
 
   // Génération de réponse intelligente avec données produits
   const generateIntelligentResponse = async (userMessage: string) => {
-    const intent = analyzeIntent(userMessage)
-    const entities = extractEntities(userMessage)
-    
     try {
-      // Import dynamique du service produit
-      const { ProductService } = await import('@/lib/services/api.service')
-      
-      let response = ''
-      let products: any[] = []
-
-      switch (intent) {
-        case 'search':
-          const searchFilters: Record<string, string[]> = {}
-          if (entities.color) searchFilters.colors = [entities.color]
-          if (entities.size) searchFilters.sizes = [entities.size]
-          if (entities.gender) searchFilters.gender = [entities.gender]
-          if (entities.category) searchFilters.category = [entities.category]
-
-          const searchResult = await ProductService.getAll(1, 5, undefined, searchFilters)
-          products = searchResult.data
-
-          if (products.length > 0) {
-            response = `🔍 J'ai trouvé ${products.length} produit${products.length > 1 ? 's' : ''} qui pourrai${products.length > 1 ? 'ent' : 't'} vous intéresser !\n\n`
-            
-            products.slice(0, 3).forEach((product, index) => {
-              response += `${index + 1}. **${product.name}** - ${product.price}€\n`
-              if (product.colors?.length > 0) response += `   Couleurs: ${product.colors.join(', ')}\n`
-              if (product.sizes?.length > 0) response += `   Tailles: ${product.sizes.join(', ')}\n`
-              response += '\n'
-            })
-          } else {
-            response = "😔 Désolé, je n'ai pas trouvé de produits correspondant exactement à vos critères. Puis-je vous proposer des alternatives ?"
+      // Appel vers la nouvelle API IA Master
+      const response = await fetch('/api/ia', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: userMessage.trim(),
+          userId: `preview-user-${Date.now()}`,
+          context: {
+            conversationHistory: messages.slice(-4).map(msg => ({
+              id: msg.id,
+              content: msg.content,
+              type: msg.type,
+              timestamp: msg.timestamp
+            })),
+            userPreferences: {
+              personality: personality,
+              chatbotName: chatbotName,
+              preview: true
+            }
           }
-          break
+        })
+      })
 
-        case 'recommendation':
-          const recResult = await ProductService.getAll(1, 5)
-          products = recResult.data
-
-          response = "✨ Voici mes recommandations personnalisées pour vous :\n\n"
-          
-          if (products.length > 0) {
-            products.slice(0, 3).forEach((product, index) => {
-              const emoji = ['🏆', '⭐', '💎'][index]
-              response += `${emoji} **${product.name}** - ${product.price}€\n`
-              response += `   Parfait pour votre style !\n\n`
-            })
-          } else {
-            response = "Je n'ai pas encore assez d'informations pour des recommandations personnalisées. Parlez-moi de vos goûts ! 😊"
-          }
-          break
-
-        case 'price':
-          if (entities.budget) {
-            const budgetResult = await ProductService.getAll(1, 10)
-            const affordable = budgetResult.data.filter((p: any) => p.price <= entities.budget)
-            response = `💰 Avec un budget de ${entities.budget}€, vous avez ${affordable.length} options ! Voulez-vous que je vous montre les meilleures affaires ?`
-          } else {
-            response = "💡 Nos prix varient :\n🏷️ T-shirts : à partir de 29€\n🏷️ Sweatshirts : à partir de 49€\n🏷️ Robes : à partir de 79€\n\nQuel est votre budget ?"
-          }
-          break
-
-        case 'size':
-          response = "📏 **Guide des tailles** :\n\n👕 **Hauts** :\n• XS: 32-34 | S: 36-38 | M: 40-42 | L: 44-46 | XL: 48-50\n\n👖 **Bas** :\n• XS: 34-36 | S: 38-40 | M: 42-44 | L: 46-48 | XL: 50-52\n\n💡 En cas de doute, prenez une taille au-dessus !"
-          break
-
-        case 'availability':
-          const stockResult = await ProductService.getAll(1, 20)
-          const inStock = stockResult.data.filter((p: any) => p.stock > 0).length
-          const lowStock = stockResult.data.filter((p: any) => p.stock > 0 && p.stock < 10).length
-          
-          response = `📦 **État des stocks** :\n✅ ${inStock} produits en stock\n⚠️ ${lowStock} produits en stock limité\n\nQuel produit vous intéresse ?`
-          break
-
-        case 'style':
-          const styleAdvice = [
-            "💡 Pour un look décontracté : t-shirt + jean + sneakers",
-            "✨ Pour le bureau : chemise + pantalon + chaussures classiques", 
-            "🌟 Pour une soirée : robe élégante + talons + accessoires",
-            "🔥 Style streetwear : sweat oversize + jogger + baskets"
-          ]
-          response = styleAdvice[Math.floor(Math.random() * styleAdvice.length)]
-          break
-
-        default:
-          const helpfulResponses = [
-            "😊 Je suis là pour vous aider à trouver les produits parfaits ! Que cherchez-vous ?",
-            "🛍️ Je peux vous aider à chercher des produits, vous donner des conseils de style, ou répondre à vos questions !",
-            "✨ Que puis-je faire pour vous ? Recherche, recommandations, guide des tailles ?"
-          ]
-          response = helpfulResponses[Math.floor(Math.random() * helpfulResponses.length)]
-          break
+      if (!response.ok) {
+        throw new Error(`Erreur API: ${response.status}`)
       }
 
-      return {
-        content: response,
-        metadata: { 
-          intent, 
-          confidence: 0.8,
-          entities: Object.entries(entities).map(([type, value]) => ({ type, value: String(value) }))
+      const data = await response.json()
+
+      if (data.success) {
+        return {
+          content: data.data.content,
+          metadata: {
+            intent: data.data.metadata?.intent || 'general',
+            entities: data.data.metadata?.entities || [],
+            confidence: data.data.confidence,
+            aiType: data.data.aiType,
+            processingTime: data.data.metadata?.processingTime
+          }
         }
+      } else {
+        throw new Error(data.error || 'Erreur IA Master')
       }
 
     } catch (error) {
-      console.error('Erreur lors de la génération de réponse:', error)
+      console.error('Erreur lors de l\'appel à l\'IA Master:', error)
       return {
         content: "😅 Désolé, j'ai rencontré un petit problème technique. Pouvez-vous réessayer ?",
         metadata: { intent: 'error', entities: [], confidence: 0 }

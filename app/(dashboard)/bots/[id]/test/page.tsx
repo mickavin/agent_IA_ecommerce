@@ -104,184 +104,106 @@ export default function TestBotPage() {
     setInputMessage("")
     setIsTyping(true)
 
-    // Créer un message bot vide pour le streaming
-    const botMessageId = `bot-${Date.now()}`
-    const initialBotMessage: ChatMessage = {
-      id: botMessageId,
-      content: "",
-      type: "bot",
-      timestamp: new Date().toISOString(),
-      metadata: {
-        intent: "",
-        confidence: 0,
-        entities: []
-      }
-    }
-
-    setMessages(prev => [...prev, initialBotMessage])
-
     try {
       const startTime = Date.now()
-      addDebugLog('🚀 Démarrage chat streaming...')
+      addDebugLog('🚀 Démarrage requête IA Master...')
       
-      // Appel à l'API de streaming
-      const response = await fetch('/api/chat-stream', {
+      // Appel à la nouvelle API IA Master
+      const response = await fetch('/api/ia', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           message: inputMessage,
+          userId: `test-user-${botId}`,
           context: {
-            userId: `test-user-${botId}`,
+            conversationHistory: messages.slice(-6).map(msg => ({
+              id: msg.id,
+              content: msg.content,
+              type: msg.type === 'user' ? 'user' : 'bot',
+              timestamp: msg.timestamp
+            })),
             userPreferences: {
               budget: { min: 0, max: 200 },
               sizes: ['M', 'L'],
               colors: ['Noir', 'Blanc', 'Bleu'],
-              userId: `test-user-${botId}`
-            },
-            conversationHistory: messages.slice(-6).map(msg => ({
-              role: msg.type === 'user' ? 'user' : 'assistant',
-              content: msg.content
-            }))
-          },
-          chatbotConfig: {
-            personality: chatbot.personality
+              chatbotPersonality: chatbot.personality
+            }
           }
         })
       })
 
-      addDebugLog(`📡 Réponse API reçue: ${response.status}, ${response.headers.get('content-type')}`)
+      addDebugLog(`📡 Réponse API reçue: ${response.status}`)
 
       if (!response.ok) {
         throw new Error(`Erreur API: ${response.status} - ${response.statusText}`)
       }
 
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
+      const data = await response.json()
+      addDebugLog(`📋 Données reçues: ${JSON.stringify(data, null, 2)}`)
 
-      if (!reader) {
-        throw new Error('Reader non disponible - streaming non supporté')
-      }
-
-      let buffer = ''
-      let fullResponse = ''
-      let responseComplete = false
-      let chunkCount = 0
-
-      addDebugLog('📖 Début lecture stream...')
-
-      while (!responseComplete) {
-        const { done, value } = await reader.read()
+      if (data.success) {
+        const totalResponseTime = Date.now() - startTime
         
-        if (done) {
-          addDebugLog('✅ Stream terminé (done=true)')
-          responseComplete = true
-          break
-        }
-
-        chunkCount++
-        const chunk = decoder.decode(value, { stream: true })
-        buffer += chunk
-        
-        // Debug des chunks reçus
-        if (chunkCount <= 5 || chunkCount % 20 === 0) {
-          addDebugLog(`📦 Chunk ${chunkCount}: ${chunk.substring(0, 100)}...`)
-        }
-
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          if (line.trim() === '' || line.trim() === 'data: [DONE]') {
-            continue
+        // Message bot avec métadonnées enrichies
+        const botMessage: ChatMessage = {
+          id: data.data.id,
+          content: data.data.content,
+          type: "bot",
+          timestamp: data.timestamp,
+          metadata: {
+            intent: data.data.metadata?.intent || 'unknown',
+            confidence: data.data.confidence,
+            entities: data.data.metadata?.entities || []
           }
-          
-          if (line.startsWith('data: ')) {
-            try {
-              const jsonStr = line.slice(6).trim()
-              if (!jsonStr) continue
-              
-              const data = JSON.parse(jsonStr)
-              addDebugLog(`📋 Message reçu: ${data.type} (${data.data?.fullResponse?.length || 0} chars)`)
-              
-              switch (data.type) {
-                case 'start':
-                  addDebugLog('🟢 Stream démarré')
-                  setIsTyping(false)
-                  setIsStreaming(true)
-                  break
-                  
-                case 'content':
-                  fullResponse = data.data.fullResponse
-                  // Mise à jour du message en temps réel
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === botMessageId 
-                      ? { ...msg, content: fullResponse }
-                      : msg
-                  ))
-                  break
-                  
-                case 'complete':
-                  const totalResponseTime = Date.now() - startTime
-                  addDebugLog(`🎉 Stream complet: ${JSON.stringify(data.data.stats)}`)
-                  
-                  // Finaliser le message
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === botMessageId 
-                      ? { 
-                          ...msg, 
-                          content: data.data.fullResponse,
-                          id: data.data.id,
-                          timestamp: data.data.timestamp
-                        }
-                      : msg
-                  ))
-                  
-                  // Mise à jour des statistiques
-                  setSessionStats(prev => ({
-                    messagesCount: prev.messagesCount + 1,
-                    avgResponseTime: prev.messagesCount === 0 ? totalResponseTime : 
-                                    (prev.avgResponseTime * prev.messagesCount + totalResponseTime) / (prev.messagesCount + 1),
-                    productsRecommended: prev.productsRecommended,
-                    intentAccuracy: prev.intentAccuracy === 0 ? 0.8 : prev.intentAccuracy
-                  }))
-                  
-                  responseComplete = true
-                  setIsStreaming(false)
-                  break
-                  
-                case 'error':
-                  addDebugLog(`❌ Erreur stream: ${JSON.stringify(data.data)}`)
-                  throw new Error(data.data.error || 'Erreur streaming')
-              }
-            } catch (parseError) {
-              addDebugLog(`❌ Erreur parsing ligne: ${line.substring(0, 50)}...`)
-              addDebugLog(`❌ Détails: ${parseError}`)
-            }
-                      } else if (line.trim() !== '') {
-              addDebugLog(`⚠️ Ligne non-data ignorée: ${line.substring(0, 100)}`)
-            }
         }
-      }
 
-      addDebugLog(`✅ Streaming terminé: ${chunkCount} chunks traités`)
+        setMessages(prev => [...prev, botMessage])
+        
+        addDebugLog(`✅ IA utilisée: ${data.data.aiType}`)
+        addDebugLog(`✅ Confiance: ${Math.round(data.data.confidence * 100)}%`)
+        addDebugLog(`✅ Intent détecté: ${data.data.metadata?.intent || 'N/A'}`)
+        addDebugLog(`✅ Temps de traitement: ${data.data.metadata?.processingTime || totalResponseTime}ms`)
+        
+        if (data.data.metadata?.recommendations?.length) {
+          addDebugLog(`✅ Recommandations: ${data.data.metadata.recommendations.length} produits`)
+        }
+
+        // Mise à jour des statistiques
+        setSessionStats(prev => ({
+          messagesCount: prev.messagesCount + 1,
+          avgResponseTime: prev.messagesCount === 0 ? totalResponseTime : 
+                          (prev.avgResponseTime * prev.messagesCount + totalResponseTime) / (prev.messagesCount + 1),
+          productsRecommended: prev.productsRecommended + (data.data.metadata?.recommendations?.length || 0),
+          intentAccuracy: data.data.confidence > 0.6 ? 
+                         (prev.intentAccuracy * prev.messagesCount + data.data.confidence) / (prev.messagesCount + 1) :
+                         prev.intentAccuracy
+        }))
+
+      } else {
+        throw new Error(data.error || 'Erreur IA Master')
+      }
 
     } catch (error: any) {
-      addDebugLog(`❌ Erreur chat streaming: ${error.message}`)
+      addDebugLog(`❌ Erreur: ${error.message}`)
       
-      // Remplacer le message vide par un message d'erreur
-      setMessages(prev => prev.map(msg => 
-        msg.id === botMessageId 
-          ? {
-              ...msg,
-              content: `😅 Erreur de streaming: ${error.message || error}\n\nVérifiez que l'API OpenAI est configurée et que la connexion est stable.`,
-            }
-          : msg
-      ))
+      // Message d'erreur
+      const errorMessage: ChatMessage = {
+        id: `error-${Date.now()}`,
+        content: "😅 Désolé, j'ai rencontré un problème technique. Pouvez-vous réessayer ?",
+        type: "bot",
+        timestamp: new Date().toISOString(),
+        metadata: {
+          intent: 'error',
+          confidence: 0,
+          entities: []
+        }
+      }
+      
+      setMessages(prev => [...prev, errorMessage])
     } finally {
       setIsTyping(false)
-      setIsStreaming(false)
     }
   }
 

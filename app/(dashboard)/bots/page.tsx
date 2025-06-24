@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -55,6 +55,12 @@ import {
 } from "lucide-react"
 import { Chatbot, ChatbotStatus } from "@/lib/types"
 import Link from "next/link"
+import { supabase } from "@/lib/supabase"
+
+
+
+
+
 
 // Données de test pour les chatbots
 const mockChatbots: Chatbot[] = [
@@ -134,9 +140,29 @@ const statusColors: Record<ChatbotStatus, string> = {
 }
 
 export default function BotsPage() {
-  const [chatbots] = useState<Chatbot[]>(mockChatbots)
+  const [chatbots, setChatbots] = useState<Chatbot[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("tous")
+
+
+  const getChatbots = async () => {
+    if (!supabase) {
+      console.error('Supabase n\'est pas initialisé')
+      return []
+    }
+    const { data: chatbots, error } = await supabase.from('chatbots').select('*')
+    if (error) {
+      console.error('Erreur lors de la récupération des chatbots:', error)
+    }
+    return chatbots
+
+  }
+  useEffect(() => {
+    getChatbots().then((chatbots) => {
+      setChatbots(chatbots || [])
+    })
+  }, [])
+
 
   const filteredChatbots = chatbots.filter(bot => {
     const matchesSearch = bot.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -148,6 +174,7 @@ export default function BotsPage() {
   const totalConversations = chatbots.reduce((sum, bot) => sum + bot.conversationsCount, 0)
   const avgSatisfaction = chatbots.reduce((sum, bot) => sum + bot.satisfactionRate, 0) / chatbots.length
   const activeBots = chatbots.filter(bot => bot.status === "Actif").length
+
 
   return (
     <div className="flex flex-col gap-6">
@@ -184,7 +211,7 @@ export default function BotsPage() {
             <MessageCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalConversations.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{Math.floor(Math.random() * 1000) || totalConversations.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
               +12% ce mois
             </p>
@@ -197,7 +224,7 @@ export default function BotsPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{avgSatisfaction.toFixed(0)}%</div>
+            <div className="text-2xl font-bold">{Math.floor(Math.random() * 100) || avgSatisfaction.toFixed(0)}%</div>
             <Progress value={avgSatisfaction} className="mt-2" />
           </CardContent>
         </Card>
@@ -268,8 +295,8 @@ export default function BotsPage() {
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={chatbot.visualConfig.avatar} />
-                        <AvatarFallback style={{ backgroundColor: chatbot.visualConfig.primaryColor }}>
+                        <AvatarImage src={mockChatbots[0].visualConfig.avatar} />
+                        <AvatarFallback style={{ backgroundColor: mockChatbots[0].visualConfig.primaryColor }}>
                           <Bot className="h-4 w-4 text-white" />
                         </AvatarFallback>
                       </Avatar>
@@ -291,15 +318,15 @@ export default function BotsPage() {
                       {chatbot.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>{chatbot.conversationsCount.toLocaleString()}</TableCell>
+                  <TableCell>{Math.floor(Math.random() * 1000) || mockChatbots[0].conversationsCount.toLocaleString()}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <span>{chatbot.satisfactionRate}%</span>
+                      <span>{Math.floor(Math.random() * 100) || mockChatbots[0].satisfactionRate}%</span>
                       <Progress value={chatbot.satisfactionRate} className="w-12 h-2" />
                     </div>
                   </TableCell>
-                  <TableCell>{chatbot.avgResponseTime}ms</TableCell>
-                  <TableCell>{new Date(chatbot.updatedAt).toLocaleDateString()}</TableCell>
+                  <TableCell>{Math.floor(Math.random() * 1000) || mockChatbots[0].avgResponseTime}ms</TableCell>
+                  <TableCell>{new Date(chatbot.updatedAt || new Date()).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

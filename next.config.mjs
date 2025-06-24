@@ -9,6 +9,11 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  webpack: (config) => {
+    // Résoudre l'erreur "Critical dependency" de Supabase Realtime
+    config.module.exprContextCritical = false;
+    return config;
+  },
 }
 
 export default nextConfig

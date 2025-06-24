@@ -303,11 +303,12 @@ export type Database = {
           satisfaction_rate: number
           created_at: string
           updated_at: string
+          index?: number
         }
         Insert: {
           id?: string
           name: string
-          description: string
+          description?: string
           status?: string
           is_default?: boolean
           personality?: any

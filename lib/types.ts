@@ -199,20 +199,53 @@ export type ChatbotDataSource = {
   lastSync?: string
 }
 
+// Type correspondant exactement à la structure Supabase
+export type ChatbotDB = {
+  id: string
+  name: string
+  description: string
+  status: ChatbotStatus
+  is_default: boolean
+  personality: ChatbotPersonality
+  visual_config: ChatbotVisualConfig
+  data_sources: ChatbotDataSource[]
+  conversations_count: number
+  avg_response_time: number
+  satisfaction_rate: number
+  created_at: string
+  updated_at: string
+}
+
+// Type pour l'interface utilisateur avec des noms plus lisibles
 export type Chatbot = {
   id: string
   name: string
   description: string
   status: ChatbotStatus
-  createdAt: string
-  updatedAt: string
-  isDefault?: boolean
+  isDefault: boolean
   personality: ChatbotPersonality
   visualConfig: ChatbotVisualConfig
   dataSources: ChatbotDataSource[]
   conversationsCount: number
-  avgResponseTime: number // en millisecondes
-  satisfactionRate: number // 0-100
+  avgResponseTime: number
+  satisfactionRate: number
+  createdAt: string
+  updatedAt: string
+}
+
+// Types pour la création/mise à jour (sans les champs auto-générés)
+export type ChatbotCreateInput = Omit<ChatbotDB, 'id' | 'created_at' | 'updated_at'>
+export type ChatbotUpdateInput = Partial<ChatbotCreateInput>
+
+// Type pour les réponses API
+export type ChatbotResponse = {
+  success: boolean
+  data?: Chatbot | Chatbot[]
+  total?: number
+  page?: number
+  totalPages?: number
+  message?: string
+  error?: string
 }
 
 // Types pour les conversations
@@ -675,4 +708,121 @@ export type WebhookResponse = {
   success: boolean
   message?: string
   data?: any
+}
+
+// ================================
+// TYPES POUR LE SYSTÈME IA MASTER
+// ================================
+
+// Préférences utilisateur pour le système d'IA
+export interface UserPreferences {
+  budget?: { min: number; max: number }
+  categories?: string[]
+  sizes?: string[]
+  colors?: string[]
+  gender?: string
+  style?: string
+}
+
+// Types des IA enfants disponibles
+export type AIType = 'faq' | 'outfit_recommendation' | 'individual_clothing_recommendation' | 'contextual'
+
+// Configuration d'une IA enfant
+export type ChildAIConfig = {
+  id: string
+  name: string
+  type: AIType
+  description: string
+  isActive: boolean
+  priority: number
+  keywords: string[]
+  patterns: RegExp[]
+}
+
+// Requête utilisateur avec contexte
+export type AIRequest = {
+  id: string
+  message: string
+  userId?: string
+  sessionId: string
+  context?: {
+    conversationHistory?: ChatMessage[]
+    userPreferences?: UserPreferences
+    previousIntent?: string
+  }
+  metadata?: Record<string, any>
+  timestamp: string
+}
+
+// Réponse d'une IA enfant
+export type AIResponse = {
+  id: string
+  aiType: AIType
+  content: string
+  confidence: number
+  metadata?: {
+    intent?: string
+    entities?: Record<string, any>
+    recommendations?: Product[]
+    faqMatches?: FAQItem[]
+    processingTime?: number
+    [key: string]: any
+  }
+  timestamp: string
+  success: boolean
+  error?: string
+}
+
+// Résultat du routage par l'IA Master
+export type RoutingResult = {
+  selectedAI: AIType
+  confidence: number
+  reason: string
+  alternativeAIs?: AIType[]
+  processingTime: number
+}
+
+// Interface commune pour toutes les IA enfants
+export interface IChildAI {
+  type: AIType
+  name: string
+  canHandle(request: AIRequest): Promise<{ canHandle: boolean; confidence: number }>
+  process(request: AIRequest): Promise<AIResponse>
+  getConfig(): ChildAIConfig
+}
+
+// Logs et analytiques pour l'IA Master
+export type AIMasterLog = {
+  id: string
+  requestId: string
+  selectedAI: AIType
+  routingConfidence: number
+  processingTime: number
+  responseGenerated: boolean
+  userSatisfaction?: number
+  timestamp: string
+  metadata?: Record<string, any>
+}
+
+// Configuration globale de l'IA Master
+export type AIMasterConfig = {
+  defaultAI: AIType
+  confidenceThreshold: number
+  maxProcessingTime: number
+  enableLogging: boolean
+  enableAnalytics: boolean
+  fallbackMessages: Record<string, string>
+  retryAttempts: number
+}
+
+// Statistiques de performance des IA
+export type AIPerformanceStats = {
+  aiType: AIType
+  totalRequests: number
+  successfulResponses: number
+  averageConfidence: number
+  averageProcessingTime: number
+  userSatisfactionRate: number
+  commonIntents: Array<{ intent: string; count: number }>
+  period: string
 }

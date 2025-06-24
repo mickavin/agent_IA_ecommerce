@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
@@ -32,18 +32,18 @@ import {
   Eye,
   Settings,
   Sparkles,
-  Monitor,
-  Smartphone,
   Download,
-  Upload,
-  Zap,
-  Heart
-} from "lucide-react"
-import { ChatbotPersonality, ChatbotVisualConfig, ChatbotDataSource } from "@/lib/types"
+  Heart,
+  Smile,
+  Users,
+  Brain,
+  Target,
+  } from "lucide-react"
+import { ChatbotPersonality, ChatbotVisualConfig, ChatbotDataSource, ChatbotStatus } from "@/lib/types"
 import { ChatbotPreview } from "@/components/chatbot-preview"
-import { IntelligentChatbot } from "@/components/intelligent-chatbot"
 import { toast } from "sonner"
 import Link from "next/link"
+import { ChatbotService } from "@/lib/services/chatbot.service"
 
 // Palettes de couleurs prédéfinies
 const colorPalettes = [
@@ -144,7 +144,7 @@ export default function NewBotPage() {
   // État du formulaire
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
-  const [status, setStatus] = useState("En test")
+  const [status, setStatus] = useState<ChatbotStatus>("En test")
   
   const [personality, setPersonality] = useState<ChatbotPersonality>({
     tone: "Amical",
@@ -169,18 +169,19 @@ export default function NewBotPage() {
   const [dataSources, setDataSources] = useState<ChatbotDataSource[]>([
     { id: "1", type: "faq", name: "FAQ Générale", isEnabled: true, priority: 1 },
     { id: "2", type: "products", name: "Catalogue Produits", isEnabled: true, priority: 2 },
-    { id: "3", type: "orders", name: "Commandes", isEnabled: false, priority: 3 },
-    { id: "4", type: "policies", name: "Politiques", isEnabled: false, priority: 4 },
+    { id: "3", type: "orders", name: "Commandes", isEnabled: true, priority: 3 },
+    { id: "4", type: "policies", name: "Politiques", isEnabled: true, priority: 4 },
   ])
 
   // Configuration avancée
   const [advancedConfig, setAdvancedConfig] = useState({
     enableTypingIndicator: true,
     enableQuickReplies: true,
-    responseDelay: [1000],
+    responseDelay: 1000,
     enableEmojis: true,
     enableFileUpload: false,
-    maxConversationLength: [50],
+    enableReadReceipts: false,
+    maxConversationLength: 50,
     workingHours: {
       enabled: false,
       start: "09:00",
@@ -188,6 +189,7 @@ export default function NewBotPage() {
       offlineMessage: "Nous sommes actuellement fermés. Laissez-nous un message !"
     }
   })
+
 
   const applyTemplate = (templateName: string) => {
     const template = chatbotTemplates.find(t => t.name === templateName)
@@ -225,24 +227,28 @@ export default function NewBotPage() {
         toast.error("Le nom du chatbot est requis")
         return
       }
-
-      // Simulation de création avec API
+      console.log("newBotss")
+      // Préparation des données pour la création du chatbot (format DB)
       const newBot = {
         name,
         description,
         status,
+        is_default: false,
         personality,
-        visualConfig,
-        dataSources: dataSources.filter(ds => ds.isEnabled),
-        advancedConfig,
-        createdAt: new Date().toISOString()
+        visual_config: visualConfig,
+        data_sources: dataSources.filter(ds => ds.isEnabled),
+        conversations_count: 0,
+        avg_response_time: 0,
+        satisfaction_rate: 0,
       }
 
-      // Simulation d'appel API
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // Création du chatbot via le service
+      const createdBot = await ChatbotService.create(newBot)
       
-      toast.success("Chatbot créé avec succès !")
-      //router.push("/bots")
+      if (createdBot) {
+        toast.success("Chatbot créé avec succès !")
+        router.push("/bots")
+      }
     } catch (error) {
       toast.error("Erreur lors de la création du chatbot")
     } finally {
@@ -295,7 +301,7 @@ export default function NewBotPage() {
         </div>
       </PageHeader>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1">{/* lg:grid-cols-3 gap-6 */}
         {/* Configuration */}
         <div className="lg:col-span-2">
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -321,7 +327,7 @@ export default function NewBotPage() {
                       type="button"
                     >
                       <div className="font-medium text-sm">{template.name}</div>
-                      <div className="text-xs text-muted-foreground text-left">
+                      <div className={`text-xs text-left ${selectedTemplate === template.name ? "text-white" : "text-muted-foreground"}`}>
                         {template.description}
                       </div>
                     </Button>
@@ -352,7 +358,7 @@ export default function NewBotPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="status">Statut initial</Label>
-                    <Select value={status} onValueChange={setStatus}>
+                    <Select value={status} onValueChange={(value) => setStatus(value as ChatbotStatus)}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -377,11 +383,12 @@ export default function NewBotPage() {
               </CardContent>
             </Card>
 
-            <Tabs defaultValue="design" className="space-y-4">
+            <Tabs defaultValue="personality" className="space-y-4">
               <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="design">Design</TabsTrigger>
+                {/*<TabsTrigger value="design">Design</TabsTrigger>*/}
                 <TabsTrigger value="personality">Personnalité</TabsTrigger>
-                <TabsTrigger value="data">Sources</TabsTrigger>
+                <TabsTrigger value="data">Données</TabsTrigger>
+                <TabsTrigger value="behavior">Comportement</TabsTrigger>
                 <TabsTrigger value="advanced">Avancé</TabsTrigger>
               </TabsList>
 
@@ -554,110 +561,259 @@ export default function NewBotPage() {
               {/* Configuration de la personnalité */}
               <TabsContent value="personality">
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <MessageSquare className="h-5 w-5" />
-                      Personnalité du Chatbot
-                    </CardTitle>
-                    <CardDescription>
-                      Définissez le ton et le style de communication
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <Label>Ton de la conversation</Label>
-                        <Select 
-                          value={personality.tone} 
-                          onValueChange={(value: any) => setPersonality({...personality, tone: value})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Professionnel">Professionnel</SelectItem>
-                            <SelectItem value="Décontracté">Décontracté</SelectItem>
-                            <SelectItem value="Amical">Amical</SelectItem>
-                            <SelectItem value="Expert">Expert</SelectItem>
-                            <SelectItem value="Humoristique">Humoristique</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Bot className="h-5 w-5" />
+                    Personnalité du chatbot
+                  </CardTitle>
+                  <CardDescription>
+                    Définissez le ton et le style de communication
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Ton */}
+                  <div className="space-y-3">
+                    <Label>Ton de communication</Label>
+                    <Select 
+                      value={personality.tone} 
+                      onValueChange={(value: any) => setPersonality({...personality, tone: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Professionnel">
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4" />
+                            Professionnel
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Décontracté">
+                          <div className="flex items-center gap-2">
+                            <Smile className="h-4 w-4" />
+                            Décontracté
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Amical">
+                          <div className="flex items-center gap-2">
+                            <Heart className="h-4 w-4" />
+                            Amical
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Expert">
+                          <div className="flex items-center gap-2">
+                            <Brain className="h-4 w-4" />
+                            Expert
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="Humoristique">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="h-4 w-4" />
+                            Humoristique
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                      <div className="space-y-2">
-                        <Label>Formalité</Label>
-                        <Select 
-                          value={personality.formality} 
-                          onValueChange={(value: any) => setPersonality({...personality, formality: value})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Tutoiement">Tutoiement</SelectItem>
-                            <SelectItem value="Vouvoiement">Vouvoiement</SelectItem>
-                          </SelectContent>
-                        </Select>
+                  {/* Formalité */}
+                  <div className="space-y-3">
+                    <Label>Niveau de formalité</Label>
+                    <RadioGroup 
+                      value={personality.formality} 
+                      onValueChange={(value: any) => setPersonality({...personality, formality: value})}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="Tutoiement" id="tu" />
+                        <Label htmlFor="tu">Tutoiement (tu/te)</Label>
                       </div>
-
-                      <div className="space-y-2">
-                        <Label>Niveau de détail</Label>
-                        <Select 
-                          value={personality.verbosity} 
-                          onValueChange={(value: any) => setPersonality({...personality, verbosity: value})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Concis">Concis</SelectItem>
-                            <SelectItem value="Détaillé">Détaillé</SelectItem>
-                            <SelectItem value="Très détaillé">Très détaillé</SelectItem>
-                          </SelectContent>
-                        </Select>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="Vouvoiement" id="vous" />
+                        <Label htmlFor="vous">Vouvoiement (vous)</Label>
                       </div>
+                    </RadioGroup>
+                  </div>
 
-                      <div className="space-y-2">
-                        <Label>Empathie</Label>
-                        <Select 
-                          value={personality.empathy} 
-                          onValueChange={(value: any) => setPersonality({...personality, empathy: value})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Faible">Faible</SelectItem>
-                            <SelectItem value="Moyenne">Moyenne</SelectItem>
-                            <SelectItem value="Élevée">Élevée</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
+                  {/* Verbosité */}
+                  <div className="space-y-3">
+                    <Label>Niveau de détail des réponses</Label>
+                    <Select 
+                      value={personality.verbosity} 
+                      onValueChange={(value: any) => setPersonality({...personality, verbosity: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Concis">Concis - Réponses courtes</SelectItem>
+                        <SelectItem value="Détaillé">Détaillé - Réponses équilibrées</SelectItem>
+                        <SelectItem value="Très détaillé">Très détaillé - Réponses complètes</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
+                  {/* Empathie */}
+                  <div className="space-y-3">
+                    <Label>Niveau d'empathie</Label>
                     <div className="space-y-2">
-                      <Label>Proactivité</Label>
-                      <Select 
-                        value={personality.proactivity} 
-                        onValueChange={(value: any) => setPersonality({...personality, proactivity: value})}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Réactif">Réactif</SelectItem>
-                          <SelectItem value="Proactif">Proactif</SelectItem>
-                          <SelectItem value="Très proactif">Très proactif</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-sm text-muted-foreground">
-                        Détermine si le chatbot propose spontanément de l'aide ou attend les questions
-                      </p>
+                      <Slider
+                        value={[
+                          personality.empathy === "Faible" ? 1 : 
+                          personality.empathy === "Moyenne" ? 2 : 3
+                        ]}
+                        onValueChange={(value) => {
+                          const empathyLevel = value[0] === 1 ? "Faible" : 
+                                             value[0] === 2 ? "Moyenne" : "Élevée"
+                          setPersonality({...personality, empathy: empathyLevel})
+                        }}
+                        max={3}
+                        min={1}
+                        step={1}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>Faible</span>
+                        <span>Moyenne</span>
+                        <span>Élevée</span>
+                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                  </div>
 
+                  {/* Proactivité */}
+                  <div className="space-y-3">
+                    <Label>Proactivité</Label>
+                    <Select 
+                      value={personality.proactivity} 
+                      onValueChange={(value: any) => setPersonality({...personality, proactivity: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Réactif">Réactif - Répond seulement aux questions</SelectItem>
+                        <SelectItem value="Proactif">Proactif - Propose des suggestions</SelectItem>
+                        <SelectItem value="Très proactif">Très proactif - Guide activement</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+              </TabsContent>
+              <TabsContent value="behavior" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="h-5 w-5" />
+                    Comportement et fonctionnalités
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Options de comportement */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label>Indicateur de frappe</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Afficher "en train d'écrire..." pendant les réponses
+                        </p>
+                      </div>
+                      <Switch
+                        checked={advancedConfig.enableTypingIndicator}
+                        onCheckedChange={(checked) => 
+                          setAdvancedConfig(prev => ({ ...prev, enableTypingIndicator: checked }))
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label>Accusés de lecture</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Marquer les messages comme lus
+                        </p>
+                      </div>
+                      <Switch
+                        checked={advancedConfig.enableReadReceipts}
+                        onCheckedChange={(checked) => 
+                          setAdvancedConfig(prev => ({ ...prev, enableReadReceipts: checked }))
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label>Réponses rapides</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Boutons de réponses suggérées
+                        </p>
+                      </div>
+                      <Switch
+                        checked={advancedConfig.enableQuickReplies}
+                        onCheckedChange={(checked) => 
+                          setAdvancedConfig(prev => ({ ...prev, enableQuickReplies: checked }))
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label>Emojis</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Autoriser l'utilisation d'emojis
+                        </p>
+                      </div>
+                      <Switch
+                        checked={advancedConfig.enableEmojis}
+                        onCheckedChange={(checked) => 
+                          setAdvancedConfig(prev => ({ ...prev, enableEmojis: checked }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Délai de réponse */}
+                  <div className="space-y-3">
+                    <Label>Délai de simulation de réponse</Label>
+                    <div className="space-y-2">
+                      <Slider
+                        value={[advancedConfig.responseDelay]}
+                        onValueChange={(value) => 
+                          setAdvancedConfig(prev => ({ ...prev, responseDelay: value[0] }))
+                        }
+                        max={5000}
+                        min={500}
+                        step={250}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>0.5s</span>
+                        <span className="font-medium">{advancedConfig.responseDelay}ms</span>
+                        <span>5s</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Longueur max des conversations */}
+                  <div className="space-y-2">
+                    <Label>Nombre maximum de messages par conversation</Label>
+                    <Input
+                      type="number"
+                      min={10}
+                      max={200}
+                      value={advancedConfig.maxConversationLength}
+                      onChange={(e) => 
+                        setAdvancedConfig(prev => ({ 
+                          ...prev, 
+                          maxConversationLength: parseInt(e.target.value) || 50 
+                        }))
+                      }
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
               {/* Sources de données */}
               <TabsContent value="data">
                 <Card>
@@ -758,27 +914,27 @@ export default function NewBotPage() {
                       <div className="space-y-2">
                         <Label>Délai de réponse (ms)</Label>
                         <Slider
-                          value={advancedConfig.responseDelay}
-                          onValueChange={(value) => setAdvancedConfig(prev => ({...prev, responseDelay: value}))}
+                          value={[advancedConfig.responseDelay]}
+                          onValueChange={(value) => setAdvancedConfig(prev => ({...prev, responseDelay: value[0]}))}
                           max={3000}
                           min={500}
                           step={100}
                           className="w-full"
                         />
-                        <p className="text-sm text-muted-foreground">Actuel: {advancedConfig.responseDelay[0]}ms</p>
+                        <p className="text-sm text-muted-foreground">Actuel: {advancedConfig.responseDelay}ms</p>
                       </div>
 
                       <div className="space-y-2">
                         <Label>Longueur max conversation</Label>
                         <Slider
-                          value={advancedConfig.maxConversationLength}
-                          onValueChange={(value) => setAdvancedConfig(prev => ({...prev, maxConversationLength: value}))}
+                          value={[advancedConfig.maxConversationLength]}
+                          onValueChange={(value) => setAdvancedConfig(prev => ({...prev, maxConversationLength: value[0]}))}
                           max={100}
                           min={10}
                           step={5}
                           className="w-full"
                         />
-                        <p className="text-sm text-muted-foreground">Actuel: {advancedConfig.maxConversationLength[0]} messages</p>
+                        <p className="text-sm text-muted-foreground">Actuel: {advancedConfig.maxConversationLength} messages</p>
                       </div>
                     </div>
 
@@ -865,9 +1021,8 @@ export default function NewBotPage() {
             </div>
           </form>
         </div>
-
-        {/* Prévisualisation améliorée */}
-        <div className="lg:col-span-1">
+        
+        {/*<div className="lg:col-span-1">
           <Card className="sticky top-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -879,7 +1034,6 @@ export default function NewBotPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Sélecteur de device */}
               <div className="flex gap-2">
                 <Button
                   variant={previewDevice === "desktop" ? "default" : "outline"}
@@ -901,7 +1055,6 @@ export default function NewBotPage() {
                 </Button>
               </div>
 
-              {/* Aperçu du chatbot avec personnalisation */}
               <div className={`${
                 previewDevice === "mobile" ? "w-full max-w-sm mx-auto" : "w-full"
               } ${previewDevice === "mobile" ? "h-96" : "h-[600px]"} relative border rounded-lg overflow-hidden`}>
@@ -916,7 +1069,6 @@ export default function NewBotPage() {
                 </div>
               </div>
 
-              {/* Test interactif */}
               <div className="p-4 bg-muted/30 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
                   <Zap className="h-4 w-4" />
@@ -936,7 +1088,6 @@ export default function NewBotPage() {
                 </div>
               </div>
 
-              {/* Statistiques de config */}
               <div className="space-y-3">
                 <Separator />
                 <div className="text-xs space-y-1">
@@ -959,7 +1110,7 @@ export default function NewBotPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </div>*/}
       </div>
     </div>
   )

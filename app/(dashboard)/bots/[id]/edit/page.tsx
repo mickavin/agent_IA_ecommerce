@@ -72,6 +72,8 @@ import { ChatbotPreview } from "@/components/chatbot-preview"
 import { Chatbot, ChatbotPersonality, ChatbotVisualConfig, ChatbotDataSource } from "@/lib/types"
 import { toast } from "sonner"
 import { Progress } from "@/components/ui/progress"
+import { ChatbotService } from "@/lib/services/chatbot.service"
+
 
 // Palettes de couleurs prédéfinies
 const colorPalettes = [
@@ -154,6 +156,7 @@ export default function EditBotPage() {
     name: "Assistant Younzee",
     description: "Chatbot principal pour l'assistance clientèle",
     status: "En test",
+    isDefault: false,
     createdAt: "2024-01-15",
     updatedAt: "2024-01-20",
     personality: {
@@ -217,6 +220,34 @@ export default function EditBotPage() {
       offlineMessage: "Nous sommes actuellement fermés. Laissez-nous un message !"
     }
   })
+  const [dataSources, setDataSources] = useState<ChatbotDataSource[]>([
+    { id: "1", type: "faq", name: "FAQ Générale", isEnabled: true, priority: 1 },
+    { id: "2", type: "products", name: "Catalogue Produits", isEnabled: true, priority: 2 },
+    { id: "3", type: "orders", name: "Commandes", isEnabled: true, priority: 3 },
+    { id: "4", type: "policies", name: "Politiques", isEnabled: true, priority: 4 },
+  ])
+
+  const updateDataSource = (id: string, updates: Partial<ChatbotDataSource>) => {
+    setDataSources(prev => prev.map(source => source.id === id ? { ...source, ...updates } : source))
+  }
+
+  useEffect(() => {
+    const fetchBotConfig = async () => {
+      try {
+        const data = await ChatbotService.getById(botId)
+        
+        if (data) {
+          setBotConfig(data)
+        } else {
+          toast.error("Chatbot non trouvé")
+        }
+      } catch (error) {
+        console.error('Erreur lors de la récupération du chatbot:', error)
+        toast.error("Erreur lors du chargement du chatbot")
+      }
+    }
+    fetchBotConfig()
+  }, [botId])
 
   const updateVisualConfig = (key: keyof ChatbotVisualConfig, value: any) => {
     setBotConfig(prev => ({
@@ -254,11 +285,28 @@ export default function EditBotPage() {
   const handleSave = async () => {
     setIsLoading(true)
     try {
-      // Simulation de sauvegarde
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      toast.success("Configuration du chatbot sauvegardée avec succès !")
-      //router.push(`/bots/${botId}`)
+      // Conversion du format UI vers le format DB pour la mise à jour
+      const updateData = {
+        name: botConfig.name,
+        description: botConfig.description,
+        status: botConfig.status,
+        is_default: botConfig.isDefault,
+        personality: botConfig.personality,
+        visual_config: botConfig.visualConfig,
+        data_sources: botConfig.dataSources,
+        conversations_count: botConfig.conversationsCount,
+        avg_response_time: botConfig.avgResponseTime,
+        satisfaction_rate: botConfig.satisfactionRate
+      }
+      
+      const updatedBot = await ChatbotService.update(botId, updateData)
+      
+      if (updatedBot) {
+        setBotConfig(updatedBot)
+        toast.success("Configuration du chatbot sauvegardée avec succès !")
+      }
     } catch (error) {
+      console.error('Erreur lors de la sauvegarde:', error)
       toast.error("Erreur lors de la sauvegarde")
     } finally {
       setIsLoading(false)
@@ -306,15 +354,16 @@ export default function EditBotPage() {
         </div>
       </PageHeader>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {/* Configuration */}
         <div className="space-y-6">
-          <Tabs defaultValue="design" className="w-full">
+          <Tabs defaultValue="personality" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="design">Design</TabsTrigger>
+              {/*<TabsTrigger value="design">Design</TabsTrigger>*/}
               <TabsTrigger value="personality">Personnalité</TabsTrigger>
-              <TabsTrigger value="behavior">Comportement</TabsTrigger>
-              <TabsTrigger value="advanced">Avancé</TabsTrigger>
+                <TabsTrigger value="data">Données</TabsTrigger>
+                <TabsTrigger value="behavior">Comportement</TabsTrigger>
+                <TabsTrigger value="advanced">Avancé</TabsTrigger>
             </TabsList>
 
             {/* Onglet Design */}
@@ -623,7 +672,49 @@ export default function EditBotPage() {
                 </CardContent>
               </Card>
             </TabsContent>
-
+              {/* Sources de données */}
+              <TabsContent value="data">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Database className="h-5 w-5" />
+                      Sources de Données IA
+                    </CardTitle>
+                    <CardDescription>
+                      Configurez les sources d'information du chatbot
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {dataSources.map((source) => (
+                        <div key={source.id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Switch
+                              checked={source.isEnabled}
+                              onCheckedChange={(checked) => updateDataSource(source.id, { isEnabled: checked })}
+                            />
+                            <div>
+                              <div className="font-medium">{source.name}</div>
+                              <div className="text-sm text-muted-foreground">Type: {source.type}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Label className="text-sm">Priorité:</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              max="10"
+                              value={source.priority}
+                              onChange={(e) => updateDataSource(source.id, { priority: parseInt(e.target.value) })}
+                              className="w-16"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
             {/* Onglet Comportement */}
             <TabsContent value="behavior" className="space-y-6">
               <Card>
@@ -885,7 +976,7 @@ export default function EditBotPage() {
         </div>
 
         {/* Aperçu */}
-        <div className="space-y-6">
+        {/*<div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -897,7 +988,6 @@ export default function EditBotPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Sélecteur de device */}
               <div className="flex gap-2 mb-4">
                 <Button
                   variant={previewDevice === "desktop" ? "default" : "outline"}
@@ -925,7 +1015,6 @@ export default function EditBotPage() {
                 </Button>
               </div>
 
-              {/* Aperçu du chatbot */}
               <div className={`relative border rounded-lg overflow-hidden ${
                 previewDevice === "mobile" ? "w-full max-w-sm mx-auto" :
                 previewDevice === "tablet" ? "w-full max-w-md mx-auto" :
@@ -942,7 +1031,6 @@ export default function EditBotPage() {
                 </div>
               </div>
 
-              {/* Actions rapides */}
               <div className="flex gap-2 mt-4">
                 <Dialog>
                   <DialogTrigger asChild>
@@ -977,7 +1065,6 @@ export default function EditBotPage() {
             </CardContent>
           </Card>
 
-          {/* Statistiques de configuration */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1018,7 +1105,7 @@ export default function EditBotPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </div>*/}
       </div>
     </div>
   )

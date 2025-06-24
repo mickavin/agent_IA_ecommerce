@@ -34,7 +34,7 @@ console.log("Younzee Chatbot Generator - Starting initialization...");
     showBranding: true,
     autoOpen: false,
     soundEnabled: true,
-    apiEndpoint: window.location.origin + '/api/chat',
+    apiEndpoint: window.location.origin + '/api/ia',
     // Propriétés manquantes ajoutées
     showWelcomeMessage: true,
     enableTypingIndicator: true,
@@ -601,60 +601,40 @@ console.log("Younzee Chatbot Generator - Starting initialization...");
 
     async sendMessage() {
       const message = this.inputField.value.trim();
-      if (!message || this.isTyping) return;
-
-      // Limiter la longueur du message
-      if (message.length > 2000) {
-        this.addSystemMessage('Message trop long. Veuillez le raccourcir (max 2000 caractères).');
-        return;
-      }
-
-      // Marquer le début de la conversation
-      if (!this.conversationStarted) {
-        this.conversationStarted = true;
-        this.trackEvent('conversation_start');
-      }
+      if (!message) return;
 
       // Ajouter le message utilisateur
-      const userMessage = {
+      this.addMessage({
         id: `user-${Date.now()}`,
         content: message,
         type: 'user',
         timestamp: new Date().toISOString()
-      };
+      });
 
-      this.addMessage(userMessage);
       this.inputField.value = '';
-      this.isTyping = true;
-      
-      if (this.config.enableTypingIndicator) {
       this.showTypingIndicator();
-      }
-
-      // Tracking de l'interaction
-      this.trackEvent('message_sent', { messageLength: message.length });
 
       try {
-        const response = await fetch(this.config.apiEndpoint || 'https://default-api-endpoint.com/chat', {
+        // Utilisation de la nouvelle API IA Master
+        const response = await fetch(this.config.apiEndpoint || '/api/ia', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             message: message,
+            userId: this.userId,
             context: {
-              userId: this.userId,
-              sessionId: this.sessionId,
-              userPreferences: this.getUserPreferences(),
               conversationHistory: this.getConversationHistory(),
+              userPreferences: this.getUserPreferences(),
               deviceInfo: {
                 isMobile: this.isMobile,
                 userAgent: navigator.userAgent,
                 language: navigator.language,
                 referrer: document.referrer
-              }
-            },
-            chatbotConfig: this.getChatbotConfig()
+              },
+              widget: true // Indique que c'est un appel depuis le widget
+            }
           })
         });
 
@@ -666,34 +646,51 @@ console.log("Younzee Chatbot Generator - Starting initialization...");
         
         if (data.success) {
           const botMessage = {
-            id: data.response.id,
-            content: data.response.content,
+            id: data.data.id,
+            content: data.data.content,
             type: 'bot',
-            timestamp: data.response.timestamp,
-            metadata: data.response.metadata
+            timestamp: data.timestamp,
+            metadata: {
+              intent: data.data.metadata?.intent,
+              confidence: data.data.confidence,
+              aiType: data.data.aiType,
+              processingTime: data.data.metadata?.processingTime
+            }
           };
           
           this.addMessage(botMessage);
           this.playNotificationSound();
           this.trackEvent('message_received', { 
-            responseTime: data.response.metadata?.responseTime,
-            confidence: data.response.metadata?.confidence
+            responseTime: data.data.metadata?.processingTime,
+            confidence: data.data.confidence,
+            aiType: data.data.aiType,
+            intent: data.data.metadata?.intent
           });
         } else {
           throw new Error(data.error || 'Erreur inconnue');
         }
+
       } catch (error) {
-        console.error('Erreur envoi message:', error);
+        console.error('Erreur chatbot widget:', error);
+        
+        // Message d'erreur de fallback
         this.addMessage({
           id: `error-${Date.now()}`,
-          content: this.config.errorMessage,
+          content: this.config.errorMessage || "😅 Désolé, j'ai rencontré un problème technique. Pouvez-vous réessayer ?",
           type: 'bot',
           timestamp: new Date().toISOString(),
-          isError: true
+          metadata: {
+            intent: 'error',
+            confidence: 0,
+            aiType: 'error'
+          }
         });
-        this.trackEvent('message_error', { error: error.message });
+        
+        this.trackEvent('message_error', { 
+          error: error.message,
+          userMessage: message
+        });
       } finally {
-        this.isTyping = false;
         this.hideTypingIndicator();
       }
     }
