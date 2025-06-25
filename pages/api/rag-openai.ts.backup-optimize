@@ -1,0 +1,436 @@
+import { NextApiRequest, NextApiResponse } from 'next'
+import { OpenAIEmbeddings } from '@langchain/openai'
+import { MemoryVectorStore } from 'langchain/vectorstores/memory'
+import { Document } from '@langchain/core/documents'
+import Papa from 'papaparse'
+import fs from 'fs'
+
+/**
+ * API RAG complète avec OpenAI Embeddings
+ * Usage: GET /api/rag-openai?q=t-shirt&k=5&type=semantic
+ *        POST /api/rag-openai { "query": "sweat bleu", "k": 3, "searchType": "hybrid" }
+ */
+
+interface ProductDocument {
+  id: string
+  content: string
+  metadata: {
+    title: string
+    description: string
+    price: number
+    category: string
+    colors: string[]
+    sizes: string[]
+    handle: string
+    status: string
+    availableForSale: boolean
+    [key: string]: any
+  }
+}
+
+interface RAGSearchResult {
+  document: ProductDocument
+  score: number
+  relevance: 'high' | 'medium' | 'low'
+  searchType: 'semantic' | 'keyword' | 'hybrid'
+}
+
+/**
+ * Service RAG avec OpenAI
+ */
+class OpenAIRAGService {
+  private embeddings: OpenAIEmbeddings
+  private vectorStore: MemoryVectorStore | null = null
+  private documents: ProductDocument[] = []
+  private isInitialized = false
+
+  constructor() {
+    this.embeddings = new OpenAIEmbeddings({
+      model: 'text-embedding-3-small',
+      apiKey: process.env.OPENAI_API_KEY,
+      batchSize: 100
+    })
+  }
+
+  async initialize(): Promise<void> {
+    if (this.isInitialized) return
+
+    try {
+      console.log('🚀 Initialisation RAG OpenAI...')
+      await this.loadCSVData()
+      await this.createVectorStore()
+      this.isInitialized = true
+      console.log(`✅ RAG initialisé: ${this.documents.length} produits`)
+    } catch (error) {
+      console.error('❌ Erreur initialisation:', error)
+      throw error
+    }
+  }
+
+  private async loadCSVData(): Promise<void> {
+    this.documents = []
+    const csvFiles = ['data/test_sample.csv', 'files/produits_final.csv']
+
+    for (const csvPath of csvFiles) {
+      try {
+        if (fs.existsSync(csvPath)) {
+          console.log(`📄 Chargement ${csvPath}...`)
+          const csvContent = fs.readFileSync(csvPath, 'utf8')
+          const documents = await this.parseCSV(csvContent, csvPath)
+          this.documents.push(...documents)
+          
+          // Limiter pour éviter timeouts
+          if (this.documents.length >= 500) break
+        }
+      } catch (error) {
+        console.error(`Erreur ${csvPath}:`, error)
+      }
+    }
+
+    this.documents = this.deduplicateDocuments(this.documents)
+  }
+
+  private async parseCSV(csvContent: string, source: string): Promise<ProductDocument[]> {
+    return new Promise((resolve, reject) => {
+      Papa.parse(csvContent, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results: any) => {
+          try {
+            const documents = results.data
+              .map((row: any, index: number) => {
+                const title = row.product_title || row.title
+                if (!title || !row.price) return null
+
+                const description = row.description || ''
+                const price = parseFloat(row.price) || 0
+                const category = row.type_produit_classifié || 'Non classifié'
+                
+                const colors = this.extractArray(row.couleur || row.couleur_younzee)
+                const sizes = this.extractArray(row.taille || row.variant_title)
+
+                const content = this.createRichContent({
+                  title, description, category, colors, sizes, price
+                })
+
+                return {
+                  id: `${source}_${index}`,
+                  content,
+                  metadata: {
+                    title,
+                    description,
+                    price,
+                    category,
+                    colors,
+                    sizes,
+                    handle: row.handle || `product-${index}`,
+                    status: row.status || 'ACTIVE',
+                    availableForSale: row.availableForSale !== 'False',
+                    source
+                  }
+                }
+              })
+              .filter(Boolean)
+            
+            resolve(documents)
+          } catch (error) {
+            reject(error)
+          }
+        },
+        error: reject
+      })
+    })
+  }
+
+  private createRichContent(product: any): string {
+    const parts = [
+      `Produit: ${product.title}`,
+      product.description ? `Description: ${product.description}` : '',
+      `Catégorie: ${product.category}`,
+      product.colors?.length ? `Couleurs: ${product.colors.join(', ')}` : '',
+      product.sizes?.length ? `Tailles: ${product.sizes.join(', ')}` : '',
+      `Prix: ${product.price}€`
+    ]
+    return parts.filter(Boolean).join(' | ')
+  }
+
+  private extractArray(value: any): string[] {
+    if (!value) return []
+    if (Array.isArray(value)) return value
+    return String(value).split(/[,;]\s*/).filter(v => v.trim())
+  }
+
+  private deduplicateDocuments(docs: ProductDocument[]): ProductDocument[] {
+    const seen = new Set()
+    return docs.filter(doc => {
+      const key = `${doc.metadata.title}_${doc.metadata.price}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }
+
+  private async createVectorStore(): Promise<void> {
+    if (this.documents.length === 0) {
+      throw new Error('Aucun document à vectoriser')
+    }
+
+    const langchainDocs = this.documents.map(doc => new Document({
+      pageContent: doc.content,
+      metadata: { ...doc.metadata, id: doc.id }
+    }))
+
+    console.log(`🔄 Création embeddings pour ${langchainDocs.length} documents...`)
+
+    // Traitement par batches
+    const batchSize = 50
+    if (langchainDocs.length <= batchSize) {
+      this.vectorStore = await MemoryVectorStore.fromDocuments(
+        langchainDocs,
+        this.embeddings
+      )
+    } else {
+      const firstBatch = langchainDocs.slice(0, batchSize)
+      this.vectorStore = await MemoryVectorStore.fromDocuments(
+        firstBatch,
+        this.embeddings
+      )
+
+      for (let i = batchSize; i < langchainDocs.length; i += batchSize) {
+        const batch = langchainDocs.slice(i, i + batchSize)
+        await this.vectorStore.addDocuments(batch)
+        console.log(`📊 Batch ${Math.floor(i/batchSize) + 1}...`)
+      }
+    }
+
+    console.log('✅ Vector store créé')
+  }
+
+  async search(query: string, options: any = {}): Promise<RAGSearchResult[]> {
+    if (!this.isInitialized) {
+      await this.initialize()
+    }
+
+    if (!this.vectorStore) {
+      throw new Error('Vector store non initialisé')
+    }
+
+    const k = Math.min(options.k || 5, 20)
+    const searchType = options.searchType || 'semantic'
+
+    try {
+      let results: RAGSearchResult[] = []
+
+      if (searchType === 'semantic') {
+        results = await this.semanticSearch(query, k)
+      } else if (searchType === 'keyword') {
+        results = await this.keywordSearch(query, k)
+      } else {
+        results = await this.hybridSearch(query, k)
+      }
+
+      return results.sort((a, b) => b.score - a.score).slice(0, k)
+    } catch (error) {
+      console.error('Erreur recherche:', error)
+      throw error
+    }
+  }
+
+  private async semanticSearch(query: string, k: number): Promise<RAGSearchResult[]> {
+    const results = await this.vectorStore!.similaritySearchWithScore(query, k)
+    
+    return results.map(([doc, score]) => {
+      const document = this.documents.find(d => d.id === doc.metadata.id)!
+      return {
+        document,
+        score: Math.max(0, Math.min(1, score)),
+        relevance: score >= 0.8 ? 'high' : score >= 0.6 ? 'medium' : 'low',
+        searchType: 'semantic' as const
+      }
+    })
+  }
+
+  private async keywordSearch(query: string, k: number): Promise<RAGSearchResult[]> {
+    const queryLower = query.toLowerCase()
+    const results: RAGSearchResult[] = []
+
+    for (const doc of this.documents) {
+      const contentLower = doc.content.toLowerCase()
+      const titleLower = doc.metadata.title.toLowerCase()
+      
+      let score = 0
+      const words = queryLower.split(/\s+/)
+      
+      for (const word of words) {
+        if (titleLower.includes(word)) score += 0.8
+        if (contentLower.includes(word)) score += 0.3
+      }
+
+      if (score > 0) {
+        results.push({
+          document: doc,
+          score: Math.min(score / words.length, 1.0),
+          relevance: score >= 0.8 ? 'high' : score >= 0.6 ? 'medium' : 'low',
+          searchType: 'keyword'
+        })
+      }
+    }
+
+    return results.sort((a, b) => b.score - a.score).slice(0, k)
+  }
+
+  private async hybridSearch(query: string, k: number): Promise<RAGSearchResult[]> {
+    // Récupérer plus de résultats pour un meilleur mélange
+    const searchK = Math.min(k * 2, 50)
+    
+    const [semantic, keyword] = await Promise.all([
+      this.semanticSearch(query, searchK),
+      this.keywordSearch(query, searchK)
+    ])
+
+    const combined = new Map<string, RAGSearchResult>()
+
+    // Ajouter les résultats sémantiques (pondération 70%)
+    for (const result of semantic) {
+      const hybridScore = result.score * 0.7
+      combined.set(result.document.id, {
+        ...result,
+        score: hybridScore,
+        relevance: this.getRelevanceFromScore(hybridScore),
+        searchType: 'hybrid'
+      })
+    }
+
+    // Combiner avec les résultats par mots-clés (pondération 30%)
+    for (const result of keyword) {
+      const existing = combined.get(result.document.id)
+      if (existing) {
+        // Combiner les scores intelligemment
+        const keywordContribution = result.score * 0.3
+        const finalScore = Math.min(existing.score + keywordContribution, 1.0)
+        existing.score = finalScore
+        existing.relevance = this.getRelevanceFromScore(finalScore)
+      } else {
+        const hybridScore = result.score * 0.3
+        combined.set(result.document.id, {
+          ...result,
+          score: hybridScore,
+          relevance: this.getRelevanceFromScore(hybridScore),
+          searchType: 'hybrid'
+        })
+      }
+    }
+
+    // TRI PAR SCORE DÉCROISSANT + LIMITATION
+    return Array.from(combined.values())
+      .sort((a, b) => b.score - a.score)
+      .slice(0, k)
+  }
+
+  // Fonction utilitaire pour recalculer la relevance
+  private getRelevanceFromScore(score: number): 'high' | 'medium' | 'low' {
+    return score >= 0.7 ? 'high' : score >= 0.4 ? 'medium' : 'low'
+  }
+
+  getStats() {
+    return {
+      isInitialized: this.isInitialized,
+      documentsLoaded: this.documents.length,
+      hasVectorStore: !!this.vectorStore,
+      embeddingModel: 'text-embedding-3-small'
+    }
+  }
+}
+
+// Instance globale
+let ragService: OpenAIRAGService | null = null
+
+function getRAGService(): OpenAIRAGService {
+  if (!ragService) {
+    ragService = new OpenAIRAGService()
+  }
+  return ragService
+}
+
+/**
+ * Handler API
+ */
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end()
+  }
+
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).json({ error: 'Méthode non autorisée' })
+  }
+
+  // Vérification OpenAI
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(500).json({
+      success: false,
+      error: 'Clé API OpenAI manquante. Ajoutez OPENAI_API_KEY dans .env.local'
+    })
+  }
+
+  const startTime = Date.now()
+
+  try {
+    // Paramètres
+    const query = req.method === 'GET' 
+      ? (req.query.q as string) || 't-shirt'
+      : req.body?.query || 't-shirt'
+
+    const k = req.method === 'GET'
+      ? Math.min(parseInt(req.query.k as string) || 5, 20)
+      : Math.min(req.body?.k || 5, 20)
+
+    const searchType = req.method === 'GET'
+      ? (req.query.type as string) || 'hybrid'
+      : req.body?.searchType || 'hybrid'
+
+    console.log(`🔍 RAG OpenAI Query: "${query}", k: ${k}, type: ${searchType}`)
+
+    // Service RAG
+    const service = getRAGService()
+    const results = await service.search(query, { k, searchType })
+    const stats = service.getStats()
+
+    const searchTime = Date.now() - startTime
+
+    // Réponse
+    return res.status(200).json({
+      success: true,
+      data: {
+        query,
+        results,
+        totalFound: results.length,
+        searchTime,
+        searchType,
+        embeddingModel: 'text-embedding-3-small'
+      },
+      metadata: {
+        documentsLoaded: stats.documentsLoaded,
+        vectorStoreCreated: stats.hasVectorStore,
+        openaiConfigured: true
+      }
+    })
+
+  } catch (error: any) {
+    console.error('❌ Erreur RAG OpenAI:', error)
+
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Erreur interne',
+      metadata: {
+        documentsLoaded: 0,
+        vectorStoreCreated: false,
+        openaiConfigured: !!process.env.OPENAI_API_KEY
+      }
+    })
+  }
+} 
