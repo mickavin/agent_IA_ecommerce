@@ -78,8 +78,14 @@ class OpenAIRAGService {
   }
 
   private async loadCSVData(): Promise<void> {
+    // ✅ Réinitialisation pour éviter les doublons lors des rechargements
     this.documents = []
-    const csvFiles = ['data/test_sample.csv', 'files/produits_final.csv']
+    
+    const csvFiles = [
+      'files/produits_final.csv',
+      'data/set_chatbot.csv',
+      'data/test_sample.csv'
+    ]
 
     for (const csvPath of csvFiles) {
       try {
@@ -88,16 +94,20 @@ class OpenAIRAGService {
           const csvContent = fs.readFileSync(csvPath, 'utf8')
           const documents = await this.parseCSV(csvContent, csvPath)
           this.documents.push(...documents)
+          console.log(`✅ ${csvPath}: ${documents.length} documents chargés`)
           
-          // Limiter pour éviter timeouts
-          if (this.documents.length >= 2000) break
+          // ✅ SUPPRESSION de la limite de 2000 pour lire TOUS les documents
+          // Anciennement: if (this.documents.length >= 2000) break
         }
       } catch (error) {
         console.error(`Erreur ${csvPath}:`, error)
       }
     }
 
-    this.documents = this.deduplicateDocuments(this.documents)
+    console.log(`📊 Total documents avant déduplication: ${this.documents.length}`)
+    // ✅ SUPPRESSION DE LA DÉDUPLICATION - Garder tous les documents
+    // this.documents = this.deduplicateDocuments(this.documents)  
+    console.log(`📊 Total documents conservés: ${this.documents.length} (déduplication désactivée)`)
   }
 
   private async parseCSV(csvContent: string, source: string): Promise<ProductDocument[]> {

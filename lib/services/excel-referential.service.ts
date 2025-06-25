@@ -146,12 +146,34 @@ export class ExcelReferentialService {
 
     try {
       const workbook = XLSX.readFile(filePath)
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]]
-      const jsonData = XLSX.utils.sheet_to_json(worksheet)
+      const allData: T[] = []
+      let totalRows = 0
       
-      return jsonData.map(mapper).filter((item: any) => 
-        item.name || item.label
-      )
+      console.log(`📋 Fichier: ${filePath}`)
+      console.log(`📊 Feuilles disponibles: ${workbook.SheetNames.join(', ')}`)
+      
+      // ✅ Lire TOUTES les feuilles au lieu de seulement la première
+      for (const sheetName of workbook.SheetNames) {
+        const worksheet = workbook.Sheets[sheetName]
+        const jsonData = XLSX.utils.sheet_to_json(worksheet)
+        
+        if (jsonData.length > 0) {
+          console.log(`📄 Feuille "${sheetName}": ${jsonData.length} lignes`)
+          
+          const mappedData = jsonData
+            .map((row, index) => mapper(row, totalRows + index))
+            .filter((item: any) => item.name || item.label)
+          
+          allData.push(...mappedData)
+          totalRows += jsonData.length
+        } else {
+          console.log(`⚠️ Feuille "${sheetName}": Vide`)
+        }
+      }
+      
+      console.log(`✅ Total extrait: ${allData.length}/${totalRows} éléments valides`)
+      return allData
+      
     } catch (error) {
       console.error(`❌ Erreur lecture ${filePath}:`, error)
       return []
@@ -240,7 +262,7 @@ export class ExcelReferentialService {
     // 3️⃣ Analyse par LOV
     const lovMatches = this.analyzeLOV(data.listOfValues, words, queryLower)
     
-    // 4️⃣ Détermination de la catégorie principale
+    // 4️⃣ Détermination de la catégorie principale avec DÉTAILS DE CORRESPONDANCE
     const categoryAnalysis = this.determinePrimaryCategory(typeMatches, hierarchyMatches, lovMatches)
     
     console.log(`📊 Catégorie détectée: "${categoryAnalysis.detectedCategory}" (confiance: ${categoryAnalysis.confidence.toFixed(2)})`)
@@ -248,52 +270,96 @@ export class ExcelReferentialService {
     return categoryAnalysis
   }
 
-  // ✅ Analyse des types de produits
+  // ✅ Analyse des types de produits avec HIÉRARCHIE DE CORRESPONDANCE
+  // Nom > Catégorie > Taille > Couleur > Groupe/Hiérarchie > Partiel > Mots-clés
   private analyzeProductTypes(types: ProductType[], words: string[], query: string) {
     const matches = []
     
     for (const type of types) {
       let score = 0
       let matches_count = 0
+      const details = []
       
-      // Correspondance exacte nom
+      // 🥇 1. NOM - Priorité maximale (2.0 points)
       if (query.includes(type.name.toLowerCase())) {
-        score += 1.0
+        score += 2.0
         matches_count++
+        details.push(`Nom exact: +2.0`)
       }
       
-      // Correspondance partielle nom
+      // 🥈 2. CATÉGORIE - Priorité élevée (1.5 points)  
+      if (type.category && query.includes(type.category.toLowerCase())) {
+        score += 2.0
+        matches_count++
+        details.push(`Catégorie: +2.0`)
+      }
+      
+      // 🥉 3. TAILLE - Priorité moyenne-élevée (1.2 points)
+      const sizeWords = ['xs', 's', 'm', 'l', 'xl', 'xxl', '36', '38', '40', '42', '44', '46', '48', '50']
       for (const word of words) {
-        if (type.name.toLowerCase().includes(word)) {
-          score += 0.7
+        if (sizeWords.includes(word.toLowerCase())) {
+          score += 2.0
           matches_count++
+          details.push(`Taille "${word}": +2.0`)
+          break // Une seule taille par analyse
         }
       }
       
-      // Correspondance catégorie
+      // 🏅 4. COULEUR - Priorité moyenne (1.0 point)
+      const colorWords = ['rouge', 'red', 'bleu', 'blue', 'vert', 'green', 'noir', 'black', 'blanc', 'white', 
+                         'jaune', 'yellow', 'rose', 'pink', 'violet', 'purple', 'orange', 'marron', 'brown', 'gris', 'gray']
       for (const word of words) {
-        if (type.category.toLowerCase().includes(word)) {
-          score += 0.8
+        if (colorWords.includes(word.toLowerCase())) {
+          score += 2.0
           matches_count++
+          details.push(`Couleur "${word}": +2.0`)
         }
       }
       
-      // Correspondance mots-clés
+      // 🏆 5. GROUPE/HIÉRARCHIE - Priorité moyenne-faible (0.8 point)
+      if (type.group && type.group !== 'Autre') {
+        for (const word of words) {
+          if (type.group.toLowerCase().includes(word)) {
+            score += 2.0
+            matches_count++
+            details.push(`Groupe "${type.group}": +2.0`)
+            break
+          }
+        }
+      }
+      
+      // 🎖️ 6. CORRESPONDANCE PARTIELLE - Priorité faible (0.6 point)
+      for (const word of words) {
+        if (word.length > 3 && type.name.toLowerCase().includes(word)) {
+          score += 0.6
+          matches_count++
+          details.push(`Partiel "${word}" dans nom: +0.6`)
+        }
+      }
+      
+      // 🏃 7. MOTS-CLÉS - Priorité minimale (0.4 point)
       for (const keyword of type.keywords) {
         for (const word of words) {
-          if (keyword.includes(word)) {
-            score += 0.6
+          if (keyword.includes(word) && word.length > 2) {
+            score += 0.4
             matches_count++
+            details.push(`Mot-clé "${word}": +0.4`)
           }
         }
       }
       
       if (score > 0) {
+        // Score final avec pondération par nombre de mots de la requête
+        const finalScore = score / Math.max(words.length, 1)
+        const confidence = Math.min(finalScore / 2.0, 1.0) // Normalisation sur base de score max (2.0)
+        
         matches.push({
           type,
-          score: score / Math.max(words.length, 1),
+          score: finalScore,
+          rawScore: score,
           matches_count,
-          confidence: Math.min(score / words.length, 1.0)
+          confidence,
+          details: details.join(', ')
         })
       }
     }
@@ -301,32 +367,47 @@ export class ExcelReferentialService {
     return matches.sort((a, b) => b.score - a.score)
   }
 
-  // ✅ Analyse de la hiérarchie
+  // ✅ Analyse de la hiérarchie avec HIÉRARCHIE DE CORRESPONDANCE
   private analyzeHierarchy(hierarchy: ProductHierarchy[], words: string[], query: string) {
     const matches = []
     
     for (const hier of hierarchy) {
       let score = 0
+      const details = []
       
-      // Correspondance nom hiérarchie
+      // 🥇 1. NOM HIÉRARCHIE - Priorité maximale (2.0 points)
       if (query.includes(hier.name.toLowerCase())) {
-        score += 1.0
+        score += 2.0
+        details.push(`Nom hiérarchie exact: +2.0`)
       }
       
-      // Correspondance chemin hiérarchique
+      // 🏆 2. CHEMIN HIÉRARCHIQUE - Priorité élevée (1.0 point par niveau)
       for (const pathElement of hier.path) {
         for (const word of words) {
-          if (pathElement.toLowerCase().includes(word)) {
-            score += 0.8
+          if (pathElement.toLowerCase().includes(word) && word.length > 3) {
+            score += 1.0
+            details.push(`Chemin "${pathElement}": +1.0`)
+            break // Un seul match par niveau de chemin
           }
         }
       }
       
+      // 🎖️ 3. CORRESPONDANCE PARTIELLE NOM - Priorité faible (0.6 point)
+      for (const word of words) {
+        if (word.length > 3 && hier.name.toLowerCase().includes(word)) {
+          score += 0.6
+          details.push(`Partiel "${word}" dans nom: +0.6`)
+        }
+      }
+      
       if (score > 0) {
+        const confidence = Math.min(score / (words.length * 2.0), 1.0) // Normalisation
+        
         matches.push({
           hierarchy: hier,
           score,
-          confidence: Math.min(score / words.length, 1.0)
+          confidence,
+          details: details.join(', ')
         })
       }
     }
@@ -334,35 +415,48 @@ export class ExcelReferentialService {
     return matches.sort((a, b) => b.score - a.score)
   }
 
-  // ✅ Analyse des LOV
+  // ✅ Analyse des LOV avec HIÉRARCHIE DE CORRESPONDANCE
   private analyzeLOV(lovList: ListOfValue[], words: string[], query: string) {
     const matches = []
     
     for (const lov of lovList) {
       let score = 0
+      const details = []
       
-      // Correspondance label
+      // 🥇 1. LABEL EXACT - Priorité maximale (2.0 points)
       if (query.includes(lov.label.toLowerCase())) {
-        score += 1.0
+        score += 2.0
+        details.push(`Label exact: +2.0`)
       }
       
-      // Correspondance code
+      // 🥈 2. CODE EXACT - Priorité élevée (1.5 points)
       if (query.includes(lov.code.toLowerCase())) {
-        score += 0.9
+        score += 1.5
+        details.push(`Code exact: +1.5`)
       }
       
-      // Correspondance mots
+      // 🥉 3. DOMAINE - Priorité moyenne (1.0 point)
+      if (lov.domain && query.includes(lov.domain.toLowerCase())) {
+        score += 1.0
+        details.push(`Domaine: +1.0`)
+      }
+      
+      // 🎖️ 4. CORRESPONDANCE PARTIELLE - Priorité faible (0.6 point)
       for (const word of words) {
-        if (lov.label.toLowerCase().includes(word)) {
-          score += 0.7
+        if (word.length > 3 && lov.label.toLowerCase().includes(word)) {
+          score += 0.6
+          details.push(`Partiel "${word}" dans label: +0.6`)
         }
       }
       
       if (score > 0) {
+        const confidence = Math.min(score / (words.length * 2.0), 1.0) // Normalisation
+        
         matches.push({
           lov,
           score,
-          confidence: Math.min(score / words.length, 1.0)
+          confidence,
+          details: details.join(', ')
         })
       }
     }
@@ -370,7 +464,7 @@ export class ExcelReferentialService {
     return matches.sort((a, b) => b.score - a.score)
   }
 
-  // ✅ Détermination de la catégorie principale
+  // ✅ Détermination de la catégorie principale avec DÉTAILS DE CORRESPONDANCE
   private determinePrimaryCategory(typeMatches: any[], hierarchyMatches: any[], lovMatches: any[]): CategoryAnalysis {
     let detectedCategory = 'Général'
     let confidence = 0.1
@@ -379,14 +473,20 @@ export class ExcelReferentialService {
     let matchingTypes: ProductType[] = []
     let hierarchyPath: string[] = []
     
+    console.log(`📊 ANALYSE DÉTAILLÉE:`)
+    
     // Prioriser les types de produits
     if (typeMatches.length > 0) {
       const bestTypeMatch = typeMatches[0]
       detectedCategory = bestTypeMatch.type.category
       confidence = bestTypeMatch.confidence
-      matchingTypes = typeMatches.slice(0, 3).map(m => m.type)
+      matchingTypes = typeMatches.slice(0, 3).map((m: any) => m.type)
       
-      // Filtres suggérés
+      console.log(`🥇 Meilleur type: "${bestTypeMatch.type.name}" (${bestTypeMatch.type.category})`)
+      console.log(`   📊 Score brut: ${bestTypeMatch.rawScore.toFixed(2)} | Score final: ${bestTypeMatch.score.toFixed(2)}`)
+      console.log(`   🔍 Correspondances: ${bestTypeMatch.details}`)
+      
+      // Filtres suggérés avec nouveaux scores
       suggestedFilters.push({
         field: 'category',
         value: bestTypeMatch.type.category,
@@ -400,6 +500,11 @@ export class ExcelReferentialService {
           confidence: bestTypeMatch.confidence * 0.8
         })
       }
+      
+      // Afficher les 3 meilleurs types
+      typeMatches.slice(0, 3).forEach((match: any, index: number) => {
+        console.log(`   ${index + 1}. "${match.type.name}" - Score: ${match.score.toFixed(2)} (${match.details})`)
+      })
     }
     
     // Enrichir avec hiérarchie
@@ -407,17 +512,35 @@ export class ExcelReferentialService {
       const bestHierMatch = hierarchyMatches[0]
       hierarchyPath = bestHierMatch.hierarchy.path
       
-      if (confidence < bestHierMatch.confidence) {
+      console.log(`🏗️ Meilleure hiérarchie: "${bestHierMatch.hierarchy.name}"`)
+      console.log(`   📊 Score: ${bestHierMatch.score.toFixed(2)} | Détails: ${bestHierMatch.details}`)
+      
+      // Utiliser hiérarchie si score supérieur aux types
+      if (hierarchyMatches[0].score > (typeMatches[0]?.score || 0)) {
         detectedCategory = bestHierMatch.hierarchy.name
         confidence = bestHierMatch.confidence
+        console.log(`   🔄 Hiérarchie prioritaire sur types de produits`)
       }
+    }
+    
+    // Enrichir avec LOV
+    if (lovMatches.length > 0) {
+      const bestLovMatch = lovMatches[0]
+      console.log(`📋 Meilleur LOV: "${bestLovMatch.lov.label}" (${bestLovMatch.lov.domain})`)
+      console.log(`   📊 Score: ${bestLovMatch.score.toFixed(2)} | Détails: ${bestLovMatch.details}`)
     }
     
     // Sous-catégories des autres correspondances
     subCategories = [
-      ...typeMatches.slice(1, 4).map(m => m.type.name),
-      ...hierarchyMatches.slice(0, 2).map(m => m.hierarchy.name)
+      ...typeMatches.slice(1, 4).map((m: any) => m.type.name),
+      ...hierarchyMatches.slice(0, 2).map((m: any) => m.hierarchy.name),
+      ...lovMatches.slice(0, 2).map((m: any) => m.lov.label)
     ].filter(Boolean)
+    
+    console.log(`🎯 RÉSULTAT FINAL: "${detectedCategory}" (confiance: ${(confidence * 100).toFixed(1)}%)`)
+    if (subCategories.length > 0) {
+      console.log(`📋 Sous-catégories: ${subCategories.join(', ')}`)
+    }
     
     return {
       detectedCategory,
