@@ -77,7 +77,7 @@ export class RAGLangchainService {
 
   constructor(config?: Partial<RAGConfig>) {
     this.config = {
-      csvFiles: ['files/produits_final.csv', 'data/set_chatbot.csv'],
+      csvFiles: ['files/produits_final.csv'],
       embeddingModel: 'text-embedding-3-small',
       chunkSize: 500,
       overlapSize: 50,

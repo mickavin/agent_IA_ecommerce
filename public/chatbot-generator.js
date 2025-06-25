@@ -66,13 +66,13 @@
     .younzee-chatbot-button {
       width: 60px;
       height: 60px;
-      border-radius: 50%;
-      border: none;
+          border-radius: 50%;
+        border: none;
       cursor: pointer;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      display: flex;
-      align-items: center;
-      justify-content: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       transition: all 0.3s ease;
       color: white;
       font-size: 24px;
@@ -93,9 +93,9 @@
       border-radius: 16px;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
       border: 1px solid #e5e7eb;
-      display: none;
-      flex-direction: column;
-      overflow: hidden;
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
       animation: slideUp 0.3s ease-out;
     }
     
@@ -117,9 +117,9 @@
     .younzee-chatbot-header {
       padding: 16px 20px;
       border-bottom: 1px solid #e5e7eb;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
     
     .younzee-chatbot-header-content {
@@ -131,10 +131,10 @@
     .younzee-chatbot-avatar {
       width: 40px;
       height: 40px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
       font-size: 18px;
       color: white;
     }
@@ -154,12 +154,12 @@
     
     .younzee-chatbot-close {
       background: none;
-      border: none;
+            border: none;
       font-size: 20px;
-      cursor: pointer;
+            cursor: pointer;
       color: #6b7280;
-      padding: 4px;
-      border-radius: 4px;
+            padding: 4px;
+            border-radius: 4px;
       transition: background-color 0.2s;
     }
     
@@ -168,9 +168,9 @@
     }
     
     .younzee-chatbot-messages {
-      flex: 1;
-      padding: 16px;
-      overflow-y: auto;
+        flex: 1;
+        padding: 16px;
+        overflow-y: auto;
       background: #f9fafb;
     }
     
@@ -206,20 +206,20 @@
     }
     
     .younzee-chatbot-input-container {
-      padding: 16px;
+        padding: 16px;
       border-top: 1px solid #e5e7eb;
-      display: flex;
-      gap: 8px;
+        display: flex;
+        gap: 8px;
       align-items: flex-end;
     }
-    
+
     .younzee-chatbot-input {
-      flex: 1;
+        flex: 1;
       border: 1px solid #d1d5db;
       border-radius: 20px;
       padding: 10px 16px;
-      font-size: 14px;
-      outline: none;
+        font-size: 14px;
+        outline: none;
       resize: none;
       max-height: 100px;
       min-height: 40px;
@@ -233,12 +233,12 @@
     .younzee-chatbot-send {
       width: 40px;
       height: 40px;
-      border: none;
+        border: none;
       border-radius: 50%;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       font-size: 16px;
       color: white;
       transition: all 0.2s;
@@ -249,14 +249,14 @@
     }
     
     .younzee-chatbot-send:disabled {
-      opacity: 0.5;
+        opacity: 0.5;
       cursor: not-allowed;
       transform: none;
     }
     
     .younzee-chatbot-typing {
-      display: flex;
-      align-items: center;
+            display: flex;
+            align-items: center;
       gap: 4px;
       padding: 12px 16px;
       background: white;
@@ -271,17 +271,17 @@
       width: 6px;
       height: 6px;
       background: #9ca3af;
-      border-radius: 50%;
+            border-radius: 50%;
       animation: typing 1.4s infinite;
-    }
-    
+          }
+          
     .younzee-chatbot-typing-dot:nth-child(2) {
-      animation-delay: 0.2s;
-    }
-    
+            animation-delay: 0.2s;
+          }
+          
     .younzee-chatbot-typing-dot:nth-child(3) {
-      animation-delay: 0.4s;
-    }
+            animation-delay: 0.4s;
+          }
     
     @keyframes typing {
       0%, 60%, 100% {

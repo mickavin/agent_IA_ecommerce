@@ -36,6 +36,52 @@ interface RAGSearchResult {
   searchType: 'semantic' | 'keyword' | 'hybrid'
 }
 
+interface PromptCategorization {
+  primaryType: 'ITEM' | 'OUTFIT' | 'FAQ'
+  confidence: number
+  context?: string
+  requiredInfo: {
+    size?: string
+    color?: string  
+    categoryGroup?: string
+  }
+  missingInfo: string[]
+  detectedElements: string[]
+  reasoning: string
+}
+
+const CATEGORIZATION_PROMPT = `
+Tu es un expert en catégorisation de requêtes e-commerce pour Younzee.
+
+Analyse cette requête et détermine:
+
+TYPES POSSIBLES:
+- ITEM: Recherche d'un article spécifique (ex: "t-shirt rouge", "jean slim taille 38")  
+- OUTFIT: Demande de tenue complète avec contexte (ex: "tenue pour aller au travail", "outfit soirée")
+- FAQ: Question sur service/livraison/retour (ex: "comment retourner un article?", "délais de livraison")
+
+INFORMATIONS À EXTRAIRE:
+- Taille: XS, S, M, L, XL, XXL, 36, 38, 40, 42, 44, 46, 48, 50
+- Couleur: rouge, bleu, vert, noir, blanc, etc.
+- Contexte/Occasion: travail, soirée, sport, plage, mariage, etc.
+- Style: casual, élégant, sport, vintage, moderne, etc.
+
+RETOURNE UNIQUEMENT DU JSON VALIDE:
+{
+  "primaryType": "ITEM|OUTFIT|FAQ",
+  "confidence": 0.9,
+  "reasoning": "Explication claire du choix",
+  "extractedInfo": {
+    "size": "M",
+    "color": "rouge", 
+    "context": "travail",
+    "style": "casual"
+  },
+  "missingInfo": ["taille", "couleur"],
+  "suggestions": ["Précisez la taille souhaitée", "Ajoutez une couleur de préférence"]
+}
+`
+
 /**
  * Service RAG avec OpenAI
  */
@@ -351,7 +397,10 @@ class OpenAIRAGService {
       throw new Error('Vector store non initialisé')
     }
 
-    // ✅ 1️⃣ CATÉGORISATION INTELLIGENTE du prompt
+    // ✅ 0️⃣ PRÉ-CATÉGORISATION ITEM/OUTFIT/FAQ avec logs détaillés
+    const promptCategorization = this.precategorizePrompt(query)
+    
+    // ✅ 1️⃣ CATÉGORISATION INTELLIGENTE du prompt (existante)
     const categoryAnalysis = await excelReferentialService.categorizeUserPrompt(query)
     console.log(`🏷️ Catégorie: "${categoryAnalysis.detectedCategory}" (${(categoryAnalysis.confidence * 100).toFixed(1)}%)`)
 
@@ -746,6 +795,133 @@ class OpenAIRAGService {
       embeddingmodel: 'text-embedding-3-large'
     }
   }
+
+  private precategorizePrompt(query: string): PromptCategorization {
+    const queryLower = query.toLowerCase()
+    const words = queryLower.split(/\s+/).filter(w => w.length > 1)
+    
+    console.log(`\n${'='.repeat(60)}`)
+    console.log(`🎯 PRÉ-CATÉGORISATION DU PROMPT`)
+    console.log(`${'='.repeat(60)}`)
+    console.log(`📝 Requête: "${query}"`)
+    console.log(`🔤 Mots-clés: [${words.join(', ')}]`)
+    
+    let primaryType: 'ITEM' | 'OUTFIT' | 'FAQ' = 'ITEM'
+    let confidence = 0
+    let context = ''
+    let reasoning = ''
+    const detectedElements: string[] = []
+    
+    // ✅ 1. DÉTECTION FAQ
+    const faqKeywords = ['comment', 'pourquoi', 'livraison', 'retour', 'service', 'aide', 'où', 'quand', 'combien']
+    const faqScore = faqKeywords.filter(kw => queryLower.includes(kw)).length
+    
+    if (queryLower.includes('?') || faqScore > 0) {
+      primaryType = 'FAQ'
+      confidence = Math.min(0.8 + (faqScore * 0.1), 1.0)
+      reasoning = `Question détectée (${faqScore} mots FAQ + ${queryLower.includes('?') ? 'point d\'interrogation' : 'pas de ?'})`
+      detectedElements.push(...faqKeywords.filter(kw => queryLower.includes(kw)))
+    }
+    
+    // ✅ 2. DÉTECTION OUTFIT  
+    else {
+      const outfitKeywords = ['pour aller', 'tenue', 'outfit', 'completer', 'propose moi', 'conseille', 'assortir']
+      const contextKeywords = ['plage', 'soirée', 'travail', 'sport', 'mariage', 'sortie', 'bureau', 'vacances']
+      
+      const outfitScore = outfitKeywords.filter(kw => queryLower.includes(kw)).length
+      const contextScore = contextKeywords.filter(kw => queryLower.includes(kw)).length
+      
+      if (outfitScore > 0 || contextScore > 0) {
+        primaryType = 'OUTFIT'
+        confidence = Math.min(0.6 + (outfitScore * 0.2) + (contextScore * 0.1), 1.0)
+        context = contextKeywords.find(kw => queryLower.includes(kw)) || ''
+        reasoning = `Contexte tenue détecté (${outfitScore} mots outfit + ${contextScore} mots contexte)`
+        detectedElements.push(...outfitKeywords.filter(kw => queryLower.includes(kw)))
+        if (context) detectedElements.push(context)
+      }
+      
+      // ✅ 3. DÉTECTION ITEM (par défaut)
+      else {
+        const itemKeywords = ['t-shirt', 'jean', 'robe', 'chaussures', 'pull', 'veste', 'pantalon', 'jupe']
+        const itemScore = itemKeywords.filter(kw => queryLower.includes(kw)).length
+        
+        primaryType = 'ITEM'
+        confidence = itemScore > 0 ? Math.min(0.7 + (itemScore * 0.1), 1.0) : 0.5
+        reasoning = `Article spécifique détecté (${itemScore} noms d'articles)`
+        detectedElements.push(...itemKeywords.filter(kw => queryLower.includes(kw)))
+      }
+    }
+    
+    // ✅ 4. ANALYSE DES INFORMATIONS REQUISES
+    const sizeWords = ['xs', 's', 'm', 'l', 'xl', 'xxl', '36', '38', '40', '42', '44', '46', '48', '50']
+    const colorWords = ['rouge', 'red', 'bleu', 'blue', 'vert', 'green', 'noir', 'black', 'blanc', 'white']
+    
+    const detectedSize = words.find(w => sizeWords.includes(w))
+    const detectedColor = words.find(w => colorWords.includes(w))
+    
+    const requiredInfo = {
+      size: detectedSize,
+      color: detectedColor,
+      categoryGroup: undefined // À déterminer via référentiel
+    }
+    
+    const missingInfo: string[] = []
+    if (!detectedSize && primaryType !== 'FAQ') missingInfo.push('taille')
+    if (!detectedColor && primaryType !== 'FAQ') missingInfo.push('couleur')
+    if (primaryType === 'OUTFIT' && !context) missingInfo.push('contexte d\'usage')
+    
+    // ✅ 5. AFFICHAGE DES LOGS DÉTAILLÉS
+    console.log(`\n📊 RÉSULTAT DE LA PRÉ-CATÉGORISATION:`)
+    console.log(`─`.repeat(40))
+    
+    const typeIcon = primaryType === 'ITEM' ? '👕' : primaryType === 'OUTFIT' ? '👔' : '❓'
+    console.log(`${typeIcon} Type: ${primaryType}`)
+    console.log(`📈 Confiance: ${(confidence * 100).toFixed(1)}%`)
+    console.log(`🧠 Raisonnement: ${reasoning}`)
+    
+    if (detectedElements.length > 0) {
+      console.log(`🔍 Éléments détectés: [${detectedElements.join(', ')}]`)
+    }
+    
+    if (context) {
+      console.log(`🎭 Contexte: ${context}`)
+    }
+    
+    console.log(`\n📋 INFORMATIONS EXTRAITES:`)
+    console.log(`─`.repeat(40))
+    if (requiredInfo.size) console.log(`📏 Taille détectée: ${requiredInfo.size}`)
+    if (requiredInfo.color) console.log(`🎨 Couleur détectée: ${requiredInfo.color}`)
+    
+    if (missingInfo.length > 0) {
+      console.log(`\n⚠️ INFORMATIONS MANQUANTES:`)
+      console.log(`─`.repeat(40))
+      missingInfo.forEach(info => console.log(`❌ ${info}`))
+      
+      if (primaryType === 'ITEM') {
+        console.log(`\n💡 SUGGESTION: Pour un article spécifique, précisez la taille et la couleur`)
+        console.log(`   Exemple: "${query} taille M couleur rouge"`)
+      }
+      
+      if (primaryType === 'OUTFIT') {
+        console.log(`\n💡 SUGGESTION: Pour une tenue, précisez le contexte d'usage`)
+        console.log(`   Exemple: "${query} pour aller au travail"`)
+      }
+    } else {
+      console.log(`✅ Toutes les informations nécessaires sont présentes`)
+    }
+    
+    console.log(`${'='.repeat(60)}\n`)
+    
+    return {
+      primaryType,
+      confidence,
+      context,
+      requiredInfo,
+      missingInfo,
+      detectedElements,
+      reasoning
+    }
+  }
 }
 
 // Instance globale
@@ -803,7 +979,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Service RAG
     const service = getRAGService()
+    console.log('🔍 Query: ', service.getStats())
     const results = await service.search(query, { k, searchType })
+    console.log('🔍 Results: ', results)
     const stats = service.getStats()
 
     const searchTime = Date.now() - startTime
