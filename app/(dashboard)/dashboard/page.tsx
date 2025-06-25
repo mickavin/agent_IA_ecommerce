@@ -125,13 +125,6 @@ export default function DashboardPage() {
   const totalProducts = mockProducts.length
       return (
       <div className="space-y-6">
-      
-      {/* Test temporaire des toasts */}
-      <div className="bg-muted/50 rounded-lg p-4">
-        <h3 className="text-sm font-medium mb-2">🧪 Test Toasts (temporaire)</h3>
-        <QuickToastTest />
-      </div>
-
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>

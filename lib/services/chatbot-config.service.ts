@@ -151,7 +151,6 @@ export class ChatbotConfigService {
           .from('chatbots')
           .select('id, name, personality, visual_config, is_default, status')
           .eq('id', chatbotId)
-          .eq('status', 'Actif')
           .single()
 
         if (error) {
