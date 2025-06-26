@@ -5,6 +5,7 @@ import { Document } from '@langchain/core/documents'
 import Papa from 'papaparse'
 import fs from 'fs'
 import { excelReferentialService, CategoryAnalysis } from '../../lib/services/excel-referential.service'
+import { OpenAIService } from '../../lib/services/openai.service'
 
 /**
  * API RAG complète avec OpenAI Embeddings
@@ -25,6 +26,7 @@ interface ProductDocument {
     handle: string
     status: string
     availableForSale: boolean
+    filteredByReferential: boolean
     [key: string]: any
   }
 }
@@ -33,7 +35,7 @@ interface RAGSearchResult {
   document: ProductDocument
   score: number
   relevance: 'high' | 'medium' | 'low'
-  searchType: 'semantic' | 'keyword' | 'hybrid'
+  searchType: 'semantic' | 'keyword' | 'hybrid' | 'clarification'
 }
 
 interface PromptCategorization {
@@ -82,6 +84,57 @@ RETOURNE UNIQUEMENT DU JSON VALIDE:
 }
 `
 
+const PRODUCT_CATEGORIZATION_PROMPT = `
+Tu es un expert en classification produits selon le référentiel Younzee.
+
+Utilise ces catégories du fichier XLSX pour classifier:
+
+RÉFÉRENTIEL YOUNZEE (Niveau 3):
+{referentialData}
+
+Analyse cette requête produit et trouve la meilleure correspondance:
+
+RETOURNE UNIQUEMENT DU JSON:
+{
+  "productCategory": {
+    "id": "ID_NIVEAU_3",
+    "typeProduct": "Libellé Niveau 3 TYPE PRODUIT", 
+    "confidence": 0.85
+  },
+  "reasoning": "Pourquoi cette catégorie correspond"
+}
+`
+
+export interface AICategorization {
+  // Catégorisation principale
+  primaryType: 'ITEM' | 'OUTFIT' | 'FAQ'
+  confidence: number
+  reasoning: string
+  
+  // Informations extraites
+  extractedInfo: {
+    size?: string
+    color?: string
+    categoryGroup?: string
+    context?: string
+    occasion?: string
+    style?: string
+  }
+  
+  // Informations manquantes
+  missingInfo: string[]
+  
+  // Suggestions d'amélioration
+  suggestions: string[]
+  
+  // Catégorisation produit (via référentiel XLSX)
+  productCategory?: {
+    id: string // ID Niveau 3
+    typeProduct: string // Libellé Niveau 3 TYPE PRODUIT
+    confidence: number
+  }
+}
+
 /**
  * Service RAG avec OpenAI
  */
@@ -90,6 +143,7 @@ class OpenAIRAGService {
   private vectorStore: MemoryVectorStore | null = null
   private documents: ProductDocument[] = []
   private isInitialized = false
+  private openaiService: OpenAIService
 
   constructor() {
     this.embeddings = new OpenAIEmbeddings({
@@ -98,14 +152,16 @@ class OpenAIRAGService {
       batchSize: 50, // ✅ Batch plus petit pour meilleure qualité
       dimensions: 1536 // ✅ Dimensions complètes pour précision maximale
     })
+    this.openaiService = new OpenAIService()
   }
 
-  async initialize(): Promise<void> {
+  async initialize(query: string): Promise<void> {
     if (this.isInitialized) return
 
     try {
       console.log('🚀 Initialisation RAG OpenAI...')
-      
+      const categoryAnalysis = await excelReferentialService.categorizeUserPrompt(query)
+      console.log('🏷️ Catégorie: ', categoryAnalysis)
       // ✅ Chargement parallèle des données CSV et référentiels Excel
       await Promise.all([
         this.loadCSVData(),
@@ -123,22 +179,20 @@ class OpenAIRAGService {
     }
   }
 
-  private async loadCSVData(): Promise<void> {
+  private async loadCSVData(relevantCategories?: string[]): Promise<void> {
     // ✅ Réinitialisation pour éviter les doublons lors des rechargements
     this.documents = []
     
     const csvFiles = [
       'files/produits_final.csv',
-      'data/set_chatbot.csv',
-      'data/test_sample.csv'
     ]
 
     for (const csvPath of csvFiles) {
       try {
         if (fs.existsSync(csvPath)) {
-          console.log(`📄 Chargement ${csvPath}...`)
+          console.log(`📄 Chargement ${csvPath}${relevantCategories ? ' avec filtrage catégories' : ''}...`)
           const csvContent = fs.readFileSync(csvPath, 'utf8')
-          const documents = await this.parseCSV(csvContent, csvPath)
+          const documents = await this.parseCSV(csvContent, csvPath, relevantCategories)
           this.documents.push(...documents)
           console.log(`✅ ${csvPath}: ${documents.length} documents chargés`)
           
@@ -153,10 +207,10 @@ class OpenAIRAGService {
     console.log(`📊 Total documents avant déduplication: ${this.documents.length}`)
     // ✅ SUPPRESSION DE LA DÉDUPLICATION - Garder tous les documents
     // this.documents = this.deduplicateDocuments(this.documents)  
-    console.log(`📊 Total documents conservés: ${this.documents.length} (déduplication désactivée)`)
+    console.log(`📊 Total documents conservés: ${this.documents.length} (filtrage: ${relevantCategories ? `${relevantCategories.length} catégories` : 'désactivé'})`)
   }
 
-  private async parseCSV(csvContent: string, source: string): Promise<ProductDocument[]> {
+  private async parseCSV(csvContent: string, source: string, relevantCategories?: string[]): Promise<ProductDocument[]> {
     return new Promise((resolve, reject) => {
       Papa.parse(csvContent, {
         header: true,
@@ -171,6 +225,22 @@ class OpenAIRAGService {
                 const description = row.description || ''
                 const price = parseFloat(row.price) || 0
                 const category = row.type_produit_classifié || 'Non classifié'
+                
+                // ✅ FILTRAGE PAR CATÉGORIE DU RÉFÉRENTIEL
+                if (relevantCategories && relevantCategories.length > 0) {
+                  const hasMatchingCategory = relevantCategories.some(relevantCat => {
+                    const catLower = category.toLowerCase()
+                    const refLower = relevantCat.toLowerCase()
+                    
+                    // Correspondance bidirectionnelle pour flexibilité
+                    return catLower.includes(refLower) || refLower.includes(catLower)
+                  })
+                  
+                  if (!hasMatchingCategory) {
+                    console.log(`🚫 Produit filtré: "${title}" (catégorie: "${category}")`)
+                    return null // Exclure ce produit
+                  }
+                }
                 
                 const colors = this.extractArray(row.couleur || row.couleur_younzee)
                 const sizes = this.extractArray(row.taille || row.variant_title)
@@ -192,7 +262,8 @@ class OpenAIRAGService {
                     handle: row.handle || `product-${index}`,
                     status: row.status || 'ACTIVE',
                     availableForSale: row.availableForSale !== 'False',
-                    source
+                    source,
+                    filteredByReferential: !!relevantCategories?.length
                   }
                 }
               })
@@ -221,11 +292,7 @@ class OpenAIRAGService {
     // Description enrichie
     if (product.description) {
       parts.push(`Description: ${product.description}`)
-      // Extraction de mots-clés de la description pour le contexte
-      const keywords = this.extractKeywords(product.description)
-      if (keywords.length > 0) {
-        parts.push(`Caractéristiques: ${keywords.join(', ')}`)
-      }
+      // Note: keywords extraction sera fait de manière asynchrone ailleurs
     }
     
     // Catégorie avec contexte
@@ -260,41 +327,7 @@ class OpenAIRAGService {
       parts.push(`Gamme: ${priceCategory}`)
     }
     
-    // Contexte saisonnier/usage si détectable
-    const usageContext = this.inferUsageContext(product.title, product.description, product.category)
-    if (usageContext.length > 0) {
-      parts.push(`Usage: ${usageContext.join(', ')}`)
-    }
-    
     return parts.filter(Boolean).join(' | ')
-  }
-
-  // ✅ Fonction d'extraction de mots-clés de la description
-  private extractKeywords(description: string): string[] {
-    if (!description) return []
-    
-    const keywords: string[] = []
-    const desc = description.toLowerCase()
-    
-    // Matériaux
-    const materials = ['coton', 'polyester', 'lin', 'soie', 'laine', 'cuir', 'denim', 'jean']
-    materials.forEach(mat => {
-      if (desc.includes(mat)) keywords.push(mat)
-    })
-    
-    // Styles
-    const styles = ['casual', 'élégant', 'sport', 'vintage', 'moderne', 'classique', 'décontracté']
-    styles.forEach(style => {
-      if (desc.includes(style)) keywords.push(style)
-    })
-    
-    // Caractéristiques
-    const features = ['manches longues', 'manches courtes', 'col rond', 'col v', 'capuche', 'poche']
-    features.forEach(feature => {
-      if (desc.includes(feature)) keywords.push(feature)
-    })
-    
-    return [...new Set(keywords)] // Déduplique
   }
 
   // ✅ Classification des prix par gamme
@@ -306,34 +339,312 @@ class OpenAIRAGService {
     return 'haut de gamme'
   }
 
-  // ✅ Inférence du contexte d'usage
-  private inferUsageContext(title: string, description: string, category: string): string[] {
+  // ✅ Filtrage des documents par catégorie
+  private filterDocumentsByCategory(categoryAnalysis: any): ProductDocument[] {
+    if (!categoryAnalysis?.detectedCategory) {
+      return this.documents // Retourner tous si pas de catégorie détectée
+    }
+
+    const targetCategory = categoryAnalysis.detectedCategory.toLowerCase()
+    
+    return this.documents.filter(doc => {
+      const docCategory = doc.metadata.category.toLowerCase()
+      
+      // Correspondance directe
+      if (docCategory.includes(targetCategory) || targetCategory.includes(docCategory)) {
+        return true
+      }
+      
+      // Correspondance dans le titre
+      if (doc.metadata.title.toLowerCase().includes(targetCategory)) {
+        return true
+      }
+      
+      return false
+    })
+  }
+
+  // ✅ NOUVELLE MÉTHODE: Extraction des catégories pertinentes du référentiel
+  private async getRelevantCategoriesFromReferential(query: string, categoryAnalysis: any): Promise<string[]> {
+    try {
+      // Obtenir les données du référentiel hiérarchique
+      const referentialData = await excelReferentialService.getReferentialData()
+      
+      if (!referentialData?.productHierarchy) {
+        console.warn('⚠️ Données de hiérarchie produit non disponibles')
+        return []
+      }
+      
+      // Filtrer les catégories de niveau 3 (Libellé Niveau 3)
+      const level3Categories = referentialData.productHierarchy
+        .filter(item => item.level === 3)
+        .map(item => item.name) // Libellé Niveau 3 TYPE PRODUIT
+      
+      console.log(`📊 Total catégories niveau 3 disponibles: ${level3Categories.length}`)
+      
+      // Recherche de correspondances avec la catégorie détectée
+      const relevantCategories: string[] = []
+      const queryLower = query.toLowerCase()
+      const detectedCategory = categoryAnalysis.detectedCategory?.toLowerCase() || ''
+      
+      // 1️⃣ Correspondance directe avec la catégorie détectée
+      if (detectedCategory && detectedCategory !== 'non spécifié') {
+        for (const category of level3Categories) {
+          const categoryLower = category.toLowerCase()
+          
+          // Correspondance directe
+          if (categoryLower.includes(detectedCategory) || detectedCategory.includes(categoryLower)) {
+            if (!relevantCategories.includes(category)) {
+              relevantCategories.push(category)
+              console.log(`🎯 Correspondance directe: "${detectedCategory}" -> "${category}"`)
+            }
+          }
+        }
+      }
+      
+      // 2️⃣ Recherche par mots-clés du prompt
+      const queryWords = queryLower.split(/\s+/).filter(w => w.length > 2)
+      for (const category of level3Categories) {
+        const categoryLower = category.toLowerCase()
+        
+        for (const word of queryWords) {
+          if (categoryLower.includes(word) || word.includes(categoryLower)) {
+            if (!relevantCategories.includes(category)) {
+              relevantCategories.push(category)
+              console.log(`🔍 Correspondance par mot-clé: "${word}" -> "${category}"`)
+            }
+          }
+        }
+      }
+      
+      // 3️⃣ Si aucune correspondance trouvée, prendre les catégories les plus générales
+      if (relevantCategories.length === 0) {
+        console.log('⚠️ Aucune correspondance spécifique trouvée, utilisation de toutes les catégories')
+        return level3Categories.slice(0, 50) // Limiter pour éviter la surcharge
+      }
+      
+      console.log(`✅ ${relevantCategories.length} catégories pertinentes identifiées`)
+      return relevantCategories
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de l\'extraction des catégories du référentiel:', error)
+      return [] // Fallback: aucun filtrage
+    }
+  }
+
+  // ✅ Extraction de mots-clés intelligente via IA
+  private async extractKeywords(description: string): Promise<string[]> {
+    if (!description || description.length < 10) return []
+    
+    try {
+      // Prompt optimisé pour l'extraction de mots-clés
+      const prompt = `
+Analyse cette description de produit mode et extrait les mots-clés les plus pertinents.
+
+Description: "${description}"
+
+Extrait UNIQUEMENT les mots-clés dans ces catégories:
+- Matériaux: coton, polyester, lin, soie, laine, cuir, denim, etc.
+- Styles: casual, élégant, sport, vintage, moderne, classique, etc.
+- Caractéristiques: manches longues/courtes, col rond/v, capuche, poches, etc.
+- Finitions: brodé, imprimé, uni, rayé, à carreaux, etc.
+- Coupes: slim, regular, loose, oversize, etc.
+
+Retourne UNIQUEMENT un JSON avec array de mots-clés:
+{"keywords": ["mot1", "mot2", "mot3"]}
+
+Limite: 8 mots-clés maximum.`
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.3,
+          max_tokens: 150
+        }),
+      })
+
+      const data = await response.json()
+      const result = JSON.parse(data.choices[0].message.content)
+      
+      console.log(`🔍 Mots-clés IA extraits: [${result.keywords.join(', ')}]`)
+      return result.keywords || []
+      
+    } catch (error) {
+      console.warn('⚠️ Fallback keywords extraction:', error)
+      return this.extractKeywordsFallback(description)
+    }
+  }
+
+  // ✅ Fallback en cas d'erreur IA
+  private extractKeywordsFallback(description: string): string[] {
+    if (!description) return []
+    
+    const keywords: string[] = []
+    const desc = description.toLowerCase()
+    
+    // Matériaux essentiels
+    const materials = ['coton', 'polyester', 'lin', 'soie', 'laine', 'cuir', 'denim', 'jean']
+    materials.forEach(mat => {
+      if (desc.includes(mat)) keywords.push(mat)
+    })
+    
+    // Styles de base
+    const styles = ['casual', 'élégant', 'sport', 'vintage', 'moderne', 'classique']
+    styles.forEach(style => {
+      if (desc.includes(style)) keywords.push(style)
+    })
+    
+    return [...new Set(keywords)]
+  }
+
+  // ✅ Inférence du contexte d'usage via IA
+  private async inferUsageContext(title: string, description: string, category: string): Promise<string[]> {
+    const text = `${title} ${description} ${category}`.trim()
+    if (text.length < 15) return []
+    
+    try {
+      // Prompt spécialisé pour l'inférence de contexte
+      const prompt = `
+Analyse ce produit mode et détermine dans quels contextes/occasions il peut être porté.
+
+Produit: "${title}"
+Description: "${description}"
+Catégorie: "${category}"
+
+Détermine le contexte d'usage parmi:
+
+SAISONS:
+- été, hiver, automne, printemps, mi-saison
+
+OCCASIONS:
+- travail, bureau, professionnel
+- sport, fitness, running, gym
+- soirée, fête, sortie, élégant
+- quotidien, casual, décontracté
+- plage, vacances, week-end
+- mariage, cérémonie, formel
+
+STYLES DE VIE:
+- urbain, ville, métropolitain
+- nature, outdoor, campagne
+- voyage, business trip
+
+Retourne UNIQUEMENT un JSON avec les contextes pertinents:
+{"contexts": ["contexte1", "contexte2"]}
+
+Limite: 4 contextes maximum, privilégie les plus évidents.`
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.2,
+          max_tokens: 120
+        }),
+      })
+
+      const data = await response.json()
+      const result = JSON.parse(data.choices[0].message.content)
+      
+      console.log(`🎭 Contextes IA inférés pour "${title}": [${result.contexts.join(', ')}]`)
+      return result.contexts || []
+      
+    } catch (error) {
+      console.warn('⚠️ Fallback context inference:', error)
+      return this.inferUsageContextFallback(title, description, category)
+    }
+  }
+
+  // ✅ Fallback en cas d'erreur IA  
+  private inferUsageContextFallback(title: string, description: string, category: string): string[] {
     const context = []
     const text = `${title} ${description} ${category}`.toLowerCase()
     
     // Saisons
-    if (text.includes('été') || text.includes('léger') || text.includes('short')) {
-      context.push('été')
-    }
-    if (text.includes('hiver') || text.includes('chaud') || text.includes('épais')) {
-      context.push('hiver')
-    }
+    if (text.includes('été') || text.includes('léger')) context.push('été')
+    if (text.includes('hiver') || text.includes('chaud')) context.push('hiver')
     
-    // Occasions
-    if (text.includes('sport') || text.includes('fitness') || text.includes('jogging')) {
-      context.push('sport')
-    }
-    if (text.includes('travail') || text.includes('bureau') || text.includes('professionnel')) {
-      context.push('professionnel')
-    }
-    if (text.includes('soirée') || text.includes('élégant') || text.includes('chic')) {
-      context.push('soirée')
-    }
-    if (text.includes('décontracté') || text.includes('casual') || text.includes('quotidien')) {
-      context.push('quotidien')
-    }
+    // Occasions principales
+    if (text.includes('sport') || text.includes('fitness')) context.push('sport')
+    if (text.includes('travail') || text.includes('bureau')) context.push('professionnel')
+    if (text.includes('soirée') || text.includes('élégant')) context.push('soirée')
+    if (text.includes('casual') || text.includes('quotidien')) context.push('quotidien')
     
     return [...new Set(context)]
+  }
+
+  // ✅ Nouvelle fonction : Analyse complète via IA
+  private async analyzeProductWithAI(product: any): Promise<{
+    keywords: string[],
+    contexts: string[],
+    style: string,
+    materials: string[],
+    occasions: string[]
+  }> {
+    const { title, description, category, price } = product
+    
+    try {
+      const prompt = `
+Analyse complète de ce produit mode:
+
+Titre: "${title}"
+Description: "${description}"
+Catégorie: "${category}"
+Prix: ${price}€
+
+Effectue une analyse complète et retourne un JSON avec:
+
+{
+  "keywords": ["mot-clé1", "mot-clé2"], // 5 mots-clés max
+  "contexts": ["contexte1", "contexte2"], // 3 contextes max 
+  "style": "style principal", // 1 style dominant
+  "materials": ["matériau1", "matériau2"], // Matériaux détectés
+  "occasions": ["occasion1", "occasion2"] // 3 occasions max
+}
+
+Sois précis et concis. Base-toi sur les vraies informations du produit.`
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.2,
+          max_tokens: 200
+        }),
+      })
+
+      const data = await response.json()
+      const result = JSON.parse(data.choices[0].message.content)
+      
+      console.log(`🤖 Analyse IA complète pour "${title}":`, result)
+      return result
+      
+    } catch (error) {
+      console.warn('⚠️ Fallback analyse complète:', error)
+      return {
+        keywords: await this.extractKeywords(description),
+        contexts: await this.inferUsageContext(title, description, category),
+        style: 'casual',
+        materials: [],
+        occasions: []
+      }
+    }
   }
 
   private extractArray(value: any): string[] {
@@ -389,26 +700,101 @@ class OpenAIRAGService {
   }
 
   async search(query: string, options: any = {}): Promise<RAGSearchResult[]> {
-    if (!this.isInitialized) {
-      await this.initialize()
+
+    console.log('🚀 Initialisation RAG OpenAI...')
+
+    // ✅ 1️⃣ CHARGEMENT DU RÉFÉRENTIEL EXCEL EN PREMIER
+    await excelReferentialService.loadReferentials()
+    console.log('✅ Référentiels Excel chargés')
+
+    // ✅ 2️⃣ PRÉ-CATÉGORISATION ITEM/OUTFIT/FAQ avec logs détaillés
+    const promptCategorization = this.precategorizePrompt(query)
+    
+    // ✅ 3️⃣ CATÉGORISATION INTELLIGENTE du prompt pour identifier les catégories
+    const categoryAnalysis = await excelReferentialService.categorizeUserPrompt(query)
+    console.log(`🏷️ Catégorie: "${categoryAnalysis.detectedCategory}" (${(categoryAnalysis.confidence * 100).toFixed(1)}%)`)
+    
+    // ✅ 4️⃣ EXTRACTION DES CATÉGORIES PERTINENTES DU RÉFÉRENTIEL
+    const relevantCategories = await this.getRelevantCategoriesFromReferential(query, categoryAnalysis)
+    console.log(`📋 Catégories pertinentes extraites: [${relevantCategories.join(', ')}]`)
+    
+    // ✅ 5️⃣ CHARGEMENT DU CSV AVEC FILTRAGE DIRECT PAR CATÉGORIES
+    await this.loadCSVData(relevantCategories)
+    console.log(`✅ Produits filtrés chargés: ${this.documents.length} documents`)
+
+    // ✅ 2️⃣ DÉTECTION DES COULEURS pour filtrage pré-recherche
+    const detectedColors = this.extractColorsFromQuery(query)
+    console.log(`🎨 Couleurs détectées: [${detectedColors.join(', ') || 'Aucune'}]`)
+
+    // ✅ 2.5️⃣ VÉRIFICATION DES INFORMATIONS MANQUANTES ET ARRÊT SI NÉCESSAIRE
+    const missingInfo = this.detectMissingInformation(query, promptCategorization, detectedColors, categoryAnalysis)
+    
+    if (missingInfo.length > 0 && promptCategorization.primaryType === 'ITEM') {
+      console.log(`⚠️ Informations manquantes détectées: [${missingInfo.join(', ')}] - ARRÊT DE LA RECHERCHE`)
+      
+      // Générer demande de clarification et retourner directement
+      const clarificationRequest = await this.generateClarificationRequest(query, missingInfo, promptCategorization)
+      
+      const clarificationResult: RAGSearchResult = {
+        document: {
+          id: 'clarification_request',
+          content: clarificationRequest,
+          metadata: {
+            title: 'Précisions nécessaires',
+            description: clarificationRequest,
+            price: 0,
+            category: 'Clarification',
+            colors: [],
+            sizes: [],
+            handle: 'clarification',
+            status: 'CLARIFICATION_REQUEST',
+            availableForSale: false,
+            isClarificationRequest: true,
+            missingInfo,
+            originalQuery: query
+          }
+        },
+        score: 1.0,
+        relevance: 'high',
+        searchType: 'clarification'
+      }
+      
+      console.log(`💬 Retour de la demande de clarification uniquement - pas de recherche de produits`)
+      return [clarificationResult]
     }
+
+    await this.createVectorStore()
+    this.isInitialized = true
+    
+    const referentialStats = excelReferentialService.getStats()
+    console.log(`✅ RAG initialisé: ${this.documents.length} produits + ${referentialStats.total} référentiels`)
+
 
     if (!this.vectorStore) {
       throw new Error('Vector store non initialisé')
     }
 
-    // ✅ 0️⃣ PRÉ-CATÉGORISATION ITEM/OUTFIT/FAQ avec logs détaillés
-    const promptCategorization = this.precategorizePrompt(query)
     
-    // ✅ 1️⃣ CATÉGORISATION INTELLIGENTE du prompt (existante)
-    const categoryAnalysis = await excelReferentialService.categorizeUserPrompt(query)
-    console.log(`🏷️ Catégorie: "${categoryAnalysis.detectedCategory}" (${(categoryAnalysis.confidence * 100).toFixed(1)}%)`)
+    // ✅ 3️⃣ FILTRAGE DES PRODUITS par catégorie ET couleur détectées
+    let filteredDocuments = this.filterDocumentsByCategory(categoryAnalysis)
+    console.log(`📊 Après filtrage catégorie: ${filteredDocuments.length}/${this.documents.length} produits`)
+    
+    // Filtrage supplémentaire par couleur si détectées
+    if (detectedColors.length > 0) {
+      const colorFiltered = this.filterDocumentsByColors(filteredDocuments, detectedColors)
+      console.log(`🎨 Après filtrage couleur: ${colorFiltered.length}/${filteredDocuments.length} produits`)
+      
+      // Si filtrage couleur trop restrictif, relaxer
+      if (colorFiltered.length < 5 && filteredDocuments.length > 20) {
+        console.log(`🔄 Filtrage couleur trop restrictif, critères relaxés`)
+        filteredDocuments = this.filterDocumentsByColorsRelaxed(filteredDocuments, detectedColors)
+        console.log(`🔄 Après relaxation: ${filteredDocuments.length} produits`)
+      } else {
+        filteredDocuments = colorFiltered
+      }
+    }
 
-    // ✅ 2️⃣ FILTRAGE DES PRODUITS par catégorie détectée
-    const filteredDocuments = this.filterDocumentsByCategory(categoryAnalysis)
-    console.log(`🔽 Filtrage: ${filteredDocuments.length}/${this.documents.length} produits sélectionnés`)
-
-    // ✅ 3️⃣ PREPROCESSING de la requête
+    // ✅ 4️⃣ PREPROCESSING de la requête
     const processedQuery = this.preprocessQuery(query)
     console.log(`🔍 Query preprocessing: "${query}" -> "${processedQuery}"`)
 
@@ -418,7 +804,7 @@ class OpenAIRAGService {
     try {
       let results: RAGSearchResult[] = []
 
-      // ✅ 4️⃣ RECHERCHE sur les produits filtrés par catégorie
+      // ✅ 5️⃣ RECHERCHE sur les produits filtrés par catégorie ET couleur
       if (searchType === 'semantic') {
         results = await this.categorizedSemanticSearch(processedQuery, k, filteredDocuments)
       } else if (searchType === 'keyword') {
@@ -427,11 +813,16 @@ class OpenAIRAGService {
         results = await this.categorizedHybridSearch(processedQuery, k, filteredDocuments)
       }
 
-      // ✅ 5️⃣ POST-PROCESSING avec boost catégoriel
+      // ✅ 6️⃣ POST-PROCESSING avec boost catégoriel ET couleur
       results = this.postProcessResults(results, query, processedQuery)
       results = this.applyCategoryBoost(results, categoryAnalysis)
+      
+      // Boost supplémentaire pour les couleurs correspondantes
+      if (detectedColors.length > 0) {
+        results = this.applyColorBoost(results, detectedColors)
+      }
 
-      // ✅ 6️⃣ ENRICHISSEMENT avec métadonnées catégorielles
+      // ✅ 7️⃣ ENRICHISSEMENT avec métadonnées catégorielles et couleurs
       results = results.map(result => ({
         ...result,
         categoryAnalysis,
@@ -439,10 +830,13 @@ class OpenAIRAGService {
           ...result.document.metadata,
           detectedCategory: categoryAnalysis.detectedCategory,
           categoryConfidence: categoryAnalysis.confidence,
-          filteredByCategory: true
+          detectedColors: detectedColors,
+          filteredByCategory: true,
+          filteredByColor: detectedColors.length > 0
         }
       }))
 
+      // ✅ 8️⃣ RETOUR DES RÉSULTATS FINAUX
       return results.sort((a, b) => b.score - a.score).slice(0, k)
     } catch (error) {
       console.error('Erreur recherche catégorisée:', error)
@@ -453,15 +847,24 @@ class OpenAIRAGService {
   private async categorizedSemanticSearch(query: string, k: number, filteredDocuments: ProductDocument[]): Promise<RAGSearchResult[]> {
     const results = await this.vectorStore!.similaritySearchWithScore(query, k)
     
-    return results.map(([doc, score]) => {
-      const document = filteredDocuments.find(d => d.id === doc.metadata.id)!
-      return {
-        document,
-        score: Math.max(0, Math.min(1, score)),
-        relevance: score >= 0.8 ? 'high' : score >= 0.6 ? 'medium' : 'low',
-        searchType: 'semantic' as const
-      }
-    })
+    return results
+      .map(([doc, score]) => {
+        const document = filteredDocuments.find(d => d.id === doc.metadata.id)
+        
+        // Si le document n'est pas trouvé dans les documents filtrés, on l'ignore
+        if (!document) {
+          console.warn(`⚠️ Document non trouvé dans filteredDocuments: ${doc.metadata.id}`)
+          return null
+        }
+        
+        return {
+          document,
+          score: Math.max(0, Math.min(1, score)),
+          relevance: (score >= 0.8 ? 'high' : score >= 0.6 ? 'medium' : 'low') as 'high' | 'medium' | 'low',
+          searchType: 'semantic' as const
+        }
+      })
+      .filter(result => result !== null) as RAGSearchResult[] // Filtrer les résultats null
   }
 
   private async categorizedKeywordSearch(query: string, k: number, filteredDocuments: ProductDocument[]): Promise<RAGSearchResult[]> {
@@ -726,65 +1129,162 @@ class OpenAIRAGService {
     })
   }
 
-  // ✅ Filtrage intelligent des documents par catégorie
-  private filterDocumentsByCategory(categoryAnalysis: any): ProductDocument[] {
-    const detectedCategory = categoryAnalysis.detectedCategory.toLowerCase()
-    const suggestedFilters = categoryAnalysis.suggestedFilters || []
+  // ✅ NOUVELLE MÉTHODE: Extraction intelligente des couleurs
+  private extractColorsFromQuery(query: string): string[] {
+    const queryLower = query.toLowerCase()
+    const detectedColors: string[] = []
     
-    // Si confiance faible, retourner tous les documents
-    if (categoryAnalysis.confidence < 0.3) {
-      console.log(`⚠️ Confiance faible (${(categoryAnalysis.confidence * 100).toFixed(1)}%), pas de filtrage`)
-      return this.documents
+    // Dictionnaire de couleurs avec synonymes et variantes
+    const colorMap = {
+      'rouge': ['rouge', 'red', 'burgundy', 'bordeaux', 'cerise', 'carmin'],
+      'bleu': ['bleu', 'blue', 'navy', 'marine', 'cyan', 'azur', 'turquoise'],
+      'vert': ['vert', 'green', 'kaki', 'olive', 'menthe', 'émeraude'],
+      'noir': ['noir', 'black', 'anthracite', 'charbon'],
+      'blanc': ['blanc', 'white', 'crème', 'ivoire', 'écru', 'beige'],
+      'jaune': ['jaune', 'yellow', 'or', 'doré', 'moutarde', 'citron'],
+      'rose': ['rose', 'pink', 'fuchsia', 'magenta', 'saumon'],
+      'violet': ['violet', 'purple', 'mauve', 'lilas', 'aubergine'],
+      'orange': ['orange', 'mandarine', 'abricot', 'pêche'],
+      'marron': ['marron', 'brown', 'chocolat', 'café', 'camel', 'taupe'],
+      'gris': ['gris', 'gray', 'grey', 'silver', 'argent', 'acier']
     }
     
-    const filtered = this.documents.filter(doc => {
-      const docCategory = doc.metadata.category.toLowerCase()
-      
-      // ✅ Correspondance directe catégorie
-      if (docCategory.includes(detectedCategory) || detectedCategory.includes(docCategory)) {
-        return true
-      }
-      
-      // ✅ Correspondance via filtres suggérés
-      for (const filter of suggestedFilters) {
-        if (filter.confidence > 0.5) {
-          const filterValue = filter.value.toLowerCase()
-          if (docCategory.includes(filterValue) || filterValue.includes(docCategory)) {
-            return true
+    // Recherche de couleurs dans la requête
+    for (const [mainColor, variants] of Object.entries(colorMap)) {
+      for (const variant of variants) {
+        if (queryLower.includes(variant)) {
+          if (!detectedColors.includes(mainColor)) {
+            detectedColors.push(mainColor)
+            console.log(`🎨 Couleur détectée: "${variant}" -> "${mainColor}"`)
           }
         }
       }
+    }
+    
+    return detectedColors
+  }
+
+  // ✅ NOUVELLE MÉTHODE: Filtrage strict par couleurs
+  private filterDocumentsByColors(documents: ProductDocument[], detectedColors: string[]): ProductDocument[] {
+    return documents.filter(doc => {
+      const docColors = doc.metadata.colors || []
       
-      // ✅ Correspondance via sous-catégories
-      for (const subCat of categoryAnalysis.subCategories || []) {
-        const subCatLower = subCat.toLowerCase()
-        if (docCategory.includes(subCatLower) || subCatLower.includes(docCategory)) {
-          return true
+      // Vérifier si le produit a une des couleurs détectées
+      for (const detectedColor of detectedColors) {
+        for (const docColor of docColors) {
+          const docColorLower = docColor.toLowerCase()
+          
+          // Correspondance directe
+          if (docColorLower.includes(detectedColor) || detectedColor.includes(docColorLower)) {
+            return true
+          }
+          
+          // Correspondance via synonymes
+          const colorSynonyms = this.getColorSynonyms(detectedColor)
+          for (const synonym of colorSynonyms) {
+            if (docColorLower.includes(synonym) || synonym.includes(docColorLower)) {
+              return true
+            }
+          }
         }
       }
       
       return false
     })
-    
-    // Si filtrage trop restrictif, relaxer les critères
-    if (filtered.length < 10 && this.documents.length > 50) {
-      console.log(`🔄 Filtrage trop restrictif (${filtered.length} résultats), relaxation des critères`)
+  }
+
+  // ✅ NOUVELLE MÉTHODE: Filtrage relaxé par couleurs (recherche dans titre/description)
+  private filterDocumentsByColorsRelaxed(documents: ProductDocument[], detectedColors: string[]): ProductDocument[] {
+    return documents.filter(doc => {
+      const title = doc.metadata.title.toLowerCase()
+      const description = (doc.metadata.description || '').toLowerCase()
+      const docColors = doc.metadata.colors || []
       
-      return this.documents.filter(doc => {
-        const docCategory = doc.metadata.category.toLowerCase()
-        const title = doc.metadata.title.toLowerCase()
-        
-        // Correspondance plus souple
-        for (const word of detectedCategory.split(/\s+/)) {
-          if (word.length > 3 && (docCategory.includes(word) || title.includes(word))) {
+      // 1. Vérifier couleurs métadonnées d'abord
+      for (const detectedColor of detectedColors) {
+        for (const docColor of docColors) {
+          if (docColor.toLowerCase().includes(detectedColor)) {
             return true
           }
         }
-        return false
-      })
+        
+        // 2. Recherche couleur dans titre et description
+        if (title.includes(detectedColor) || description.includes(detectedColor)) {
+          return true
+        }
+        
+        // 3. Recherche via synonymes
+        const synonyms = this.getColorSynonyms(detectedColor)
+        for (const synonym of synonyms) {
+          if (title.includes(synonym) || description.includes(synonym)) {
+            return true
+          }
+        }
+      }
+      
+      return false
+    })
+  }
+
+  // ✅ NOUVELLE MÉTHODE: Obtenir les synonymes d'une couleur
+  private getColorSynonyms(color: string): string[] {
+    const synonymMap: { [key: string]: string[] } = {
+      'rouge': ['red', 'burgundy', 'bordeaux'],
+      'bleu': ['blue', 'navy', 'marine'],
+      'vert': ['green', 'kaki', 'olive'],
+      'noir': ['black', 'anthracite'],
+      'blanc': ['white', 'crème', 'écru'],
+      'jaune': ['yellow', 'or', 'doré'],
+      'rose': ['pink', 'fuchsia'],
+      'violet': ['purple', 'mauve'],
+      'orange': ['mandarine', 'abricot'],
+      'marron': ['brown', 'chocolat', 'camel'],
+      'gris': ['gray', 'grey', 'silver']
     }
     
-    return filtered.length > 0 ? filtered : this.documents
+    return synonymMap[color] || []
+  }
+
+  // ✅ NOUVELLE MÉTHODE: Boost basé sur les couleurs
+  private applyColorBoost(results: RAGSearchResult[], detectedColors: string[]): RAGSearchResult[] {
+    if (detectedColors.length === 0) return results
+    
+    return results.map(result => {
+      let boostedScore = result.score
+      const docColors = result.document.metadata.colors || []
+      const title = result.document.metadata.title.toLowerCase()
+      
+      // Vérifier correspondance couleur
+      let hasColorMatch = false
+      for (const detectedColor of detectedColors) {
+        // Correspondance dans métadonnées couleurs
+        for (const docColor of docColors) {
+          if (docColor.toLowerCase().includes(detectedColor) || detectedColor.includes(docColor.toLowerCase())) {
+            hasColorMatch = true
+            break
+          }
+        }
+        
+        // Correspondance dans titre
+        if (title.includes(detectedColor)) {
+          hasColorMatch = true
+        }
+        
+        if (hasColorMatch) break
+      }
+      
+      // Boost si correspondance couleur
+      if (hasColorMatch) {
+        boostedScore = Math.min(boostedScore * 1.25, 1.0) // Boost +25%
+        console.log(`🎨 Boost couleur appliqué: ${result.document.metadata.title}`)
+      }
+      
+      return {
+        ...result,
+        score: boostedScore,
+        relevance: this.getRelevanceFromScore(boostedScore)
+      }
+    })
   }
 
   getStats() {
@@ -922,6 +1422,124 @@ class OpenAIRAGService {
       reasoning
     }
   }
+
+  private detectMissingInformation(
+    query: string, 
+    promptCategorization: PromptCategorization, 
+    detectedColors: string[], 
+    categoryAnalysis: any
+  ): string[] {
+    const missingInfo: string[] = []
+    const queryLower = query.toLowerCase()
+    
+    // Si c'est une recherche d'article (ITEM)
+    if (promptCategorization.primaryType === 'ITEM') {
+      
+      // 1️⃣ Vérifier la couleur
+      if (detectedColors.length === 0) {
+        // Double vérification : chercher d'autres indicateurs de couleur
+        const hasColorIndication = ['couleur', 'coloris', 'teinte'].some(word => queryLower.includes(word))
+        if (!hasColorIndication) {
+          missingInfo.push('couleur')
+        }
+      }
+      
+      // 2️⃣ Vérifier la taille
+      const sizeKeywords = ['xs', 's', 'm', 'l', 'xl', 'xxl', '36', '38', '40', '42', '44', '46', '48', '50', 'taille']
+      const hasSize = sizeKeywords.some(size => queryLower.includes(size))
+      if (!hasSize) {
+        missingInfo.push('taille')
+      }
+      
+      // 3️⃣ Vérifier le type de vêtement
+      const clothingTypes = [
+        't-shirt', 'tshirt', 'chemise', 'pull', 'sweat', 'veste', 'manteau',
+        'jean', 'pantalon', 'short', 'jupe', 'robe', 'legging',
+        'chaussures', 'baskets', 'boots', 'sandales', 'escarpins',
+        'sous-vêtements', 'soutien-gorge', 'culotte', 'boxer',
+        'accessoire', 'sac', 'ceinture', 'écharpe', 'bonnet'
+      ]
+      
+      const hasClothingType = clothingTypes.some(type => queryLower.includes(type))
+      const hasGeneralCategory = categoryAnalysis.detectedCategory && 
+                                categoryAnalysis.detectedCategory !== 'Non spécifié' &&
+                                categoryAnalysis.confidence > 0.6
+      
+      if (!hasClothingType && !hasGeneralCategory) {
+        missingInfo.push('type de vêtement')
+      }
+    }
+    
+    return missingInfo
+  }
+
+  private async generateClarificationRequest(
+    originalQuery: string, 
+    missingInfo: string[], 
+    promptCategorization: PromptCategorization
+  ): Promise<string> {
+    try {
+      const prompt = `
+Tu es un assistant shopping pour Younzee, spécialisé en mode. Un client recherche un article mais il manque des informations importantes.
+
+Requête originale: "${originalQuery}"
+Informations manquantes: ${missingInfo.join(', ')}
+
+Génère une réponse amicale et professionnelle qui:
+1. Reconnaît la demande du client
+2. Explique pourquoi tu as besoin de plus de détails  
+3. Pose des questions précises pour chaque information manquante
+4. Propose des exemples concrets
+5. Reste encourageant et utile
+
+Exemples de questions selon les informations manquantes:
+
+COULEUR: "Quelle couleur préférez-vous ? (noir, blanc, bleu, rouge, etc.)"
+TAILLE: "Quelle taille recherchez-vous ? (XS, S, M, L, XL pour les vêtements ou 36, 38, 40... pour les chaussures)"
+TYPE DE VÊTEMENT: "Quel type d'article cherchez-vous exactement ? (t-shirt, jean, robe, chaussures, etc.)"
+
+Ton: Amical, professionnel, pas trop long (3-4 phrases max).
+Langue: Français
+Format: Texte direct, pas de JSON.`
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.7,
+          max_tokens: 200
+        }),
+      })
+
+      const data = await response.json()
+      const clarificationText = data.choices[0].message.content.trim()
+      
+      console.log(`💬 Demande de clarification générée: "${clarificationText}"`)
+      return clarificationText
+      
+    } catch (error: any) {
+      console.warn('⚠️ Fallback clarification request:', error)
+      return this.generateFallbackClarificationRequest(originalQuery, missingInfo)
+    }
+  }
+
+  // ✅ FALLBACK: Demande de clarification simple
+  private generateFallbackClarificationRequest(originalQuery: string, missingInfo: string[]): string {
+    const missingTexts: { [key: string]: string } = {
+      'couleur': 'la couleur souhaitée',
+      'taille': 'votre taille',
+      'type de vêtement': 'le type d\'article exact'
+    }
+    
+    const missing = missingInfo.map(info => missingTexts[info] || info).join(', ')
+    
+    return `Je comprends que vous recherchez "${originalQuery}". Pour mieux vous aider, pourriez-vous préciser ${missing} ? Cela m'permettra de vous proposer les articles les plus adaptés à vos besoins ! 😊`
+  }
 }
 
 // Instance globale
@@ -1017,6 +1635,145 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     })
   }
-} 
+}
+
+export class AICategorizationService {
+  private openaiService: OpenAIService
+  
+  constructor() {
+    this.openaiService = new OpenAIService()
+  }
+  
+  async categorizePrompt(query: string): Promise<AICategorization> {
+    console.log(`\n${'='.repeat(60)}`)
+    console.log(`🤖 CATÉGORISATION IA DU PROMPT`)
+    console.log(`${'='.repeat(60)}`)
+    console.log(`📝 Requête: "${query}"`)
+    
+    // 1️⃣ Catégorisation principale via IA
+    const mainCategorization = await this.analyzeMainCategory(query)
+    
+    // 2️⃣ Si ITEM, analyser via référentiel XLSX
+    let productCategory
+    if (mainCategorization.primaryType === 'ITEM') {
+      productCategory = await this.analyzeProductCategory(query)
+    }
+    
+    // 3️⃣ Compilation des résultats
+    const result: AICategorization = {
+      ...mainCategorization,
+      productCategory
+    }
+    
+    // 4️⃣ Affichage des logs détaillés
+    this.displayCategorizationLogs(result)
+    
+    return result
+  }
+  
+  private async analyzeMainCategory(query: string) {
+    try {
+      const response = await this.openaiService.generateResponse({
+        systemPrompt: CATEGORIZATION_PROMPT,
+        userMessage: `Analyse cette requête: "${query}"`,
+        temperature: 0.1, // Faible pour cohérence
+        maxTokens: 500
+      })
+      
+      return JSON.parse(response)
+    } catch (error) {
+      console.error('❌ Erreur catégorisation IA:', error)
+      return this.fallbackCategorization(query)
+    }
+  }
+  
+  private async analyzeProductCategory(query: string) {
+    try {
+      // Charger référentiel XLSX
+      const referentialData = await excelReferentialService.getReferentialData()
+      const hierarchyLevel3 = referentialData.productHierarchy
+        .filter(h => h.level === 3)
+        .map(h => ({ id: h.id, typeProduct: h.name }))
+      
+      const response = await this.openaiService.generateResponse({
+        systemPrompt: PRODUCT_CATEGORIZATION_PROMPT.replace(
+          '{referentialData}', 
+          JSON.stringify(hierarchyLevel3.slice(0, 50)) // Limiter pour prompt
+        ),
+        userMessage: `Classifie ce produit: "${query}"`,
+        temperature: 0.1,
+        maxTokens: 300
+      })
+      
+      return JSON.parse(response).productCategory
+    } catch (error) {
+      console.error('❌ Erreur catégorisation produit:', error)
+      return null
+    }
+  }
+  
+  private displayCategorizationLogs(result: AICategorization) {
+    const typeIcon = result.primaryType === 'ITEM' ? '👕' : 
+                    result.primaryType === 'OUTFIT' ? '👔' : '❓'
+    
+    console.log(`\n📊 RÉSULTAT DE L'ANALYSE IA:`)
+    console.log(`─`.repeat(40))
+    console.log(`${typeIcon} Type: ${result.primaryType}`)
+    console.log(`📈 Confiance: ${(result.confidence * 100).toFixed(1)}%`)
+    console.log(`🧠 Raisonnement: ${result.reasoning}`)
+    
+    if (result.extractedInfo) {
+      console.log(`\n📋 INFORMATIONS EXTRAITES:`)
+      console.log(`─`.repeat(40))
+      Object.entries(result.extractedInfo).forEach(([key, value]) => {
+        if (value) {
+          const icon = key === 'size' ? '📏' : 
+                      key === 'color' ? '🎨' : 
+                      key === 'context' ? '🎭' : '📋'
+          console.log(`${icon} ${key}: ${value}`)
+        }
+      })
+    }
+    
+    if (result.productCategory) {
+      console.log(`\n📦 CATÉGORIE PRODUIT (XLSX):`)
+      console.log(`─`.repeat(40))
+      console.log(`🆔 ID: ${result.productCategory.id}`)
+      console.log(`📋 Type: ${result.productCategory.typeProduct}`)
+      console.log(`📈 Confiance: ${(result.productCategory.confidence * 100).toFixed(1)}%`)
+    }
+    
+    if (result.missingInfo.length > 0) {
+      console.log(`\n⚠️ INFORMATIONS MANQUANTES:`)
+      console.log(`─`.repeat(40))
+      result.missingInfo.forEach(info => console.log(`❌ ${info}`))
+    }
+    
+    if (result.suggestions.length > 0) {
+      console.log(`\n💡 SUGGESTIONS D'AMÉLIORATION:`)
+      console.log(`─`.repeat(40))
+      result.suggestions.forEach(suggestion => console.log(`💡 ${suggestion}`))
+    }
+    
+    console.log(`${'='.repeat(60)}\n`)
+  }
+  
+  private fallbackCategorization(query: string): AICategorization {
+    // Fallback simple si IA échoue
+    const isQuestion = query.includes('?') || query.toLowerCase().includes('comment')
+    const hasContext = query.toLowerCase().includes('pour') || query.toLowerCase().includes('tenue')
+    
+    return {
+      primaryType: isQuestion ? 'FAQ' : hasContext ? 'OUTFIT' : 'ITEM',
+      confidence: 0.6,
+      reasoning: 'Analyse fallback (IA indisponible)',
+      extractedInfo: {},
+      missingInfo: ['informations détaillées'],
+      suggestions: ['Reformulez votre demande pour plus de précision']
+    }
+  }
+}
+
+export const aiCategorizationService = new AICategorizationService() 
 
 

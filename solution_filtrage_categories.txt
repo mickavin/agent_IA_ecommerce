@@ -1,0 +1,37 @@
+# SOLUTION: Filtrage par Categories du Referentiel Excel
+
+## Modifications dans pages/api/rag-openai.ts
+
+### 1. Modifier loadCSVData (ligne ~181):
+Changer signature:
+- ANCIEN: private async loadCSVData(): Promise<void>
+- NOUVEAU: private async loadCSVData(relevantCategories?: string[]): Promise<void>
+
+Modifier l'appel parseCSV:
+- ANCIEN: await this.parseCSV(csvContent, csvPath)
+- NOUVEAU: await this.parseCSV(csvContent, csvPath, relevantCategories)
+
+### 2. Modifier parseCSV (ligne ~212):
+Changer signature:
+- ANCIEN: parseCSV(csvContent: string, source: string)
+- NOUVEAU: parseCSV(csvContent: string, source: string, relevantCategories?: string[])
+
+Ajouter filtrage APRES la ligne 'const category = row.type_produit_classifie':
+
+// FILTRAGE PAR CATEGORIE DU REFERENTIEL
+if (relevantCategories && relevantCategories.length > 0) {
+  const hasMatchingCategory = relevantCategories.some(relevantCat => {
+    const catLower = category.toLowerCase()
+    const refLower = relevantCat.toLowerCase()
+    return catLower.includes(refLower) || refLower.includes(catLower)
+  })
+  
+  if (!hasMatchingCategory) {
+    return null // Filtrer ce produit
+  }
+}
+
+### 3. Ajouter methode getRelevantCategoriesFromReferential:
+Copier la methode complete depuis le fichier solution precedent.
+
+RESULTAT: Le systeme va charger le referentiel Excel d'abord, analyser le prompt, extraire les categories pertinentes, puis filtrer le CSV pendant le chargement selon la correspondance Libelle Niveau 3 (referentiel) et type_produit_classifie (CSV).
