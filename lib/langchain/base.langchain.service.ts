@@ -144,16 +144,6 @@ export class BaseLangchainService {
   }
 
   /**
-   * Teste la connexion et la configuration
-   */
-  async testConnection(): Promise<LangchainResponse> {
-    const testPrompt = this.createPromptTemplate("Réponds uniquement 'Test Langchain réussi'")
-    const testChain = this.createSimpleChain(testPrompt)
-
-    return this.executeChain(testChain, {}, { test: true })
-  }
-
-  /**
    * Calcule un score de confiance basé sur des critères
    */
   protected calculateConfidence(content: string, criteria: any = {}): number {

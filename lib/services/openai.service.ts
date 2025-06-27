@@ -55,10 +55,6 @@ export class OpenAIService {
   async generateResponse(options: GenerateResponseOptions): Promise<string> {
     const { systemPrompt, userMessage, context, maxTokens, temperature } = options
 
-    // Fallback si pas de clé API
-    if (!this.config.apiKey) {
-      return this.generateFallbackResponse(userMessage, context)
-    }
 
     try {
       const messages: OpenAIMessage[] = [
@@ -117,41 +113,8 @@ export class OpenAIService {
 
     } catch (error: any) {
       console.error('❌ Erreur OpenAI Service:', error)
-      
-      // Fallback en cas d'erreur
-      return this.generateFallbackResponse(userMessage, context)
+      throw error
     }
-  }
-
-  /**
-   * Génère une réponse de fallback en cas d'erreur OpenAI
-   */
-  private generateFallbackResponse(userMessage: string, context?: any): string {
-    const lowerMessage = userMessage.toLowerCase()
-    
-    // Fallbacks basiques basés sur des mots-clés
-    if (lowerMessage.includes('bonjour') || lowerMessage.includes('salut')) {
-      return "👋 Bonjour ! Je suis votre assistant Younzee. Comment puis-je vous aider aujourd'hui ?"
-    }
-    
-    if (lowerMessage.includes('livraison') || lowerMessage.includes('délai')) {
-      return "📦 Nos délais de livraison sont de 2-3 jours ouvrés en France métropolitaine. Livraison gratuite dès 50€ d'achat."
-    }
-    
-    if (lowerMessage.includes('retour') || lowerMessage.includes('échange')) {
-      return "🔄 Vous avez 30 jours pour retourner un article. Connectez-vous à votre compte pour initier un retour."
-    }
-    
-    if (lowerMessage.includes('taille') || lowerMessage.includes('guide')) {
-      return "📏 Consultez notre guide des tailles disponible sur chaque fiche produit. En cas de doute, notre service client peut vous conseiller."
-    }
-    
-    if (lowerMessage.includes('paiement') || lowerMessage.includes('carte')) {
-      return "💳 Nous acceptons les cartes bancaires, PayPal, Apple Pay, Google Pay et les virements bancaires."
-    }
-    
-    // Fallback générique
-    return "Je vous remercie pour votre question. Notre équipe examine votre demande et vous répondra rapidement. N'hésitez pas à reformuler si besoin."
   }
 
   /**
@@ -295,28 +258,6 @@ INSTRUCTIONS:
 
       default:
         return `Tu es un assistant IA pour Younzee. ${personalityPrompt}`
-    }
-  }
-
-  /**
-   * Teste la connexion OpenAI
-   */
-  async testConnection(): Promise<{ success: boolean; model?: string; error?: string }> {
-    if (!this.config.apiKey) {
-      return { success: false, error: 'Aucune clé API configurée' }
-    }
-
-    try {
-      const response = await this.generateResponse({
-        systemPrompt: 'Tu es un assistant de test. Réponds simplement "Test réussi".',
-        userMessage: 'Test de connexion',
-        maxTokens: 10,
-        temperature: 0
-      })
-
-      return { success: true, model: this.config.model }
-    } catch (error: any) {
-      return { success: false, error: error.message }
     }
   }
 } 

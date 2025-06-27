@@ -1,1 +1,0 @@
-console.log('✅ Système configuré pour colonnes spécifiques : ID Niveau 3 et Libellé Niveau 3'); console.log('📋 Fichier source : Feuille Hierarchie produit'); console.log('🎯 Catégorisation simplifiée activée');

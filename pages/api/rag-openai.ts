@@ -4,7 +4,7 @@ import { MemoryVectorStore } from 'langchain/vectorstores/memory'
 import { Document } from '@langchain/core/documents'
 import Papa from 'papaparse'
 import fs from 'fs'
-import { excelReferentialService, CategoryAnalysis } from '../../lib/services/excel-referential.service'
+import { excelReferentialService } from '../../lib/services/excel-referential.service'
 import { OpenAIService } from '../../lib/services/openai.service'
 
 /**
@@ -105,6 +105,24 @@ RETOURNE UNIQUEMENT DU JSON:
 }
 `
 
+const CATEGORIZATION_PROMPT_ITEM = (types_valides: string[], tailles_valides: string[], couleurs_valides: string[]) => `
+Tu es un assistant e-commerce spécialisé dans la mode. Ta tâche est d'extraire trois attributs d'un texte :
+                    - type_produit_classifié : le type exact du vêtement parmi les choix disponibles
+                    - taille_extraite : la taille mentionnée
+                    - couleur_younzee : la couleur exacte parmi les choix disponibles
+                    Types valides : ${types_valides.join(', ')}
+                    Tailles valides : ${tailles_valides.join(', ')}
+                    Couleurs valides : ${couleurs_valides.join(', ')}
+                    Instructions spéciales :
+                    1. Pour les pulls : associe 'pull' à 'Pulls (cols ronds et V)' sauf si un col spécifique est mentionné
+                    2. Pour les t-shirts : utilise 'T-shirts manches courtes' par défaut sauf si 'manches longues' est spécifié
+                    3. Pour les pantalons : utilise 'Pantalons Chino & Classiques' sauf si un style spécifique est mentionné
+                    4. Ignore la casse dans la recherche
+                    5. Si un des attributs n'est pas valide, retourne null pour cet attribut
+                    Réponds uniquement en JSON :
+                    {"type_produit_classifié":"...","taille_extraite":"...","couleur_younzee":"..."}
+`
+
 export interface AICategorization {
   // Catégorisation principale
   primaryType: 'ITEM' | 'OUTFIT' | 'FAQ'
@@ -155,28 +173,22 @@ class OpenAIRAGService {
     this.openaiService = new OpenAIService()
   }
 
-  async initialize(query: string): Promise<void> {
-    if (this.isInitialized) return
+  private async getUniqueColors(objectsArray: ProductDocument[]): Promise<string[]> {
+    const allColors = objectsArray.flatMap(obj => obj.metadata.colors);
+    const uniqueColors = [...new Set(allColors)];
+    return uniqueColors;
+  }
 
-    try {
-      console.log('🚀 Initialisation RAG OpenAI...')
-      const categoryAnalysis = await excelReferentialService.categorizeUserPrompt(query)
-      console.log('🏷️ Catégorie: ', categoryAnalysis)
-      // ✅ Chargement parallèle des données CSV et référentiels Excel
-      await Promise.all([
-        this.loadCSVData(),
-        excelReferentialService.loadReferentials()
-      ])
-      
-      await this.createVectorStore()
-      this.isInitialized = true
-      
-      const referentialStats = excelReferentialService.getStats()
-      console.log(`✅ RAG initialisé: ${this.documents.length} produits + ${referentialStats.total} référentiels`)
-    } catch (error) {
-      console.error('❌ Erreur initialisation:', error)
-      throw error
-    }
+  private async getUniqueSizes(objectsArray: ProductDocument[]): Promise<string[]> {
+    const allSizes = objectsArray.flatMap(obj => obj.metadata.sizes);
+    const uniqueSizes = [...new Set(allSizes)];
+    return uniqueSizes;
+  }
+
+  private async getUniqueTypes(objectsArray: ProductDocument[]): Promise<string[]> {
+    const allTypes = objectsArray.flatMap(obj => obj.metadata.type_produit_classifié);
+    const uniqueTypes = [...new Set(allTypes)];
+    return uniqueTypes;
   }
 
   private async loadCSVData(relevantCategories?: string[]): Promise<void> {
@@ -224,12 +236,12 @@ class OpenAIRAGService {
 
                 const description = row.description || ''
                 const price = parseFloat(row.price) || 0
-                const category = row.type_produit_classifié || 'Non classifié'
+                const type_produit_classifié = row.type_produit_classifié || 'Non classifié'
                 
                 // ✅ FILTRAGE PAR CATÉGORIE DU RÉFÉRENTIEL
                 if (relevantCategories && relevantCategories.length > 0) {
                   const hasMatchingCategory = relevantCategories.some(relevantCat => {
-                    const catLower = category.toLowerCase()
+                    const catLower = type_produit_classifié.toLowerCase()
                     const refLower = relevantCat.toLowerCase()
                     
                     // Correspondance bidirectionnelle pour flexibilité
@@ -237,7 +249,7 @@ class OpenAIRAGService {
                   })
                   
                   if (!hasMatchingCategory) {
-                    console.log(`🚫 Produit filtré: "${title}" (catégorie: "${category}")`)
+                    console.log(`🚫 Produit filtré: "${title}" (catégorie: "${type_produit_classifié}")`)
                     return null // Exclure ce produit
                   }
                 }
@@ -246,7 +258,7 @@ class OpenAIRAGService {
                 const sizes = this.extractArray(row.taille || row.variant_title)
 
                 const content = this.createRichContent({
-                  title, description, category, colors, sizes, price
+                  title, description, type_produit_classifié, colors, sizes, price
                 })
 
                 return {
@@ -256,7 +268,7 @@ class OpenAIRAGService {
                     title,
                     description,
                     price,
-                    category,
+                    type_produit_classifié,
                     colors,
                     sizes,
                     handle: row.handle || `product-${index}`,
@@ -340,15 +352,13 @@ class OpenAIRAGService {
   }
 
   // ✅ Filtrage des documents par catégorie
-  private filterDocumentsByCategory(categoryAnalysis: any): ProductDocument[] {
-    if (!categoryAnalysis?.detectedCategory) {
+  private filterDocumentsByCategory(type_produit_classifié: string): ProductDocument[] {
+    if (!type_produit_classifié) {
       return this.documents // Retourner tous si pas de catégorie détectée
     }
-
-    const targetCategory = categoryAnalysis.detectedCategory.toLowerCase()
-    
+    const targetCategory = type_produit_classifié.toLowerCase()    
     return this.documents.filter(doc => {
-      const docCategory = doc.metadata.category.toLowerCase()
+      const docCategory = doc.metadata.type_produit_classifié.toLowerCase()
       
       // Correspondance directe
       if (docCategory.includes(targetCategory) || targetCategory.includes(docCategory)) {
@@ -432,235 +442,10 @@ class OpenAIRAGService {
     }
   }
 
-  // ✅ Extraction de mots-clés intelligente via IA
-  private async extractKeywords(description: string): Promise<string[]> {
-    if (!description || description.length < 10) return []
-    
-    try {
-      // Prompt optimisé pour l'extraction de mots-clés
-      const prompt = `
-Analyse cette description de produit mode et extrait les mots-clés les plus pertinents.
-
-Description: "${description}"
-
-Extrait UNIQUEMENT les mots-clés dans ces catégories:
-- Matériaux: coton, polyester, lin, soie, laine, cuir, denim, etc.
-- Styles: casual, élégant, sport, vintage, moderne, classique, etc.
-- Caractéristiques: manches longues/courtes, col rond/v, capuche, poches, etc.
-- Finitions: brodé, imprimé, uni, rayé, à carreaux, etc.
-- Coupes: slim, regular, loose, oversize, etc.
-
-Retourne UNIQUEMENT un JSON avec array de mots-clés:
-{"keywords": ["mot1", "mot2", "mot3"]}
-
-Limite: 8 mots-clés maximum.`
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.3,
-          max_tokens: 150
-        }),
-      })
-
-      const data = await response.json()
-      const result = JSON.parse(data.choices[0].message.content)
-      
-      console.log(`🔍 Mots-clés IA extraits: [${result.keywords.join(', ')}]`)
-      return result.keywords || []
-      
-    } catch (error) {
-      console.warn('⚠️ Fallback keywords extraction:', error)
-      return this.extractKeywordsFallback(description)
-    }
-  }
-
-  // ✅ Fallback en cas d'erreur IA
-  private extractKeywordsFallback(description: string): string[] {
-    if (!description) return []
-    
-    const keywords: string[] = []
-    const desc = description.toLowerCase()
-    
-    // Matériaux essentiels
-    const materials = ['coton', 'polyester', 'lin', 'soie', 'laine', 'cuir', 'denim', 'jean']
-    materials.forEach(mat => {
-      if (desc.includes(mat)) keywords.push(mat)
-    })
-    
-    // Styles de base
-    const styles = ['casual', 'élégant', 'sport', 'vintage', 'moderne', 'classique']
-    styles.forEach(style => {
-      if (desc.includes(style)) keywords.push(style)
-    })
-    
-    return [...new Set(keywords)]
-  }
-
-  // ✅ Inférence du contexte d'usage via IA
-  private async inferUsageContext(title: string, description: string, category: string): Promise<string[]> {
-    const text = `${title} ${description} ${category}`.trim()
-    if (text.length < 15) return []
-    
-    try {
-      // Prompt spécialisé pour l'inférence de contexte
-      const prompt = `
-Analyse ce produit mode et détermine dans quels contextes/occasions il peut être porté.
-
-Produit: "${title}"
-Description: "${description}"
-Catégorie: "${category}"
-
-Détermine le contexte d'usage parmi:
-
-SAISONS:
-- été, hiver, automne, printemps, mi-saison
-
-OCCASIONS:
-- travail, bureau, professionnel
-- sport, fitness, running, gym
-- soirée, fête, sortie, élégant
-- quotidien, casual, décontracté
-- plage, vacances, week-end
-- mariage, cérémonie, formel
-
-STYLES DE VIE:
-- urbain, ville, métropolitain
-- nature, outdoor, campagne
-- voyage, business trip
-
-Retourne UNIQUEMENT un JSON avec les contextes pertinents:
-{"contexts": ["contexte1", "contexte2"]}
-
-Limite: 4 contextes maximum, privilégie les plus évidents.`
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.2,
-          max_tokens: 120
-        }),
-      })
-
-      const data = await response.json()
-      const result = JSON.parse(data.choices[0].message.content)
-      
-      console.log(`🎭 Contextes IA inférés pour "${title}": [${result.contexts.join(', ')}]`)
-      return result.contexts || []
-      
-    } catch (error) {
-      console.warn('⚠️ Fallback context inference:', error)
-      return this.inferUsageContextFallback(title, description, category)
-    }
-  }
-
-  // ✅ Fallback en cas d'erreur IA  
-  private inferUsageContextFallback(title: string, description: string, category: string): string[] {
-    const context = []
-    const text = `${title} ${description} ${category}`.toLowerCase()
-    
-    // Saisons
-    if (text.includes('été') || text.includes('léger')) context.push('été')
-    if (text.includes('hiver') || text.includes('chaud')) context.push('hiver')
-    
-    // Occasions principales
-    if (text.includes('sport') || text.includes('fitness')) context.push('sport')
-    if (text.includes('travail') || text.includes('bureau')) context.push('professionnel')
-    if (text.includes('soirée') || text.includes('élégant')) context.push('soirée')
-    if (text.includes('casual') || text.includes('quotidien')) context.push('quotidien')
-    
-    return [...new Set(context)]
-  }
-
-  // ✅ Nouvelle fonction : Analyse complète via IA
-  private async analyzeProductWithAI(product: any): Promise<{
-    keywords: string[],
-    contexts: string[],
-    style: string,
-    materials: string[],
-    occasions: string[]
-  }> {
-    const { title, description, category, price } = product
-    
-    try {
-      const prompt = `
-Analyse complète de ce produit mode:
-
-Titre: "${title}"
-Description: "${description}"
-Catégorie: "${category}"
-Prix: ${price}€
-
-Effectue une analyse complète et retourne un JSON avec:
-
-{
-  "keywords": ["mot-clé1", "mot-clé2"], // 5 mots-clés max
-  "contexts": ["contexte1", "contexte2"], // 3 contextes max 
-  "style": "style principal", // 1 style dominant
-  "materials": ["matériau1", "matériau2"], // Matériaux détectés
-  "occasions": ["occasion1", "occasion2"] // 3 occasions max
-}
-
-Sois précis et concis. Base-toi sur les vraies informations du produit.`
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.2,
-          max_tokens: 200
-        }),
-      })
-
-      const data = await response.json()
-      const result = JSON.parse(data.choices[0].message.content)
-      
-      console.log(`🤖 Analyse IA complète pour "${title}":`, result)
-      return result
-      
-    } catch (error) {
-      console.warn('⚠️ Fallback analyse complète:', error)
-      return {
-        keywords: await this.extractKeywords(description),
-        contexts: await this.inferUsageContext(title, description, category),
-        style: 'casual',
-        materials: [],
-        occasions: []
-      }
-    }
-  }
-
   private extractArray(value: any): string[] {
     if (!value) return []
     if (Array.isArray(value)) return value
     return String(value).split(/[,;]\s*/).filter(v => v.trim())
-  }
-
-  private deduplicateDocuments(docs: ProductDocument[]): ProductDocument[] {
-    const seen = new Set()
-    return docs.filter(doc => {
-      const key = `${doc.metadata.title}_${doc.metadata.price}`
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
   }
 
   private async createVectorStore(): Promise<void> {
@@ -707,33 +492,29 @@ Sois précis et concis. Base-toi sur les vraies informations du produit.`
     await excelReferentialService.loadReferentials()
     console.log('✅ Référentiels Excel chargés')
 
-    // ✅ 2️⃣ PRÉ-CATÉGORISATION ITEM/OUTFIT/FAQ avec logs détaillés
-    const promptCategorization = this.precategorizePrompt(query)
-    
-    // ✅ 3️⃣ CATÉGORISATION INTELLIGENTE du prompt pour identifier les catégories
-    const categoryAnalysis = await excelReferentialService.categorizeUserPrompt(query)
-    console.log(`🏷️ Catégorie: "${categoryAnalysis.detectedCategory}" (${(categoryAnalysis.confidence * 100).toFixed(1)}%)`)
-    
-    // ✅ 4️⃣ EXTRACTION DES CATÉGORIES PERTINENTES DU RÉFÉRENTIEL
-    const relevantCategories = await this.getRelevantCategoriesFromReferential(query, categoryAnalysis)
-    console.log(`📋 Catégories pertinentes extraites: [${relevantCategories.join(', ')}]`)
-    
     // ✅ 5️⃣ CHARGEMENT DU CSV AVEC FILTRAGE DIRECT PAR CATÉGORIES
-    await this.loadCSVData(relevantCategories)
-    console.log(`✅ Produits filtrés chargés: ${this.documents.length} documents`)
+    await this.loadCSVData()
+    console.log(`✅ Produits chargés: ${this.documents.length} documents`)
 
-    // ✅ 2️⃣ DÉTECTION DES COULEURS pour filtrage pré-recherche
-    const detectedColors = this.extractColorsFromQuery(query)
-    console.log(`🎨 Couleurs détectées: [${detectedColors.join(', ') || 'Aucune'}]`)
+    // ✅ 6️⃣ CHARGEMENT DES COULEURS, TAILLES ET TYPES UNIQUES
+    const uniqueColors = await this.getUniqueColors(this.documents)
+    const uniqueSizes = await this.getUniqueSizes(this.documents)
+    const uniqueTypes = await this.getUniqueTypes(this.documents)
+    console.log(`✅ Couleurs uniques: ${uniqueColors.join(', ')}`)
+    console.log(`✅ Tailles uniques: ${uniqueSizes.join(', ')}`)
+    console.log(`✅ Types uniques: ${uniqueTypes.join(', ')}`)
 
-    // ✅ 2.5️⃣ VÉRIFICATION DES INFORMATIONS MANQUANTES ET ARRÊT SI NÉCESSAIRE
-    const missingInfo = this.detectMissingInformation(query, promptCategorization, detectedColors, categoryAnalysis)
-    
-    if (missingInfo.length > 0 && promptCategorization.primaryType === 'ITEM') {
-      console.log(`⚠️ Informations manquantes détectées: [${missingInfo.join(', ')}] - ARRÊT DE LA RECHERCHE`)
+    // ✅ 2️⃣ PRÉ-CATÉGORISATION ITEM/OUTFIT/FAQ avec logs détaillés
+    const promptCategorization = await this.precategorizePrompt(query, uniqueColors, uniqueSizes, uniqueTypes)
+    console.log(`🏷️ Pré-catégorisation: ${promptCategorization}`)
+
+    const promptCategorizationParsed = JSON.parse(promptCategorization)
+    console.log(`🏷️ Pré-catégorisation: ${promptCategorizationParsed}`)
+
+    if (promptCategorizationParsed.type_produit_classifié === null || promptCategorizationParsed.taille_extraite === null || promptCategorizationParsed.couleur_younzee === null) {
       
       // Générer demande de clarification et retourner directement
-      const clarificationRequest = await this.generateClarificationRequest(query, missingInfo, promptCategorization)
+      const clarificationRequest = await this.generateClarificationRequest(query, Object.entries(promptCategorizationParsed).find(value => value[1] === null)?.[0] || '')
       
       const clarificationResult: RAGSearchResult = {
         document: {
@@ -750,8 +531,9 @@ Sois précis et concis. Base-toi sur les vraies informations du produit.`
             status: 'CLARIFICATION_REQUEST',
             availableForSale: false,
             isClarificationRequest: true,
-            missingInfo,
-            originalQuery: query
+            missingInfo: Object.entries(promptCategorizationParsed).find(value => value[1] === null)?.[0] || '',
+            originalQuery: query,
+            filteredByReferential: false
           }
         },
         score: 1.0,
@@ -762,38 +544,37 @@ Sois précis et concis. Base-toi sur les vraies informations du produit.`
       console.log(`💬 Retour de la demande de clarification uniquement - pas de recherche de produits`)
       return [clarificationResult]
     }
-
-    await this.createVectorStore()
-    this.isInitialized = true
     
     const referentialStats = excelReferentialService.getStats()
     console.log(`✅ RAG initialisé: ${this.documents.length} produits + ${referentialStats.total} référentiels`)
 
 
-    if (!this.vectorStore) {
-      throw new Error('Vector store non initialisé')
-    }
+   // if (!this.vectorStore) {
+   //  throw new Error('Vector store non initialisé')
+   // }
 
-    
     // ✅ 3️⃣ FILTRAGE DES PRODUITS par catégorie ET couleur détectées
-    let filteredDocuments = this.filterDocumentsByCategory(categoryAnalysis)
-    console.log(`📊 Après filtrage catégorie: ${filteredDocuments.length}/${this.documents.length} produits`)
+    let filteredDocuments = this.filterDocumentsByCategory(promptCategorizationParsed.type_produit_classifié)
+    filteredDocuments = this.filterDocumentsBySizes(filteredDocuments, promptCategorizationParsed.taille_extraite)
+    console.log(`🔄 Après filtrage taille: ${filteredDocuments.length} produits`)    
     
     // Filtrage supplémentaire par couleur si détectées
-    if (detectedColors.length > 0) {
-      const colorFiltered = this.filterDocumentsByColors(filteredDocuments, detectedColors)
-      console.log(`🎨 Après filtrage couleur: ${colorFiltered.length}/${filteredDocuments.length} produits`)
+      const colorFiltered = this.filterDocumentsByColors(filteredDocuments, promptCategorizationParsed.couleur_younzee)
+      console.log(`🎨 Après filtrage couleur: ${colorFiltered.length} produits`)
       
       // Si filtrage couleur trop restrictif, relaxer
       if (colorFiltered.length < 5 && filteredDocuments.length > 20) {
         console.log(`🔄 Filtrage couleur trop restrictif, critères relaxés`)
-        filteredDocuments = this.filterDocumentsByColorsRelaxed(filteredDocuments, detectedColors)
+        filteredDocuments = this.filterDocumentsByColorsRelaxed(filteredDocuments, promptCategorizationParsed.couleur_younzee)
         console.log(`🔄 Après relaxation: ${filteredDocuments.length} produits`)
       } else {
-        filteredDocuments = colorFiltered
+      filteredDocuments = colorFiltered
       }
-    }
+    
 
+    this.documents = filteredDocuments
+    await this.createVectorStore()
+    this.isInitialized = true
     // ✅ 4️⃣ PREPROCESSING de la requête
     const processedQuery = this.preprocessQuery(query)
     console.log(`🔍 Query preprocessing: "${query}" -> "${processedQuery}"`)
@@ -805,34 +586,34 @@ Sois précis et concis. Base-toi sur les vraies informations du produit.`
       let results: RAGSearchResult[] = []
 
       // ✅ 5️⃣ RECHERCHE sur les produits filtrés par catégorie ET couleur
-      if (searchType === 'semantic') {
-        results = await this.categorizedSemanticSearch(processedQuery, k, filteredDocuments)
-      } else if (searchType === 'keyword') {
-        results = await this.categorizedKeywordSearch(processedQuery, k, filteredDocuments)
-      } else {
-        results = await this.categorizedHybridSearch(processedQuery, k, filteredDocuments)
-      }
+      //if (searchType === 'semantic') {
+      results = await this.categorizedSemanticSearch(processedQuery, k, filteredDocuments)
+      //} else if (searchType === 'keyword') {
+      //  results = await this.categorizedKeywordSearch(processedQuery, k, filteredDocuments)
+      //} else {
+      //  results = await this.categorizedHybridSearch(processedQuery, k, filteredDocuments)
+      //}
 
       // ✅ 6️⃣ POST-PROCESSING avec boost catégoriel ET couleur
       results = this.postProcessResults(results, query, processedQuery)
-      results = this.applyCategoryBoost(results, categoryAnalysis)
+      results = this.applyCategoryBoost(results, promptCategorizationParsed.type_produit_classifié)
       
       // Boost supplémentaire pour les couleurs correspondantes
-      if (detectedColors.length > 0) {
-        results = this.applyColorBoost(results, detectedColors)
+      if (promptCategorizationParsed.couleur_younzee.length > 0) {
+        results = this.applyColorBoost(results, promptCategorizationParsed.couleur_younzee)
       }
 
       // ✅ 7️⃣ ENRICHISSEMENT avec métadonnées catégorielles et couleurs
       results = results.map(result => ({
         ...result,
-        categoryAnalysis,
+        categoryAnalysis: promptCategorizationParsed,
         metadata: {
           ...result.document.metadata,
-          detectedCategory: categoryAnalysis.detectedCategory,
-          categoryConfidence: categoryAnalysis.confidence,
-          detectedColors: detectedColors,
+          detectedCategory: promptCategorizationParsed.type_produit_classifié,
+          categoryConfidence: 1,
+          detectedColors: promptCategorizationParsed.couleur_younzee,
           filteredByCategory: true,
-          filteredByColor: detectedColors.length > 0
+          filteredByColor: promptCategorizationParsed.couleur_younzee.length > 0
         }
       }))
 
@@ -1074,46 +855,13 @@ Sois précis et concis. Base-toi sur les vraies informations du produit.`
     })
   }
 
-  // ✅ Enrichissement des résultats avec contexte référentiel Excel
-  private enrichResultsWithReferential(results: RAGSearchResult[], referentialContext: string, originalQuery: string): RAGSearchResult[] {
-    // Recherche des correspondances dans les référentiels
-    return results.map(result => {
-      let enrichedScore = result.score
-      const title = result.document.metadata.title.toLowerCase()
-      const category = result.document.metadata.category.toLowerCase()
-      
-      // ✅ Boost si correspondance avec référentiel
-      const contextLines = referentialContext.toLowerCase().split('\n')
-      const hasReferentialMatch = contextLines.some(line => 
-        line.includes(title.substring(0, 10)) || 
-        line.includes(category) ||
-        title.includes(line.substring(0, 10))
-      )
-      
-      if (hasReferentialMatch) {
-        enrichedScore = Math.min(enrichedScore * 1.15, 1.0) // Boost +15%
-        console.log(`📊 Boost référentiel appliqué: ${result.document.metadata.title}`)
-      }
-      
-      return {
-        ...result,
-        score: enrichedScore,
-        relevance: this.getRelevanceFromScore(enrichedScore),
-        metadata: {
-          ...result.document.metadata,
-          hasReferentialMatch,
-          referentialContext: hasReferentialMatch ? referentialContext : undefined
-        }
-      }
-    })
-  }
 
   // ✅ Application du boost catégoriel
   private applyCategoryBoost(results: RAGSearchResult[], categoryAnalysis: any): RAGSearchResult[] {
     return results.map(result => {
       let boostedScore = result.score
-      const category = result.document.metadata.category.toLowerCase()
-      const detectedCategory = categoryAnalysis.detectedCategory.toLowerCase()
+      const category = result.document.metadata.type_produit_classifié.toLowerCase()
+      const detectedCategory = categoryAnalysis.toLowerCase()
       
       // ✅ Boost si correspondance catégorielle
       if (category.includes(detectedCategory) || detectedCategory.includes(category)) {
@@ -1129,65 +877,29 @@ Sois précis et concis. Base-toi sur les vraies informations du produit.`
     })
   }
 
-  // ✅ NOUVELLE MÉTHODE: Extraction intelligente des couleurs
-  private extractColorsFromQuery(query: string): string[] {
-    const queryLower = query.toLowerCase()
-    const detectedColors: string[] = []
-    
-    // Dictionnaire de couleurs avec synonymes et variantes
-    const colorMap = {
-      'rouge': ['rouge', 'red', 'burgundy', 'bordeaux', 'cerise', 'carmin'],
-      'bleu': ['bleu', 'blue', 'navy', 'marine', 'cyan', 'azur', 'turquoise'],
-      'vert': ['vert', 'green', 'kaki', 'olive', 'menthe', 'émeraude'],
-      'noir': ['noir', 'black', 'anthracite', 'charbon'],
-      'blanc': ['blanc', 'white', 'crème', 'ivoire', 'écru', 'beige'],
-      'jaune': ['jaune', 'yellow', 'or', 'doré', 'moutarde', 'citron'],
-      'rose': ['rose', 'pink', 'fuchsia', 'magenta', 'saumon'],
-      'violet': ['violet', 'purple', 'mauve', 'lilas', 'aubergine'],
-      'orange': ['orange', 'mandarine', 'abricot', 'pêche'],
-      'marron': ['marron', 'brown', 'chocolat', 'café', 'camel', 'taupe'],
-      'gris': ['gris', 'gray', 'grey', 'silver', 'argent', 'acier']
-    }
-    
-    // Recherche de couleurs dans la requête
-    for (const [mainColor, variants] of Object.entries(colorMap)) {
-      for (const variant of variants) {
-        if (queryLower.includes(variant)) {
-          if (!detectedColors.includes(mainColor)) {
-            detectedColors.push(mainColor)
-            console.log(`🎨 Couleur détectée: "${variant}" -> "${mainColor}"`)
-          }
-        }
-      }
-    }
-    
-    return detectedColors
-  }
-
+ 
   // ✅ NOUVELLE MÉTHODE: Filtrage strict par couleurs
-  private filterDocumentsByColors(documents: ProductDocument[], detectedColors: string[]): ProductDocument[] {
+  private filterDocumentsByColors(documents: ProductDocument[], detectedColors: string): ProductDocument[] {
     return documents.filter(doc => {
       const docColors = doc.metadata.colors || []
       
       // Vérifier si le produit a une des couleurs détectées
-      for (const detectedColor of detectedColors) {
         for (const docColor of docColors) {
           const docColorLower = docColor.toLowerCase()
           
           // Correspondance directe
-          if (docColorLower.includes(detectedColor) || detectedColor.includes(docColorLower)) {
+          if (docColorLower.includes(detectedColors) || detectedColors.includes(docColorLower)) {
             return true
           }
           
           // Correspondance via synonymes
-          const colorSynonyms = this.getColorSynonyms(detectedColor)
+          const colorSynonyms = this.getColorSynonyms(detectedColors)
           for (const synonym of colorSynonyms) {
             if (docColorLower.includes(synonym) || synonym.includes(docColorLower)) {
               return true
             }
           }
         }
-      }
       
       return false
     })
@@ -1245,6 +957,27 @@ Sois précis et concis. Base-toi sur les vraies informations du produit.`
     return synonymMap[color] || []
   }
 
+  // ✅ NOUVELLE MÉTHODE: Filtrage par tailles
+  private filterDocumentsBySizes(documents: ProductDocument[], detectedSizes: string): ProductDocument[] {
+    return documents.filter(doc => {
+      const docSizes = doc.metadata.sizes || []
+      
+      // Vérifier si le produit a une des tailles détectées
+        for (const docSize of docSizes) {
+          const docSizeLower = docSize.toLowerCase()
+          const detectedSizeLower = detectedSizes.toLowerCase()
+         
+          // Correspondance directe
+          if (docSizeLower.split(" ").includes(detectedSizeLower)) {
+            console.log(`🔍 Filtrage par taille: "${docSizeLower}"`)
+            console.log(`🔍 Filtrage par taille detected: "${detectedSizeLower}"`)
+            return true
+          }
+        }      
+      return false
+    })
+  }
+
   // ✅ NOUVELLE MÉTHODE: Boost basé sur les couleurs
   private applyColorBoost(results: RAGSearchResult[], detectedColors: string[]): RAGSearchResult[] {
     if (detectedColors.length === 0) return results
@@ -1296,194 +1029,28 @@ Sois précis et concis. Base-toi sur les vraies informations du produit.`
     }
   }
 
-  private precategorizePrompt(query: string): PromptCategorization {
-    const queryLower = query.toLowerCase()
-    const words = queryLower.split(/\s+/).filter(w => w.length > 1)
-    
-    console.log(`\n${'='.repeat(60)}`)
-    console.log(`🎯 PRÉ-CATÉGORISATION DU PROMPT`)
-    console.log(`${'='.repeat(60)}`)
-    console.log(`📝 Requête: "${query}"`)
-    console.log(`🔤 Mots-clés: [${words.join(', ')}]`)
-    
-    let primaryType: 'ITEM' | 'OUTFIT' | 'FAQ' = 'ITEM'
-    let confidence = 0
-    let context = ''
-    let reasoning = ''
-    const detectedElements: string[] = []
-    
-    // ✅ 1. DÉTECTION FAQ
-    const faqKeywords = ['comment', 'pourquoi', 'livraison', 'retour', 'service', 'aide', 'où', 'quand', 'combien']
-    const faqScore = faqKeywords.filter(kw => queryLower.includes(kw)).length
-    
-    if (queryLower.includes('?') || faqScore > 0) {
-      primaryType = 'FAQ'
-      confidence = Math.min(0.8 + (faqScore * 0.1), 1.0)
-      reasoning = `Question détectée (${faqScore} mots FAQ + ${queryLower.includes('?') ? 'point d\'interrogation' : 'pas de ?'})`
-      detectedElements.push(...faqKeywords.filter(kw => queryLower.includes(kw)))
-    }
-    
-    // ✅ 2. DÉTECTION OUTFIT  
-    else {
-      const outfitKeywords = ['pour aller', 'tenue', 'outfit', 'completer', 'propose moi', 'conseille', 'assortir']
-      const contextKeywords = ['plage', 'soirée', 'travail', 'sport', 'mariage', 'sortie', 'bureau', 'vacances']
-      
-      const outfitScore = outfitKeywords.filter(kw => queryLower.includes(kw)).length
-      const contextScore = contextKeywords.filter(kw => queryLower.includes(kw)).length
-      
-      if (outfitScore > 0 || contextScore > 0) {
-        primaryType = 'OUTFIT'
-        confidence = Math.min(0.6 + (outfitScore * 0.2) + (contextScore * 0.1), 1.0)
-        context = contextKeywords.find(kw => queryLower.includes(kw)) || ''
-        reasoning = `Contexte tenue détecté (${outfitScore} mots outfit + ${contextScore} mots contexte)`
-        detectedElements.push(...outfitKeywords.filter(kw => queryLower.includes(kw)))
-        if (context) detectedElements.push(context)
-      }
-      
-      // ✅ 3. DÉTECTION ITEM (par défaut)
-      else {
-        const itemKeywords = ['t-shirt', 'jean', 'robe', 'chaussures', 'pull', 'veste', 'pantalon', 'jupe']
-        const itemScore = itemKeywords.filter(kw => queryLower.includes(kw)).length
-        
-        primaryType = 'ITEM'
-        confidence = itemScore > 0 ? Math.min(0.7 + (itemScore * 0.1), 1.0) : 0.5
-        reasoning = `Article spécifique détecté (${itemScore} noms d'articles)`
-        detectedElements.push(...itemKeywords.filter(kw => queryLower.includes(kw)))
-      }
-    }
-    
-    // ✅ 4. ANALYSE DES INFORMATIONS REQUISES
-    const sizeWords = ['xs', 's', 'm', 'l', 'xl', 'xxl', '36', '38', '40', '42', '44', '46', '48', '50']
-    const colorWords = ['rouge', 'red', 'bleu', 'blue', 'vert', 'green', 'noir', 'black', 'blanc', 'white']
-    
-    const detectedSize = words.find(w => sizeWords.includes(w))
-    const detectedColor = words.find(w => colorWords.includes(w))
-    
-    const requiredInfo = {
-      size: detectedSize,
-      color: detectedColor,
-      categoryGroup: undefined // À déterminer via référentiel
-    }
-    
-    const missingInfo: string[] = []
-    if (!detectedSize && primaryType !== 'FAQ') missingInfo.push('taille')
-    if (!detectedColor && primaryType !== 'FAQ') missingInfo.push('couleur')
-    if (primaryType === 'OUTFIT' && !context) missingInfo.push('contexte d\'usage')
-    
-    // ✅ 5. AFFICHAGE DES LOGS DÉTAILLÉS
-    console.log(`\n📊 RÉSULTAT DE LA PRÉ-CATÉGORISATION:`)
-    console.log(`─`.repeat(40))
-    
-    const typeIcon = primaryType === 'ITEM' ? '👕' : primaryType === 'OUTFIT' ? '👔' : '❓'
-    console.log(`${typeIcon} Type: ${primaryType}`)
-    console.log(`📈 Confiance: ${(confidence * 100).toFixed(1)}%`)
-    console.log(`🧠 Raisonnement: ${reasoning}`)
-    
-    if (detectedElements.length > 0) {
-      console.log(`🔍 Éléments détectés: [${detectedElements.join(', ')}]`)
-    }
-    
-    if (context) {
-      console.log(`🎭 Contexte: ${context}`)
-    }
-    
-    console.log(`\n📋 INFORMATIONS EXTRAITES:`)
-    console.log(`─`.repeat(40))
-    if (requiredInfo.size) console.log(`📏 Taille détectée: ${requiredInfo.size}`)
-    if (requiredInfo.color) console.log(`🎨 Couleur détectée: ${requiredInfo.color}`)
-    
-    if (missingInfo.length > 0) {
-      console.log(`\n⚠️ INFORMATIONS MANQUANTES:`)
-      console.log(`─`.repeat(40))
-      missingInfo.forEach(info => console.log(`❌ ${info}`))
-      
-      if (primaryType === 'ITEM') {
-        console.log(`\n💡 SUGGESTION: Pour un article spécifique, précisez la taille et la couleur`)
-        console.log(`   Exemple: "${query} taille M couleur rouge"`)
-      }
-      
-      if (primaryType === 'OUTFIT') {
-        console.log(`\n💡 SUGGESTION: Pour une tenue, précisez le contexte d'usage`)
-        console.log(`   Exemple: "${query} pour aller au travail"`)
-      }
-    } else {
-      console.log(`✅ Toutes les informations nécessaires sont présentes`)
-    }
-    
-    console.log(`${'='.repeat(60)}\n`)
-    
-    return {
-      primaryType,
-      confidence,
-      context,
-      requiredInfo,
-      missingInfo,
-      detectedElements,
-      reasoning
-    }
+  private async precategorizePrompt(query: string, uniqueColors: string[], uniqueSizes: string[], uniqueTypes: string[]) {
+    const prompt = CATEGORIZATION_PROMPT_ITEM(uniqueColors, uniqueSizes, uniqueTypes)
+    const response = await this.openaiService.generateResponse({
+      systemPrompt: prompt,
+      userMessage: query,
+      maxTokens: 1000,
+      temperature: 0.7
+    })
+    return response
   }
 
-  private detectMissingInformation(
-    query: string, 
-    promptCategorization: PromptCategorization, 
-    detectedColors: string[], 
-    categoryAnalysis: any
-  ): string[] {
-    const missingInfo: string[] = []
-    const queryLower = query.toLowerCase()
-    
-    // Si c'est une recherche d'article (ITEM)
-    if (promptCategorization.primaryType === 'ITEM') {
-      
-      // 1️⃣ Vérifier la couleur
-      if (detectedColors.length === 0) {
-        // Double vérification : chercher d'autres indicateurs de couleur
-        const hasColorIndication = ['couleur', 'coloris', 'teinte'].some(word => queryLower.includes(word))
-        if (!hasColorIndication) {
-          missingInfo.push('couleur')
-        }
-      }
-      
-      // 2️⃣ Vérifier la taille
-      const sizeKeywords = ['xs', 's', 'm', 'l', 'xl', 'xxl', '36', '38', '40', '42', '44', '46', '48', '50', 'taille']
-      const hasSize = sizeKeywords.some(size => queryLower.includes(size))
-      if (!hasSize) {
-        missingInfo.push('taille')
-      }
-      
-      // 3️⃣ Vérifier le type de vêtement
-      const clothingTypes = [
-        't-shirt', 'tshirt', 'chemise', 'pull', 'sweat', 'veste', 'manteau',
-        'jean', 'pantalon', 'short', 'jupe', 'robe', 'legging',
-        'chaussures', 'baskets', 'boots', 'sandales', 'escarpins',
-        'sous-vêtements', 'soutien-gorge', 'culotte', 'boxer',
-        'accessoire', 'sac', 'ceinture', 'écharpe', 'bonnet'
-      ]
-      
-      const hasClothingType = clothingTypes.some(type => queryLower.includes(type))
-      const hasGeneralCategory = categoryAnalysis.detectedCategory && 
-                                categoryAnalysis.detectedCategory !== 'Non spécifié' &&
-                                categoryAnalysis.confidence > 0.6
-      
-      if (!hasClothingType && !hasGeneralCategory) {
-        missingInfo.push('type de vêtement')
-      }
-    }
-    
-    return missingInfo
-  }
 
   private async generateClarificationRequest(
     originalQuery: string, 
-    missingInfo: string[], 
-    promptCategorization: PromptCategorization
+    promptCategorizationParsed: string
   ): Promise<string> {
     try {
       const prompt = `
 Tu es un assistant shopping pour Younzee, spécialisé en mode. Un client recherche un article mais il manque des informations importantes.
 
 Requête originale: "${originalQuery}"
-Informations manquantes: ${missingInfo.join(', ')}
+Informations manquantes: ${promptCategorizationParsed}
 
 Génère une réponse amicale et professionnelle qui:
 1. Reconnaît la demande du client
@@ -1524,19 +1091,19 @@ Format: Texte direct, pas de JSON.`
       
     } catch (error: any) {
       console.warn('⚠️ Fallback clarification request:', error)
-      return this.generateFallbackClarificationRequest(originalQuery, missingInfo)
+      return this.generateFallbackClarificationRequest(originalQuery, Object.entries(promptCategorizationParsed).find(value => value[1] === null)?.[0] || '')
     }
   }
 
   // ✅ FALLBACK: Demande de clarification simple
-  private generateFallbackClarificationRequest(originalQuery: string, missingInfo: string[]): string {
+  private generateFallbackClarificationRequest(originalQuery: string, missingInfo: string): string {
     const missingTexts: { [key: string]: string } = {
       'couleur': 'la couleur souhaitée',
       'taille': 'votre taille',
       'type de vêtement': 'le type d\'article exact'
     }
     
-    const missing = missingInfo.map(info => missingTexts[info] || info).join(', ')
+    const missing = missingTexts[missingInfo] || missingInfo
     
     return `Je comprends que vous recherchez "${originalQuery}". Pour mieux vous aider, pourriez-vous préciser ${missing} ? Cela m'permettra de vous proposer les articles les plus adaptés à vos besoins ! 😊`
   }
