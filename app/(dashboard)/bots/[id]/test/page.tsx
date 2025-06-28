@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import ReactMarkdown from "react-markdown";
+
 import {
   Bot,
   Send,
@@ -65,6 +67,13 @@ export default function TestBotPage() {
   const params = useParams()
   const botId = params?.id as string
   const [chatbot] = useState<Chatbot>(mockChatbot)
+  const [suggestions, setSuggestions] = useState<string[]>([
+    'Je cherche un tshirt noir en M',
+    'Conseille-moi une tenue pour l\'hiver',
+    'Quelles sont vos dernières tendances ?',
+    'J\'ai un budget de 100€, que recommandes-tu ?',
+    'Guide des tailles pour les pantalons'
+  ])
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -142,10 +151,12 @@ export default function TestBotPage() {
           id: data.response.id,
           content: data.response.content,
           type: 'bot' as const,
-          timestamp: data.response.timestamp,
+          timestamp: new Date().toISOString(),
           metadata: data.response.metadata
         }
         setMessages(prev => [...prev, botMessage])
+        setSuggestions(data.response.suggestions)
+        console.log('botMessage', data)
       } else {
         throw new Error(data.error || 'Erreur de réponse')
       }
@@ -265,8 +276,18 @@ export default function TestBotPage() {
                               : 'text-gray-800 bg-gray-100'
                           }`}
                         >
-                          <p className="text-sm whitespace-pre-wrap">
-                            {message.content}
+                          <p id="message-content" className="text-sm whitespace-pre-wrap">
+                            <ReactMarkdown   
+                            components={{
+                              img: ({ node, ...props }) => (
+                                <img
+                                  {...props}
+                                  style={{ height: '180px', borderRadius: '12px', objectFit: 'cover' }}
+                                  alt={props.alt || ''}
+                                />
+                              ),
+                            }}                         
+                            >{message.content}</ReactMarkdown>
                             {/* Curseur clignotant pendant le streaming */}
                             {message.type === 'bot' && isStreaming && message.content && (
                               <span className="inline-block w-2 h-4 bg-blue-500 ml-1 animate-pulse"></span>
@@ -403,13 +424,7 @@ export default function TestBotPage() {
                 
                 {/* Suggestions intelligentes */}
                 <div className="flex gap-2 mt-2 overflow-x-auto">
-                  {[
-                    'Je cherche un sweat noir en M sous 60€',
-                    'Conseille-moi une tenue pour l\'hiver',
-                    'Quelles sont vos dernières tendances ?',
-                    'J\'ai un budget de 100€, que recommandes-tu ?',
-                    'Guide des tailles pour les pantalons'
-                  ].map((suggestion) => (
+                  {suggestions.map((suggestion) => (
                     <Button
                       key={suggestion}
                       variant="outline"

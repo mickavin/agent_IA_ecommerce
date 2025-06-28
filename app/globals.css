@@ -67,3 +67,30 @@
     font-feature-settings: "rlig" 1, "calt" 1; 
   }
 }
+
+#message-content {
+  white-space: pre-wrap;
+}
+
+#message-content ul {
+  line-height: 0.6;
+}
+#message-content h2 {
+  line-height: 0.6;
+}
+#message-content li {
+  line-height: normal;
+}
+
+#message-content p {
+
+}
+
+#message-content hr {
+  border-color: #ddd !important;
+}
+
+#message-content img {
+  max-width: 100%;
+}
+

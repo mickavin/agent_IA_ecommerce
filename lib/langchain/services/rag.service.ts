@@ -39,7 +39,7 @@ export class RAGService {
 
   constructor() {
     this.embeddings = new OpenAIEmbeddings({
-      model: 'text-embedding-3-small',
+      model: 'text-embedding-3-large',
       apiKey: process.env.OPENAI_API_KEY,
       batchSize: 50
     })

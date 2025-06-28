@@ -147,7 +147,7 @@ class OpenAIRAGService {
 
   constructor() {
     this.embeddings = new OpenAIEmbeddings({
-      model: 'text-embedding-3-large', // ✅ Modèle plus performant
+      model: 'gpt-4', // ✅ Modèle plus performant
       apiKey: process.env.OPENAI_API_KEY,
       batchSize: 50, // ✅ Batch plus petit pour meilleure qualité
       dimensions: 1536 // ✅ Dimensions complètes pour précision maximale
@@ -1292,7 +1292,7 @@ Sois précis et concis. Base-toi sur les vraies informations du produit.`
       isInitialized: this.isInitialized,
       documentsLoaded: this.documents.length,
       hasVectorStore: !!this.vectorStore,
-      embeddingmodel: 'text-embedding-3-large'
+      embeddingmodel: 'gpt-4'
     }
   }
 
@@ -1613,7 +1613,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         totalFound: results.length,
         searchTime,
         searchType,
-        embeddingmodel: 'text-embedding-3-large'
+        embeddingmodel: 'gpt-4'
       },
       metadata: {
         documentsLoaded: stats.documentsLoaded,

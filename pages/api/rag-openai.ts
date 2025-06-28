@@ -237,7 +237,7 @@ class OpenAIRAGService {
                 const description = row.description || ''
                 const price = parseFloat(row.price) || 0
                 const type_produit_classifié = row.type_produit_classifié || 'Non classifié'
-                
+                const images = row.image_urls.split(';') || []
                 // ✅ FILTRAGE PAR CATÉGORIE DU RÉFÉRENTIEL
                 if (relevantCategories && relevantCategories.length > 0) {
                   const hasMatchingCategory = relevantCategories.some(relevantCat => {
@@ -275,7 +275,8 @@ class OpenAIRAGService {
                     status: row.status || 'ACTIVE',
                     availableForSale: row.availableForSale !== 'False',
                     source,
-                    filteredByReferential: !!relevantCategories?.length
+                    filteredByReferential: !!relevantCategories?.length,
+                    images
                   }
                 }
               })
@@ -560,18 +561,18 @@ class OpenAIRAGService {
     
     // Filtrage supplémentaire par couleur si détectées
       const colorFiltered = this.filterDocumentsByColors(filteredDocuments, promptCategorizationParsed.couleur_younzee)
-      console.log(`🎨 Après filtrage couleur: ${colorFiltered.length} produits`)
+      console.log(`🎨 Après filtrage couleur: ${colorFiltered.length} produits (couleur: ${promptCategorizationParsed.couleur_younzee})`)
       
       // Si filtrage couleur trop restrictif, relaxer
-      if (colorFiltered.length < 5 && filteredDocuments.length > 20) {
-        console.log(`🔄 Filtrage couleur trop restrictif, critères relaxés`)
-        filteredDocuments = this.filterDocumentsByColorsRelaxed(filteredDocuments, promptCategorizationParsed.couleur_younzee)
-        console.log(`🔄 Après relaxation: ${filteredDocuments.length} produits`)
-      } else {
+      //if (colorFiltered.length < 5 && filteredDocuments.length > 20) {
+     //   console.log(`🔄 Filtrage couleur trop restrictif, critères relaxés`)
+      //  filteredDocuments = this.filterDocumentsByColorsRelaxed(filteredDocuments, promptCategorizationParsed.couleur_younzee)
+      //  console.log(`🔄 Après relaxation: ${filteredDocuments.length} produits`)
+      //} else {
       filteredDocuments = colorFiltered
-      }
+      //}
     
-
+      try {
     this.documents = filteredDocuments
     await this.createVectorStore()
     this.isInitialized = true
@@ -582,7 +583,7 @@ class OpenAIRAGService {
     const k = Math.min(options.k || 5, 20)
     const searchType = options.searchType || 'semantic'
 
-    try {
+    
       let results: RAGSearchResult[] = []
 
       // ✅ 5️⃣ RECHERCHE sur les produits filtrés par catégorie ET couleur
@@ -595,13 +596,13 @@ class OpenAIRAGService {
       //}
 
       // ✅ 6️⃣ POST-PROCESSING avec boost catégoriel ET couleur
-      results = this.postProcessResults(results, query, processedQuery)
-      results = this.applyCategoryBoost(results, promptCategorizationParsed.type_produit_classifié)
+      //results = this.postProcessResults(results, query, processedQuery)
+      //results = this.applyCategoryBoost(results, promptCategorizationParsed.type_produit_classifié)
       
       // Boost supplémentaire pour les couleurs correspondantes
-      if (promptCategorizationParsed.couleur_younzee.length > 0) {
-        results = this.applyColorBoost(results, promptCategorizationParsed.couleur_younzee)
-      }
+      //  if (promptCategorizationParsed.couleur_younzee.length > 0) {
+      //    results = this.applyColorBoost(results, promptCategorizationParsed.couleur_younzee)
+      //  }
 
       // ✅ 7️⃣ ENRICHISSEMENT avec métadonnées catégorielles et couleurs
       results = results.map(result => ({
@@ -621,7 +622,7 @@ class OpenAIRAGService {
       return results.sort((a, b) => b.score - a.score).slice(0, k)
     } catch (error) {
       console.error('Erreur recherche catégorisée:', error)
-      throw error
+      return []
     }
   }
 
@@ -882,13 +883,14 @@ class OpenAIRAGService {
   private filterDocumentsByColors(documents: ProductDocument[], detectedColors: string): ProductDocument[] {
     return documents.filter(doc => {
       const docColors = doc.metadata.colors || []
-      
+      console.log(`🔍 couleurs du produit: "${docColors}"`)
       // Vérifier si le produit a une des couleurs détectées
         for (const docColor of docColors) {
           const docColorLower = docColor.toLowerCase()
+          const detectedColorsLower = detectedColors.toLowerCase()
           
           // Correspondance directe
-          if (docColorLower.includes(detectedColors) || detectedColors.includes(docColorLower)) {
+          if (docColorLower.includes(detectedColorsLower) || detectedColorsLower.includes(docColorLower)) {
             return true
           }
           

@@ -10,7 +10,7 @@ import Papa from 'papaparse'
  */
 export interface RAGConfig {
   csvFiles: string[]
-  embeddingModel: 'text-embedding-3-small' | 'text-embedding-ada-002'
+  embeddingModel: 'gpt-4' | 'text-embedding-ada-002'
   chunkSize: number
   overlapSize: number
   confidenceThreshold: number
@@ -78,7 +78,7 @@ export class RAGLangchainService {
   constructor(config?: Partial<RAGConfig>) {
     this.config = {
       csvFiles: ['files/produits_final.csv'],
-      embeddingModel: 'text-embedding-3-small',
+      embeddingModel: 'gpt-4',
       chunkSize: 500,
       overlapSize: 50,
       confidenceThreshold: 0.7,
