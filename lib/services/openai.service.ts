@@ -66,7 +66,7 @@ export class OpenAIService {
 
       // Ajouter le contexte si disponible
       if (context?.conversationHistory?.length) {
-        const recentHistory = context.conversationHistory.slice(-4) // 4 derniers messages
+        const recentHistory = context.conversationHistory // 4 derniers messages
         for (const msg of recentHistory) {
           messages.push({
             role: msg.type === 'user' ? 'user' : 'assistant',

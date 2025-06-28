@@ -18,6 +18,8 @@ import {
   ShoppingBag
 } from "lucide-react"
 import { ChatbotVisualConfig, ChatbotPersonality, ChatMessage } from "@/lib/types"
+import { ProductCarousel } from "@/components/product-carousel"
+import ReactMarkdown from "react-markdown"
 
 interface ChatbotPreviewProps {
   visualConfig: ChatbotVisualConfig
@@ -241,13 +243,30 @@ export function ChatbotPreview({
 
       const data = await response.json()
       
-      if (data.success && data.response) {
+      if (data.success !== false && data.response) {
         const botMessage = {
-          id: data.response.id,
-          content: data.response.content,
+          id: data.response.id || `bot-${Date.now()}`,
+          content: data.response.content || data.content,
           type: 'bot' as const,
-          timestamp: data.response.timestamp,
-          metadata: data.response.metadata
+          timestamp: data.response.timestamp || new Date().toISOString(),
+          metadata: {
+            ...data.response.metadata,
+            products: data.response.products || data.products,
+            showCarousel: data.response.showCarousel || data.showCarousel
+          }
+        }
+        setMessages(prev => [...prev, botMessage])
+      } else if (data.content) {
+        // Gestion directe si l'API retourne directement le contenu
+        const botMessage = {
+          id: `bot-${Date.now()}`,
+          content: data.content,
+          type: 'bot' as const,
+          timestamp: new Date().toISOString(),
+          metadata: {
+            products: data.products,
+            showCarousel: data.showCarousel
+          }
         }
         setMessages(prev => [...prev, botMessage])
       } else {
@@ -473,8 +492,31 @@ export function ChatbotPreview({
                             background: `linear-gradient(135deg, ${visualConfig.primaryColor}, ${visualConfig.primaryColor}dd)`
                           } : undefined}
                         >
-                          <div className="whitespace-pre-wrap">{message.content}</div>
+                          {message.type === 'bot' && message.content ? (
+                            <div className="prose prose-sm max-w-none">
+                              <ReactMarkdown>
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
+                          ) : (
+                            <div className="whitespace-pre-wrap">{message.content}</div>
+                          )}
                         </div>
+
+                        {/* Carousel de produits pour les recommandations */}
+                        {message.type === 'bot' && message.metadata?.showCarousel && message.metadata?.products && (
+                          <div className="mt-3">
+                            <ProductCarousel
+                              products={message.metadata.products}
+                              title="Nos recommandations"
+                              primaryColor={visualConfig.primaryColor}
+                              onProductClick={(product) => {
+                                console.log('Produit cliqué:', product)
+                                // Ici on pourrait ajouter une action comme ouvrir une modal ou rediriger
+                              }}
+                            />
+                          </div>
+                        )}
                         
                         {/* Affichage des métadonnées d'intelligence */}
                         <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">

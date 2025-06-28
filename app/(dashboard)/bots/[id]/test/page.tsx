@@ -27,9 +27,10 @@ import {
   Copy,
   Sparkles
 } from "lucide-react"
-import { ChatMessage, Chatbot } from "@/lib/types"
+import { ChatMessage, Chatbot, Product } from "@/lib/types"
 import { IntelligentChatbot } from "@/components/intelligent-chatbot"
 import { supabase } from "@/lib/supabase"
+import { ProductCarousel } from "@/components/product-carousel"
 
 // Simulation de données du chatbot
 const mockChatbot: Chatbot = {
@@ -68,7 +69,7 @@ export default function TestBotPage() {
   const botId = params?.id as string
   const [chatbot] = useState<Chatbot>(mockChatbot)
   const [suggestions, setSuggestions] = useState<string[]>([
-    'Je cherche un tshirt noir en M',
+    'Je cherche un t-shirt noir en M',
     'Conseille-moi une tenue pour l\'hiver',
     'Quelles sont vos dernières tendances ?',
     'J\'ai un budget de 100€, que recommandes-tu ?',
@@ -83,6 +84,7 @@ export default function TestBotPage() {
     }
   ])
   const [inputMessage, setInputMessage] = useState("")
+  const [dataProducts, setDataProducts] = useState<Product[]>([])
   const [isTyping, setIsTyping] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
   const [sessionStats, setSessionStats] = useState({
@@ -146,21 +148,18 @@ export default function TestBotPage() {
 
       const data = await response.json()
       
-      if (data.success && data.response) {
         const botMessage = {
-          id: data.response.id,
-          content: data.response.content,
+          id: data?.response?.id || `bot-${Date.now()}`,
+          content: data?.response?.content || data?.response?.message || data?.message,
           type: 'bot' as const,
           timestamp: new Date().toISOString(),
-          metadata: data.response.metadata
+          metadata: data?.response?.metadata || {}
         }
         setMessages(prev => [...prev, botMessage])
-        setSuggestions(data.response.suggestions)
+        setSuggestions(data?.response?.suggestions || data?.suggestions || [])
+        setDataProducts(data?.response?.products || data?.products || [])
         console.log('botMessage', data)
-      } else {
-        throw new Error(data.error || 'Erreur de réponse')
-      }
-    } catch (error) {
+        } catch (error) {
       console.error('Erreur test chatbot:', error)
       const errorMessage = {
         id: `error-${Date.now()}`,
@@ -241,15 +240,9 @@ export default function TestBotPage() {
                     className="bg-green-50 text-green-700 border-green-200"
                   >
                     <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                    IA ITEM
+                    IA Item
                   </Badge>
-                  <Badge 
-                    variant="outline" 
-                    className="bg-blue-50 text-blue-700 border-blue-200"
-                  >
-                    <div className="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></div>
-                    IA OUTFIT
-                  </Badge>
+                  
                 </div>
               </div>
             </CardHeader>
@@ -282,7 +275,7 @@ export default function TestBotPage() {
                               img: ({ node, ...props }) => (
                                 <img
                                   {...props}
-                                  style={{ height: '180px', borderRadius: '12px', objectFit: 'cover' }}
+                                  style={{ height: '180px', borderRadius: '12px', objectFit: 'cover', marginBottom: '10px' }}
                                   alt={props.alt || ''}
                                 />
                               ),
@@ -327,7 +320,9 @@ export default function TestBotPage() {
                  
                     </div>
                   ))}
-
+                  {(dataProducts.length > 0 && dataProducts[0]?.colors?.length) && (
+                    <ProductCarousel products={dataProducts} />
+                  )}
                   {/* <div className="flex gap-2 mt-2 flex-col">
                   <Avatar className="h-8 w-8 mt-1 bg-gradient-to-br from-blue-500 to-purple-600">
                       <AvatarFallback>

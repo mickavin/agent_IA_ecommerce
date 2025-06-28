@@ -262,6 +262,8 @@ export type ChatMessage = {
     intent?: string
     entities?: Array<{ type: string; value: string }>
     recommendations?: Array<{ type: string; value: string }>
+    products?: Product[]
+    showCarousel?: boolean
   }
 }
 

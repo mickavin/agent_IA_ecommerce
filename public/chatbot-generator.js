@@ -13,8 +13,8 @@
     subtitle: 'Comment puis-je vous aider ?',
     apiEndpoint: window.location.origin + '/api/ai/master',
     position: 'bottom-right',
-    primaryColor: '#3B82F6',
-    secondaryColor: '#EFF6FF',
+    primaryColor: '#ffdd5b',
+    secondaryColor: '#ffdd5b',
     textColor: '#1F2937',
     backgroundColor: '#FFFFFF',
     borderRadius: '12px',
@@ -226,8 +226,8 @@
     }
     
     .younzee-chatbot-input:focus {
-      border-color: var(--primary-color, #3B82F6);
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      border-color: var(--primary-color, #ffdd5b);
+      box-shadow: 0 0 0 3px rgb(255, 221, 91);
     }
     
     .younzee-chatbot-send {

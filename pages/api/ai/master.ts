@@ -25,9 +25,11 @@ PROPOSE DES SUGGESTIONS DE QUESTIONS A REQUETER EN FONCTION DU TYPE DE REQUÊTE 
 
 Tu emploieras cette personnalité dans tes réponses: ${JSON.stringify(personality)}
 
+Si grace aux conversation precedente tu as deja donné pu cerner le type de produit, la couleur et la taille, ne les demande pas a nouveau et reformule la requête en fonction de ces informations pour que l'IA ITEM puisse trouver les produits.
+
 RETOURNE UNIQUEMENT DU JSON VALIDE:
 {
-  "message": if (primaryType === "ITEM") null else "Ta réponse à la requête de l'utilisateur",
+  "message": "Ta réponse à la requête de l'utilisateur",
   "request": "La requête de l'utilisateur",
   "primaryType": "ITEM|OUTFIT|FAQ|RECOMMENDATION|PRECISION",
   "confidence": 0.9,
@@ -38,8 +40,8 @@ RETOURNE UNIQUEMENT DU JSON VALIDE:
     "context": "travail",
     "style": "casual"
   },
-  "missingInfo": ["taille", "couleur"],
-  "missingInfoSuggestions": ["Précisez la taille souhaitée", "Ajoutez une couleur de préférence"],
+  "missingInfo": ["taille", "couleur", "type de produit"],
+  "missingInfoSuggestions": ["Précisez la taille souhaitée", "Ajoutez une couleur de préférence", "Précisez le type de produit que vous recherchez"],
   "suggestions": ["Je cherche un sweat noir en M sous 60€", "Conseille-moi une tenue pour l'hiver", "Quelles sont vos dernières tendances ?", "J'ai un budget de 100€, que recommandes-tu ?", "Guide des tailles pour les pantalons"] //Suggestions de questions a genere dynamiquement en fonction de la reponse de l'IA ITEM et de la requête de l'utilisateur
 }
 `
@@ -265,7 +267,7 @@ Analyse la requête de l'utilisateur et les résultats générés par l'IA ITEM,
 
 ---
 
-## 👗 **Nom de l'article**
+## **emoji representant le type de produit** **Nom de l'article**
 
 _image 1_  
 _image 2_  
@@ -320,21 +322,20 @@ Analyse la requête de l'utilisateur et les résultats générés par l'IA ITEM,
 ### Instructions obligatoires :
 
 1. **Réponds à la requête** en respectant la personnalité indiquée, en t'appuyant sur les articles fournis dans le JSON.
-2. Si **aucun article** n'est trouvé, **indique-le clairement** dans le champ \`content\`, sans ajouter d'autres éléments.
+2. Si **aucun article** n'est trouvé, **indique-le clairement** dans le champ \`content\` en gardant la personnalité que je t'ai donnée et en gardant le format JSON ci-dessous.
 3. Ne trie **pas** les articles : ils sont déjà classés par pertinence par l'IA ITEM.
 4. Pour chaque article :
-   - Va chercher les images dans \`metadata.images\`, qui est un **tableau** d’URLs (maximum 3).
-   - Si ce tableau contient des images, affiche-les en **markdown compatible avec \`react-markdown\`**, les unes à la suite des autres (sans saut de ligne).
-   - S'il n’y a **aucune image**, **n’en affiche pas**.
-5. Respecte cette mise en forme **exclusivement** pour chaque article :
+   - S'il n’y a **aucune image ou si string vide pour cet article meme si il y a des images pour un autre article**, **n’en affiche pas**.
+   - Va chercher les images a \`metadata.images\` dans chaue objet de chaque article, qui est un **tableau** d’URLs (maximum 3).
+   - Si ce tableau contient des images, affiche-les en **markdown compatible avec \`react-markdown\`**, les unes à la suite des autres (sans saut de ligne) apres le nom de l'article et avant les autres informations.
+   - Si il y a des images pour un autre article, ne pas les afficher.
+   - Si tu as un doutes sur l'image a afficher, n'affiche pas d'image.
+5. Reponds d'abord a la requête de l'utilisateur en adoptant la personnalité que je t'ai donnée en prenant en compte les articles trouvés par l'IA ITEM et le contexte de la requête avanr de lister les produits.
+6. Respecte cette mise en forme **exclusivement** pour chaque article :
 
 ---
 
-## 👗 **Nom de l'article**
-
-_image 1_  
-_image 2_  
-_image 3_
+## emoji representant le type de produit **Nom de l'article**
 
 - **Prix :** XX,XX €  
 - **Tailles :** XS à XL // ou tailles spécifiques  
@@ -350,11 +351,7 @@ _image 3_
 
 ---
 
-## 👗 **Nom de l'article**
-
-_image 1_  
-_image 2_  
-_image 3_
+## emoji representant le type de produit **Nom de l'article**
 
 - **Prix :** XX,XX €  
 - **Tailles :** XS à XL // ou tailles spécifiques  
@@ -533,10 +530,6 @@ Description de la reponse adapte au ton et a la personnalite que je t'ai donnée
 
 ## 👗 **Robe Longue Bohème**
 
-![Robe Bohème](url de l'image 1)
-![Robe Bohème 2](url de l'image 2)
-![Robe Bohème 3](url de l'image 3)
-
 - **Prix :** 59,99 €  
 - **Tailles :** S, M, L, XL  
 - **Couleurs :** Beige | Terracotta | Bleu nuit  
@@ -549,10 +542,6 @@ Description de la reponse adapte au ton et a la personnalite que je t'ai donnée
 ---
 
 ## 👕 **T-shirt Oversize Unisexe**
-
-![T-shirt Oversize](url de l'image 1)
-![T-shirt Oversize 2](url de l'image 2)
-![T-shirt Oversize 3](url de l'image 3)
 
 - **Prix :** 29,90 €  
 - **Tailles :** XS à XXL  
@@ -567,10 +556,6 @@ Description de la reponse adapte au ton et a la personnalite que je t'ai donnée
 ---
 
 ## 👖 **Jean Droit Vintage**
-
-![Jean Vintage](url de l'image 1)
-![Jean Vintage 2](url de l'image 2)
-![Jean Vintage 3](url de l'image 3)
 
 - **Prix :** 74,50 €  
 - **Tailles :** 34 à 44  
@@ -601,6 +586,7 @@ type AIRoutingResult = {
   aiType: string
   confidence: number
   response?: any
+  content?: string
   error?: string
   metadata?: any
 }
@@ -620,7 +606,7 @@ async function getChatbotConfig(chatbotId?: string): Promise<ChatbotConfig | nul
 /**
  * Appel de l'IA Master et callback du RAG-OpenAI
  */
-async function callMasterAI(message: string, chatbotId?: string): Promise<AIRoutingResult> {
+async function callMasterAI(message: string, chatbotId?: string, history?: any): Promise<AIRoutingResult> {
   if (typeof window !== 'undefined') {
     if (!window.localStorage.getItem(`${chatbotId}-chatbot-config-younzee`)) {
       window.localStorage.setItem(`${chatbotId}-chatbot-config-younzee`, JSON.stringify(`${Date.now()}`))
@@ -636,7 +622,7 @@ async function callMasterAI(message: string, chatbotId?: string): Promise<AIRout
     systemPrompt: PROMPT_MASTER(JSON.stringify(config?.personality)),
     userMessage: message,
     context: {
-      conversationHistory: [],
+      conversationHistory: history || [],
       userPreferences: {},
       userId: `test-${chatbotId}-${id}`
     }
@@ -646,6 +632,7 @@ async function callMasterAI(message: string, chatbotId?: string): Promise<AIRout
       success: false,
       aiType: 'error',
       confidence: 0,
+      content: '',
       error: `Erreur HTTP: ${response}`
     }
   }
@@ -655,12 +642,13 @@ async function callMasterAI(message: string, chatbotId?: string): Promise<AIRout
     success: true,
     aiType: 'master',
     confidence: 1,
-    response: data
+    response: data,
+    content: data.message
   }
 }
 
 
-async function callMasterAIToRAG(message: string, chatbotId?: string): Promise<AIRoutingResult> {
+async function callMasterAIToRAG(message: string, chatbotId?: string, history?: any): Promise<AIRoutingResult> {
   const response = await callRAG(message, chatbotId)
   console.log('responseRAG1', response)
   if (!response.success) {
@@ -678,10 +666,10 @@ async function callMasterAIToRAG(message: string, chatbotId?: string): Promise<A
   const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
   const config = await getChatbotConfig(chatbotId)
   const responseRAG = await openaiService.generateResponse({
-    systemPrompt: PROMPT_RAG7(message, JSON.stringify(response.data.results), JSON.stringify(config?.personality)),
+    systemPrompt: PROMPT_RAG6(message, JSON.stringify(response.data.results), JSON.stringify(config?.personality)),
     userMessage: message,
     context: {
-      conversationHistory: [],
+      conversationHistory: history || [],
       userPreferences: {},
       userId: `test-${chatbotId}-${id}`
     }
@@ -697,15 +685,47 @@ async function callMasterAIToRAG(message: string, chatbotId?: string): Promise<A
   console.log('responseRAG', responseRAG)
   console.log('responseRAG.content', typeof responseRAG)
   const data = JSON.parse(responseRAG)
+  
+  // Ajouter les produits formatés pour le carousel
+  const products = formatProductsFromRAG(response.data.results || [])
+  
   return {
     success: true,
     aiType: 'master',
     confidence: 1,
     response: {
       ...response,
-      ...data
+      ...data,
+      products: products,
+      showCarousel: products.length > 0
     }
   }
+}
+
+/**
+ * Formate les résultats RAG en produits pour le carousel
+ */
+function formatProductsFromRAG(ragResults: any[]): any[] {
+  if (!ragResults || ragResults.length === 0) {
+    return []
+  }
+
+  return ragResults.slice(0, 5).map((result, index) => {
+    const metadata = result.document?.metadata || {}
+    
+    return {
+      id: metadata.id || `product-${index}`,
+      title: metadata.title || 'Produit sans nom',
+      price: metadata.price || 0,
+      colors: metadata.colors || [],
+      sizes: metadata.sizes || [],
+      images: metadata.images || [],
+      category: metadata.type_produit_classifié || metadata.category || 'Non classifié',
+      description: metadata.description || '',
+      availability: metadata.availableForSale !== false,
+      rating: metadata.rating || null
+    }
+  })
 }
 
 /**
@@ -845,7 +865,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const userMessage = message.trim()
-
+    const history = context.conversationHistory || []
     // Récupération de la configuration depuis Supabase (priorité sur chatbotId)
     const configResult = await ChatbotConfigService.resolveConfig(chatbotId, chatbotConfig)
     console.log('configResult', configResult, chatbotId, message)
@@ -863,14 +883,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Log de la configuration utilisée
     console.log(`🎯 IA Master: message "${userMessage.substring(0, 50)}..." avec config ${config.name} (${source})`)
 
-    const routingResult = await callMasterAI(userMessage, chatbotId)
+    const routingResult = await callMasterAI(userMessage, chatbotId, history)
     console.log('routingResult', routingResult)
     if (routingResult.success) {
       const response = routingResult.response
       //const personalizedContent = applyPersonalization(response.message, personality)
       //console.log('personalizedContent', personalizedContent)
       if (response.primaryType === 'ITEM') {
-        const ragResult = await callMasterAIToRAG(response.request, chatbotId)
+        const ragResult = await callMasterAIToRAG(response.request, chatbotId, history)
         console.log('ragResult', ragResult)
         console.log('ragResult.response', ragResult.response)
         return res.status(200).json(ragResult)
