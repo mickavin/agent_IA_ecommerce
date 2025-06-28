@@ -1,6 +1,48 @@
 import { NextApiRequest, NextApiResponse } from 'next'
-import { ChatbotConfigService } from '../../../lib/services/chatbot-config.service'
+import { ChatbotConfig, ChatbotConfigService } from '../../../lib/services/chatbot-config.service'
+import { OpenAIService } from '../../../lib/services/openai.service'
 
+const PROMPT_MASTER = (personality: string) => `
+Tu es un expert en catégorisation de requêtes e-commerce pour Younzee.
+
+Analyse cette requête et détermine:
+
+TYPES DE REPONSES DE L'IA:
+- ITEM: Présentation d'un article spécifique (ex: "t-shirt rouge", "jean slim taille 38")  
+- OUTFIT: Demande de tenue complète avec contexte (ex: "tenue pour aller au travail", "outfit soirée")
+- FAQ: Question sur service/livraison/retour (ex de requête: "comment retourner un article?", "délais de livraison") (ex de réponse: "Pour retourner un article, veuillez contacter notre service client au 01 23 45 67 89")
+- RECOMMENDATION: Réponse à une demande de recommandation (ex de requête: "quels sont vos meilleurs articles?", "quels sont vos derniers arrivages?") (ex de réponse: "Voici nos derniers arrivages:...")
+- PRECISION: Demande de précision (ex de requête: "Pourriez vous me preciser la taille que vous recherchez pour votre tenue?") (ex de réponse: "Pourriez vous me preciser la taille que vous recherchez pour votre tenue?")
+- FALLBACK: Proposition d'un autre article non trouvée (ex de requête: "Je cherche un t-shirt rouge en M", "Je cherche un jean slim taille 38") (ex de réponse: "Je n'ai pas trouvé de t-shirt rouge en M, mais voici un t-shirt rouge que je vous propose en taille L:...", "Je n'ai pas trouvé de jean slim taille 38, mais voici un jean regular que je vous propose en taille 38:...")
+
+INFORMATIONS À EXTRAIRE:
+- Taille: XS, S, M, L, XL, XXL, 36, 38, 40, 42, 44, 46, 48, 50
+- Couleur: rouge, bleu, vert, noir, blanc, etc.
+- Contexte/Occasion: travail, soirée, sport, plage, mariage, etc.
+- Style: casual, élégant, sport, vintage, moderne, etc.
+
+PROPOSE DES SUGGESTIONS DE QUESTIONS A REQUETER EN FONCTION DU TYPE DE REQUÊTE ET DES INFORMATIONS EXTRAIRES.
+
+Tu emploieras cette personnalité dans tes réponses: ${Object.entries(personality).map(([key, value]) => `${key}: ${value}`).join(', ')}
+
+RETOURNE UNIQUEMENT DU JSON VALIDE:
+{
+  "message": if (primaryType === "ITEM") null else "Ta réponse à la requête de l'utilisateur",
+  "request": "La requête de l'utilisateur",
+  "primaryType": "ITEM|OUTFIT|FAQ|RECOMMENDATION|PRECISION",
+  "confidence": 0.9,
+  "reasoning": "Explication claire du choix",
+  "extractedInfo": {
+    "size": "M",
+    "color": "rouge", 
+    "context": "travail",
+    "style": "casual"
+  },
+  "missingInfo": ["taille", "couleur"],
+  "missingInfoSuggestions": ["Précisez la taille souhaitée", "Ajoutez une couleur de préférence"],
+  "suggestions": ["Je cherche un sweat noir en M sous 60€", "Conseille-moi une tenue pour l'hiver", "Quelles sont vos dernières tendances ?", "J'ai un budget de 100€, que recommandes-tu ?", "Guide des tailles pour les pantalons"]
+}
+`
 /**
  * IA Master - Orchestrateur intelligent avec personnalisation du chatbot depuis Supabase
  * Récupère automatiquement les configurations depuis la base de données
@@ -44,184 +86,58 @@ const defaultPersonality: ChatbotPersonality = {
 }
 
 /**
- * Route un message vers l'IA spécialisée appropriée
+ * Récupère la configuration du chatbot
  */
-async function routeToSpecializedAI(message: string, chatbotId?: string): Promise<AIRoutingResult> {
+async function getChatbotConfig(chatbotId?: string): Promise<ChatbotConfig | null> {
+  const configResult = await ChatbotConfigService.resolveConfig(chatbotId)
+  if (!configResult.success || !configResult.config) {
+    return null
+  }
+  return configResult.config
+}
+
+/**
+ * Appel de l'IA Master et callback du RAG-OpenAI
+ */
+async function callMasterAI(message: string, chatbotId?: string): Promise<AIRoutingResult> {
+  if (typeof window !== 'undefined') {
+    if (!window.localStorage.getItem(`${chatbotId}-chatbot-config-younzee`)) {
+      window.localStorage.setItem(`${chatbotId}-chatbot-config-younzee`, JSON.stringify(`${Date.now()}`))
+    }
+  }
+
+  const id = typeof window !== 'undefined' ? window.localStorage.getItem(`${chatbotId}-chatbot-config-younzee`) : null
+
+  const openaiService = new OpenAIService()
   const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
-  
-  try {
-    // Récupération de la configuration depuis Supabase
-    const configResult = await ChatbotConfigService.resolveConfig(chatbotId)
-    
-    if (!configResult.success || !configResult.config) {
-      throw new Error('Impossible de récupérer la configuration du chatbot')
+  const config = await getChatbotConfig(chatbotId)
+  const response = await openaiService.generateResponse({
+    systemPrompt: PROMPT_MASTER(JSON.stringify(config?.personality)),
+    userMessage: message,
+    context: {
+      conversationHistory: [],
+      userPreferences: {},
+      userId: `test-${chatbotId}-${id}`
     }
-
-    const { config, source } = configResult
-    ChatbotConfigService.logConfigSource(chatbotId, source, config.name)
-
-    // ✅ 1️⃣ DÉTECTION ET APPEL RAG-OPENAI EN PRIORITÉ
-    const ragResult = await tryRAGOpenAI(message, baseUrl)
-    if (ragResult.success) {
-      console.log(`🎯 RAG-OpenAI utilisé avec confiance ${ragResult.confidence}`)
-      return {
-        success: true,
-        aiType: 'rag-openai',
-        confidence: ragResult.confidence,
-        response: ragResult.response,
-        metadata: {
-          configSource: source,
-          chatbotName: config.name,
-          ragData: ragResult.metadata
-        }
-      }
-    }
-
-    // ✅ 2️⃣ FALLBACK vers autres IAs si RAG pas adapté
-    console.log(`⚠️ RAG-OpenAI non utilisé: ${ragResult.reason}`)
-    
-    const fallbackEndpoints = [
-      { name: 'faq', endpoint: '/api/ai/faq' },
-      { name: 'articles', endpoint: '/api/ai/articles' },
-      { name: 'outfits', endpoint: '/api/ai/outfits' }
-    ]
-
-    for (const ai of fallbackEndpoints) {
-      try {
-        const response = await fetch(`${baseUrl}${ai.endpoint}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message,
-            context: {},
-            chatbotConfig: {
-              personality: config.personality,
-              visualConfig: config.visualConfig
-            }
-          })
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          
-          if (data.success && data.response) {
-            return {
-              success: true,
-              aiType: ai.name,
-              confidence: data.response.metadata?.confidence || 0.5,
-              response: data.response,
-              metadata: {
-                configSource: source,
-                chatbotName: config.name
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.warn(`⚠️ Erreur IA ${ai.name}:`, error)
-        continue
-      }
-    }
-
-    // Aucune IA n'a pu traiter, fallback
-    return {
-      success: false,
-      aiType: 'none',
-      confidence: 0,
-      error: 'Aucune IA disponible'
-    }
-
-  } catch (error: any) {
-    console.error('❌ Erreur routage IA Master:', error)
+  })
+  if (!response) {
     return {
       success: false,
       aiType: 'error',
       confidence: 0,
-      error: error.message
+      error: `Erreur HTTP: ${response}`
     }
+  }
+  console.log('response', response)
+  const data = JSON.parse(response)
+  return {
+    success: true,
+    aiType: 'master',
+    confidence: 1,
+    response: data
   }
 }
 
-/**
- * ✅ NOUVELLE FONCTION: Teste si RAG-OpenAI peut traiter la requête
- */
-async function tryRAGOpenAI(message: string, baseUrl: string): Promise<{
-  success: boolean,
-  confidence: number,
-  response?: any,
-  metadata?: any,
-  reason?: string
-}> {
-  console.log(`🔍 Test RAG-OpenAI pour: "${message.substring(0, 50)}..."`)
-  
-  // ✅ 1️⃣ ANALYSE DE LA REQUÊTE pour déterminer si RAG est adapté
-  const ragAnalysis = analyzeForRAG(message)
-  
-  if (!ragAnalysis.canHandle) {
-    return {
-      success: false,
-      confidence: ragAnalysis.confidence,
-      reason: ragAnalysis.reasoning
-    }
-  }
-
-  console.log(`✅ RAG adapté (${(ragAnalysis.confidence * 100).toFixed(1)}%): ${ragAnalysis.reasoning}`)
-
-  try {
-    // ✅ 2️⃣ APPEL DE RAG-OPENAI
-    const response = await fetch(`${baseUrl}/api/rag-openai`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query: message,
-        k: 5,
-        searchType: 'hybrid'
-      })
-    })
-
-    if (!response.ok) {
-      return {
-        success: false,
-        confidence: 0,
-        reason: `Erreur HTTP RAG: ${response.status}`
-      }
-    }
-
-    const ragData = await response.json()
-
-    if (!ragData.success) {
-      return {
-        success: false,
-        confidence: 0,
-        reason: `RAG failed: ${ragData.error}`
-      }
-    }
-
-    // ✅ 3️⃣ FORMATAGE DE LA RÉPONSE RAG pour l'interface Master
-    const formattedResponse = formatRAGResponse(ragData, message, ragAnalysis.criteria)
-
-    return {
-      success: true,
-      confidence: ragAnalysis.confidence,
-      response: formattedResponse,
-      metadata: {
-        ragResults: ragData.data?.results?.length || 0,
-        searchTime: ragData.data?.searchTime || 0,
-        searchType: ragData.data?.searchType || 'hybrid',
-        extractedCriteria: ragAnalysis.criteria,
-        reasoning: ragAnalysis.reasoning
-      }
-    }
-
-  } catch (error: any) {
-    console.error('❌ Erreur appel RAG-OpenAI:', error)
-    return {
-      success: false,
-      confidence: 0,
-      reason: `Exception: ${error.message}`
-    }
-  }
-}
 
 /**
  * ✅ NOUVELLE FONCTION: Analyse si une requête convient au RAG
@@ -563,7 +479,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Récupération de la configuration depuis Supabase (priorité sur chatbotId)
     const configResult = await ChatbotConfigService.resolveConfig(chatbotId, chatbotConfig)
-    
+    console.log('configResult', configResult, chatbotId, message)
     if (!configResult.success || !configResult.config) {
       return res.status(500).json({ 
         error: 'Configuration chatbot non disponible',
@@ -574,66 +490,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { config, source } = configResult
     console.log('config', config)
     const personality = config.personality
-
+    ChatbotConfigService.logConfigSource(chatbotId, source, config.name)
     // Log de la configuration utilisée
     console.log(`🎯 IA Master: message "${userMessage.substring(0, 50)}..." avec config ${config.name} (${source})`)
 
-    // Routage vers l'IA spécialisée
-    const routingResult = await routeToSpecializedAI(userMessage, chatbotId)
-
-    if (routingResult.success && routingResult.response) {
-      // Appliquer la personnalisation
-      const originalContent = routingResult.response.content
-      const personalizedContent = applyPersonalization(originalContent, personality)
-
-      // Enrichir les métadonnées
-      const enrichedMetadata = {
-        ...routingResult.response.metadata,
-        routedTo: routingResult.aiType,
-        confidence: routingResult.confidence,
-        personalityApplied: personality,
-        configSource: source,
-        chatbotName: config.name,
-        originalLength: originalContent.length,
-        personalizedLength: personalizedContent.length,
-        model: 'IA Master (Supabase)'
-      }
-
-      return res.status(200).json({
-        success: true,
-        response: {
-          id: `master-${Date.now()}`,
-          content: personalizedContent,
-          type: 'bot',
-          timestamp: new Date().toISOString(),
-          metadata: enrichedMetadata
-        }
-      })
+    const routingResult = await callMasterAI(userMessage, chatbotId)
+    console.log('routingResult', routingResult)
+    if (routingResult.success) {
+      const response = routingResult.response
+      const personalizedContent = applyPersonalization(response.message, personality)
+      console.log('personalizedContent', personalizedContent)
     }
 
-    // Fallback si aucune IA n'a pu traiter
-    const fallbackContent = generatePersonalizedFallback(personality)
 
-    return res.status(200).json({
-      success: true,
-      response: {
-        id: `master-fallback-${Date.now()}`,
-        content: fallbackContent,
-        type: 'bot',
-        timestamp: new Date().toISOString(),
-        metadata: {
-          intent: 'fallback',
-          confidence: 0.1,
-          aiType: 'master_fallback',
-          routedTo: 'none',
-          personalityApplied: personality,
-          configSource: source,
-          chatbotName: config.name,
-          model: 'IA Master (Fallback)',
-          reason: routingResult.error || 'Aucune IA spécialisée disponible'
-        }
-      }
-    })
 
   } catch (error: any) {
     console.error('❌ Erreur IA Master:', error)

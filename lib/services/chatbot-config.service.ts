@@ -162,8 +162,8 @@ export class ChatbotConfigService {
           const config: ChatbotConfig = {
             id: data.id,
             name: data.name,
-            personality: data.personality || this.defaultConfig.personality,
-            visualConfig: data.visual_config || this.defaultConfig.visualConfig, 
+            personality: data.personality,
+            visualConfig: data.visual_config, 
             isDefault: data.is_default || false,
             status: data.status
           }
@@ -265,6 +265,7 @@ export class ChatbotConfigService {
   static async resolveConfig(chatbotId?: string, providedConfig?: any): Promise<ChatbotPersonalizationResult> {
     // Si un chatbotId est fourni, l'utiliser en priorité
     if (chatbotId && chatbotId !== 'default') {
+      console.log('chatbotId Supabase', chatbotId)
       const result = await this.getConfigById(chatbotId)
       if (result.success && result.config) {
         return result

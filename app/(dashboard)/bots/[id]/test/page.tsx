@@ -68,7 +68,7 @@ export default function TestBotPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
-      content: "🤖 Salut ! Je suis Younzee Assistant, votre conseiller mode IA propulsé par OpenAI ! Je connais tous nos produits et je peux vous aider à trouver exactement ce que vous cherchez. Posez-moi n'importe quelle question sur nos articles, les styles, les tailles ou demandez-moi des recommandations personnalisées !",
+      content: "🤖 Bonjour, Je suis votre Styliste Personnel. Comment je peux vous aider aujourd'hui ? Donnez moi une catégorie de produit, une couleur et votre taille pour que je puisse vous proposer des articles adaptés à vous.",
       type: "bot",
       timestamp: new Date().toISOString()
     }
@@ -99,12 +99,6 @@ export default function TestBotPage() {
     fetchChatbot()
   }, [])
 
-  const addDebugLog = (message: string) => {
-    const timestamp = new Date().toLocaleTimeString()
-    const logEntry = `[${timestamp}] ${message}`
-    setDebugLogs(prev => [...prev.slice(-10), logEntry]) // Garder les 10 derniers logs
-    console.log(logEntry)
-  }
 
   const handleSendMessage = async (message: string) => {
     if (!message.trim() || isLoading) return
@@ -127,20 +121,13 @@ export default function TestBotPage() {
         },
         body: JSON.stringify({
           message,
+          chatbotId: botId,
           context: {
             conversationHistory: messages.slice(-10),
             userPreferences: {},
             userId: `test-${botId}-${Date.now()}`
           },
-          chatbotConfig: {
-            personality: {
-              tone: "Amical",
-              formality: "Tutoiement", 
-              verbosity: "Détaillé",
-              empathy: "Élevée",
-              proactivity: "Proactif"
-            }
-          }
+          chatbotConfig: {}
         })
       })
 
@@ -221,7 +208,7 @@ export default function TestBotPage() {
         {/* Interface de chat IA */}
         <div className="lg:col-span-3">
           <Card className="h-[600px] flex flex-col overflow-y-auto">
-            <CardHeader>
+            <CardHeader className="sticky top-0 bg-stone-900" style={{zIndex: 50}}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-8 w-8 bg-gradient-to-br from-blue-500 to-purple-600">
@@ -234,7 +221,7 @@ export default function TestBotPage() {
                       {chatbot.name}
                       <Sparkles className="h-4 w-4 text-purple-500" />
                     </CardTitle>
-                    <CardDescription>Propulsé par OpenAI GPT-4o-mini - Agent IA expert en mode</CardDescription>
+                    <CardDescription>Propulsé par Younzee - Agent IA expert en mode</CardDescription>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -243,21 +230,22 @@ export default function TestBotPage() {
                     className="bg-green-50 text-green-700 border-green-200"
                   >
                     <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                    OpenAI Active
+                    IA ITEM
                   </Badge>
                   <Badge 
                     variant="outline" 
                     className="bg-blue-50 text-blue-700 border-blue-200"
                   >
-                    GPT-4o-mini
+                    <div className="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></div>
+                    IA OUTFIT
                   </Badge>
                 </div>
               </div>
             </CardHeader>
             
             {/* Zone des messages avec IA */}
-            <CardContent className="flex-1 flex flex-col">
-              <ScrollArea className="flex-1 pr-4">
+            <CardContent className="flex-1 flex flex-col p-0">
+              <ScrollArea className="flex-1 pr-4 overflow-x-hidden relative p-6">
                 <div className="space-y-4">
                   {!isTyping && messages.map((message) => (
                     <div key={message.id} className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -312,9 +300,67 @@ export default function TestBotPage() {
                           </AvatarFallback>
                         </Avatar>
                       )}
+                      
+            
+                      
+                 
                     </div>
                   ))}
-                  
+
+                  {/* <div className="flex gap-2 mt-2 flex-col">
+                  <Avatar className="h-8 w-8 mt-1 bg-gradient-to-br from-blue-500 to-purple-600">
+                      <AvatarFallback>
+                        <Bot className="h-4 w-4 text-white" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex mt-2 overflow-x-auto justify-center flex-row w-full" style={{paddingLeft: '220px'}}>
+                          {['item', 'outfit', 'item', 'outfit'].map((recommendation) => (
+                            <div className="bg-gray-100 rounded-lg px-4 py-3 mr-6 h-48 w-48 flex items-center justify-center">
+                              <div className="flex gap-1 items-center">
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                                <br/>
+                                <span className="text-xs text-gray-500 ml-2">Affichage en cours...</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                  </div> */}
+                  {/* <div className="flex gap-2 mt-2 flex-col">
+                  <Avatar className="h-8 w-8 mt-1 bg-gradient-to-br from-blue-500 to-purple-600">
+                      <AvatarFallback>
+                        <Bot className="h-4 w-4 text-white" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex mt-2 overflow-x-auto justify-center flex-row w-full" style={{paddingLeft: '220px'}}>
+                          {['item', 'outfit', 'item', 'outfit'].map((recommendation, index) => (
+                            <div className="bg-gray-100 rounded-lg mr-6 h-56 w-48 flex overflow-hidden flex-col">
+                              <div className="flex gap-1 items-center h-32 w-48 bg-white rounded-lg">
+                              <img 
+                              src={`https://cdn.shopify.com/s/files/1/0806/4814/3128/products/bonnetbriqueetorangecitrouillehuguette_1491cfbf-06f7-4dde-971f-190c4d58b419.jpg?v=1708512903`} 
+                              alt={`Recommendation${index}`} 
+                              className="h-100 w-100" 
+                              style={{objectFit: 'cover', objectPosition: 'center', marginLeft: '-15%', marginRight: '-15%'}}
+                              />
+                              
+                              </div>
+                              <div className="flex flex-col gap-1 items-center h-32 w-48 bg-white rounded-lg text-black">
+                                <div className="flex flex-row gap-1 items-center">
+                                  <span className="text-xs text-gray-500 ml-2">Bonnet</span>
+                                  <span className="text-xs text-gray-500 ml-2">Brique et orange</span>
+                                </div>
+                                <div className="flex flex-row gap-1 items-center">
+                                <span className="text-xs text-gray-500 ml-2">Citrouille</span>
+                                <span className="text-xs text-gray-500 ml-2">Huguette</span> 
+                                <span className="text-xs text-gray-500 ml-2">Huguette</span>
+                                <span className="text-xs text-gray-500 ml-2">Huguette</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                  </div> */}
                   {isTyping && (
                     <div className="flex gap-3 justify-start">
                       <Avatar className="h-8 w-8 bg-gradient-to-br from-blue-500 to-purple-600">
@@ -336,7 +382,7 @@ export default function TestBotPage() {
                 </div>
               </ScrollArea>
               
-              <div className="mt-4 border-t pt-4">
+              <div className="mt-4 border-t pt-4 sticky bottom-0 z-50 p-6 bg-stone-900" style={{zIndex: 50}}>
                 <div className="flex gap-2">
                   <Input
                     value={inputMessage}

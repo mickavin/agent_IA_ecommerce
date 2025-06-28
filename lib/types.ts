@@ -249,7 +249,7 @@ export type ChatbotResponse = {
 }
 
 // Types pour les conversations
-export type MessageType = "user" | "bot" | "system"
+export type MessageType = "user" | "bot" | "system" | "recommendation"
 export type MessageSentiment = "Positive" | "Neutre" | "Négative"
 
 export type ChatMessage = {
@@ -261,6 +261,7 @@ export type ChatMessage = {
     confidence?: number
     intent?: string
     entities?: Array<{ type: string; value: string }>
+    recommendations?: Array<{ type: string; value: string }>
   }
 }
 
