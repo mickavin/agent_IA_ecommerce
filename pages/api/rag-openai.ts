@@ -4,6 +4,7 @@ import { MemoryVectorStore } from 'langchain/vectorstores/memory'
 import { Document } from '@langchain/core/documents'
 import Papa from 'papaparse'
 import fs from 'fs'
+import path from 'path'
 import { excelReferentialService } from '../../lib/services/excel-referential.service'
 import { OpenAIService } from '../../lib/services/openai.service'
 
@@ -195,31 +196,50 @@ class OpenAIRAGService {
     // ✅ Réinitialisation pour éviter les doublons lors des rechargements
     this.documents = []
     
-    const csvFiles = [
-      'files/produits_final.csv',
+    const csvFileNames = [
+      'produits_final.csv',
     ]
 
-    for (const csvPath of csvFiles) {
-      try {
-        if (fs.existsSync(csvPath)) {
-          console.log(`📄 Chargement ${csvPath}${relevantCategories ? ' avec filtrage catégories' : ''}...`)
+    // Utilisation de path.join pour construire les chemins de manière sécurisée
+    const basePath = process.cwd()
+    const dataFolders = ['files', 'data'] // Dossiers possibles
+
+    for (const fileName of csvFileNames) {
+      let fileLoaded = false
+      
+      // Essayer différents dossiers avec path.join
+      for (const folder of dataFolders) {
+        if (fileLoaded) break
+        
+        const csvPath = path.join(basePath, folder, fileName)
+        
+        try {
+          console.log(`📄 Tentative de chargement ${csvPath}${relevantCategories ? ' avec filtrage catégories' : ''}...`)
           const csvContent = fs.readFileSync(csvPath, 'utf8')
           const documents = await this.parseCSV(csvContent, csvPath, relevantCategories)
           this.documents.push(...documents)
           console.log(`✅ ${csvPath}: ${documents.length} documents chargés`)
+          fileLoaded = true
           
           // ✅ SUPPRESSION de la limite de 2000 pour lire TOUS les documents
           // Anciennement: if (this.documents.length >= 2000) break
+        } catch (error: any) {
+          // Si le fichier n'existe pas ou erreur de lecture
+          if (error.code === 'ENOENT') {
+            console.log(`📂 Fichier non trouvé: ${csvPath}`)
+          } else {
+            console.error(`❌ Erreur lecture ${csvPath}:`, error.message)
+          }
         }
-      } catch (error) {
-        console.error(`Erreur ${csvPath}:`, error)
+      }
+      
+      if (!fileLoaded) {
+        console.warn(`⚠️ Aucun fichier trouvé pour: ${fileName} dans les dossiers [${dataFolders.join(', ')}]`)
       }
     }
 
-    console.log(`📊 Total documents avant déduplication: ${this.documents.length}`)
-    // ✅ SUPPRESSION DE LA DÉDUPLICATION - Garder tous les documents
-    // this.documents = this.deduplicateDocuments(this.documents)  
-    console.log(`📊 Total documents conservés: ${this.documents.length} (filtrage: ${relevantCategories ? `${relevantCategories.length} catégories` : 'désactivé'})`)
+    console.log(`📊 Total documents chargés: ${this.documents.length}`)
+    console.log(`📊 Documents conservés: ${this.documents.length} (filtrage: ${relevantCategories ? `${relevantCategories.length} catégories` : 'désactivé'})`)
   }
 
   private async parseCSV(csvContent: string, source: string, relevantCategories?: string[]): Promise<ProductDocument[]> {

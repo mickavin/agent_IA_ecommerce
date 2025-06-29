@@ -614,7 +614,7 @@ async function callMasterAI(message: string, chatbotId?: string, history?: any):
   }
 
   const id = typeof window !== 'undefined' ? window.localStorage.getItem(`${chatbotId}-chatbot-config-younzee`) : null
-
+  console.log('history', history)
   const openaiService = new OpenAIService()
   const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
   const config = await getChatbotConfig(chatbotId)
@@ -622,7 +622,7 @@ async function callMasterAI(message: string, chatbotId?: string, history?: any):
     systemPrompt: PROMPT_MASTER(JSON.stringify(config?.personality)),
     userMessage: message,
     context: {
-      conversationHistory: history || [],
+      conversationHistory: history.filter((item: any) => item.content) || [],
       userPreferences: {},
       userId: `test-${chatbotId}-${id}`
     }
@@ -669,7 +669,7 @@ async function callMasterAIToRAG(message: string, chatbotId?: string, history?: 
     systemPrompt: PROMPT_RAG6(message, JSON.stringify(response.data.results), JSON.stringify(config?.personality)),
     userMessage: message,
     context: {
-      conversationHistory: history || [],
+      conversationHistory: [],
       userPreferences: {},
       userId: `test-${chatbotId}-${id}`
     }
