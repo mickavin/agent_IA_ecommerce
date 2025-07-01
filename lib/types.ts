@@ -257,6 +257,7 @@ export type ChatMessage = {
   content: string
   type: MessageType
   timestamp: string
+  products?: Product[]
   metadata?: {
     confidence?: number
     intent?: string

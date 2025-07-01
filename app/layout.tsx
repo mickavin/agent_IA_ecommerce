@@ -21,6 +21,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
+      <head>
+        <meta name="shopify-api-key" content={process.env.SHOPIFY_API_KEY! || ''} />
+        <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
+      </head>
+
       <body className={`${inter.variable} font-sans antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           <SidebarProvider defaultOpen={true}>{children}</SidebarProvider>

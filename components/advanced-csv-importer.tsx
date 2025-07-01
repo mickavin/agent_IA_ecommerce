@@ -45,11 +45,7 @@ export function AdvancedCSVImporter({
       setFile(selectedFile)
       setImportResult(null)
     } else {
-      toast({
-        title: "Fichier invalide",
-        description: "Veuillez sélectionner un fichier CSV valide.",
-        variant: "destructive"
-      })
+      toast.error("Fichier invalide")
     }
   }
 
@@ -79,25 +75,14 @@ export function AdvancedCSVImporter({
       setImportResult(result)
       
       if (result.success) {
-        toast({
-          title: "Import réussi",
-          description: `${result.imported} éléments importés avec succès.`
-        })
+        toast.success(`${result.imported} éléments importés avec succès.`)
         onImportComplete?.(result)
       } else {
-        toast({
-          title: "Import échoué",
-          description: "Consultez les détails ci-dessous pour plus d'informations.",
-          variant: "destructive"
-        })
+        toast.error("Import échoué")
       }
       
     } catch (error) {
-      toast({
-        title: "Erreur d'import",
-        description: `Une erreur est survenue : ${error}`,
-        variant: "destructive"
-      })
+      toast.error(`Une erreur est survenue : ${error}`)
     } finally {
       setIsImporting(false)
     }

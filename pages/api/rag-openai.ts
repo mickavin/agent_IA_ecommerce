@@ -105,7 +105,7 @@ RETOURNE UNIQUEMENT DU JSON:
   "reasoning": "Pourquoi cette catégorie correspond"
 }
 `
-
+// Mapping de la demande utilisateur vers la nomenclature Younzee
 const CATEGORIZATION_PROMPT_ITEM = (types_valides: string[], tailles_valides: string[], couleurs_valides: string[]) => `
 Tu es un assistant e-commerce spécialisé dans la mode. Ta tâche est d'extraire trois attributs d'un texte :
                     - type_produit_classifié : le type exact du vêtement parmi les choix disponibles
@@ -219,10 +219,7 @@ class OpenAIRAGService {
           const documents = await this.parseCSV(csvContent, csvPath, relevantCategories)
           this.documents.push(...documents)
           console.log(`✅ ${csvPath}: ${documents.length} documents chargés`)
-          fileLoaded = true
-          
-          // ✅ SUPPRESSION de la limite de 2000 pour lire TOUS les documents
-          // Anciennement: if (this.documents.length >= 2000) break
+          fileLoaded = true          
         } catch (error: any) {
           // Si le fichier n'existe pas ou erreur de lecture
           if (error.code === 'ENOENT') {
@@ -509,11 +506,7 @@ class OpenAIRAGService {
 
     console.log('🚀 Initialisation RAG OpenAI...')
 
-    // ✅ 1️⃣ CHARGEMENT DU RÉFÉRENTIEL EXCEL EN PREMIER
-    await excelReferentialService.loadReferentials()
-    console.log('✅ Référentiels Excel chargés')
-
-    // ✅ 5️⃣ CHARGEMENT DU CSV AVEC FILTRAGE DIRECT PAR CATÉGORIES
+    // ✅ 5️⃣ CHARGEMENT DES PRODUITS
     await this.loadCSVData()
     console.log(`✅ Produits chargés: ${this.documents.length} documents`)
 
@@ -574,57 +567,42 @@ class OpenAIRAGService {
    //  throw new Error('Vector store non initialisé')
    // }
 
-    // ✅ 3️⃣ FILTRAGE DES PRODUITS par catégorie ET couleur détectées
+    // ✅ 3️⃣ FILTRAGE DES PRODUITS par catégorie, par taille ET couleur détectées
     let filteredDocuments = this.filterDocumentsByCategory(promptCategorizationParsed.type_produit_classifié)
     filteredDocuments = this.filterDocumentsBySizes(filteredDocuments, promptCategorizationParsed.taille_extraite)
     console.log(`🔄 Après filtrage taille: ${filteredDocuments.length} produits`)    
-    
-    // Filtrage supplémentaire par couleur si détectées
-      const colorFiltered = this.filterDocumentsByColors(filteredDocuments, promptCategorizationParsed.couleur_younzee)
-      console.log(`🎨 Après filtrage couleur: ${colorFiltered.length} produits (couleur: ${promptCategorizationParsed.couleur_younzee})`)
-      
-      // Si filtrage couleur trop restrictif, relaxer
-      //if (colorFiltered.length < 5 && filteredDocuments.length > 20) {
-     //   console.log(`🔄 Filtrage couleur trop restrictif, critères relaxés`)
-      //  filteredDocuments = this.filterDocumentsByColorsRelaxed(filteredDocuments, promptCategorizationParsed.couleur_younzee)
-      //  console.log(`🔄 Après relaxation: ${filteredDocuments.length} produits`)
-      //} else {
-      filteredDocuments = colorFiltered
-      //}
-    
-      try {
-    this.documents = filteredDocuments
-    await this.createVectorStore()
-    this.isInitialized = true
-    // ✅ 4️⃣ PREPROCESSING de la requête
-    const processedQuery = this.preprocessQuery(query)
-    console.log(`🔍 Query preprocessing: "${query}" -> "${processedQuery}"`)
+    const colorFiltered = this.filterDocumentsByColors(filteredDocuments, promptCategorizationParsed.couleur_younzee)
+    console.log(`🎨 Après filtrage couleur: ${colorFiltered.length} produits (couleur: ${promptCategorizationParsed.couleur_younzee})`)
+    filteredDocuments = colorFiltered
 
-    const k = Math.min(options.k || 5, 20)
-    const searchType = options.searchType || 'semantic'
+
+
+
+
+    // ******************************FALLBACK A RAJOUTER****************************************
+    
+    
+    
+    
+    
+    // EXECUTION DE LA RECOMMANDATION
+    try {
+      this.documents = filteredDocuments
+      await this.createVectorStore()
+      this.isInitialized = true
+      // ✅ 4️⃣ PREPROCESSING de la requête
+      const processedQuery = this.preprocessQuery(query)
+      console.log(`🔍 Query preprocessing: "${query}" -> "${processedQuery}"`)
+
+      const k = Math.min(options.k || 5, 20)
 
     
       let results: RAGSearchResult[] = []
 
-      // ✅ 5️⃣ RECHERCHE sur les produits filtrés par catégorie ET couleur
-      //if (searchType === 'semantic') {
+      // ✅ 5️⃣ RECHERCHE sur les produits filtrés par catégorie, taille ET couleur
       results = await this.categorizedSemanticSearch(processedQuery, k, filteredDocuments)
-      //} else if (searchType === 'keyword') {
-      //  results = await this.categorizedKeywordSearch(processedQuery, k, filteredDocuments)
-      //} else {
-      //  results = await this.categorizedHybridSearch(processedQuery, k, filteredDocuments)
-      //}
 
-      // ✅ 6️⃣ POST-PROCESSING avec boost catégoriel ET couleur
-      //results = this.postProcessResults(results, query, processedQuery)
-      //results = this.applyCategoryBoost(results, promptCategorizationParsed.type_produit_classifié)
-      
-      // Boost supplémentaire pour les couleurs correspondantes
-      //  if (promptCategorizationParsed.couleur_younzee.length > 0) {
-      //    results = this.applyColorBoost(results, promptCategorizationParsed.couleur_younzee)
-      //  }
-
-      // ✅ 7️⃣ ENRICHISSEMENT avec métadonnées catégorielles et couleurs
+      // ✅ 6️⃣ ENRICHISSEMENT avec métadonnées catégorielles et couleurs
       results = results.map(result => ({
         ...result,
         categoryAnalysis: promptCategorizationParsed,
@@ -922,39 +900,6 @@ class OpenAIRAGService {
             }
           }
         }
-      
-      return false
-    })
-  }
-
-  // ✅ NOUVELLE MÉTHODE: Filtrage relaxé par couleurs (recherche dans titre/description)
-  private filterDocumentsByColorsRelaxed(documents: ProductDocument[], detectedColors: string[]): ProductDocument[] {
-    return documents.filter(doc => {
-      const title = doc.metadata.title.toLowerCase()
-      const description = (doc.metadata.description || '').toLowerCase()
-      const docColors = doc.metadata.colors || []
-      
-      // 1. Vérifier couleurs métadonnées d'abord
-      for (const detectedColor of detectedColors) {
-        for (const docColor of docColors) {
-          if (docColor.toLowerCase().includes(detectedColor)) {
-            return true
-          }
-        }
-        
-        // 2. Recherche couleur dans titre et description
-        if (title.includes(detectedColor) || description.includes(detectedColor)) {
-          return true
-        }
-        
-        // 3. Recherche via synonymes
-        const synonyms = this.getColorSynonyms(detectedColor)
-        for (const synonym of synonyms) {
-          if (title.includes(synonym) || description.includes(synonym)) {
-            return true
-          }
-        }
-      }
       
       return false
     })

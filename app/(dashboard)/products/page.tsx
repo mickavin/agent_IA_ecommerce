@@ -16,10 +16,11 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import type { Product, ProductStatus } from "@/lib/types"
-import { PlusCircle, Search, ListFilter, MoreHorizontal, Edit, Trash2, Eye, Upload, RefreshCw } from "lucide-react"
+import { PlusCircle, Search, ListFilter, MoreHorizontal, Edit, Trash2, Eye, Upload, RefreshCw, Download, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import { ProductService } from "@/lib/services/api.service"
 import { AdvancedCSVImporter } from "@/components/advanced-csv-importer"
+import { CSVExportInfo } from "@/components/csv-export-info"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
@@ -30,9 +31,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { PageHeader } from "@/components/page-header"
 import { Progress } from "@/components/ui/progress"
 
+
+
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -51,8 +54,118 @@ export default function ProductsPage() {
     colors: [] as string[]
   })
   const [loadingFilters, setLoadingFilters] = useState(true)
+  
+  // États pour les informations CSV
+  const [csvInfo, setCsvInfo] = useState<{
+    generated: boolean
+    filename: string
+    downloadUrl?: string
+    s3Url?: string
+    stats: {
+      productsCount: number
+      variantsCount: number
+      csvSize: number
+    }
+    error?: string
+  } | null>(null)
 
-  // Charger les options de filtres
+  // États pour l'historique des CSV
+  const [csvHistory, setCsvHistory] = useState<Array<{
+    id: string
+    filename: string
+    doc_url: string
+    created_at: string
+    access_token: string
+  }>>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+
+  // État pour les données brutes (avant filtres/pagination)
+  const [allProducts, setAllProducts] = useState<any[]>([])
+  const [dataSource, setDataSource] = useState<'shopify'>('shopify')
+
+  // Charger les produits depuis Shopify
+  const loadProductsFromShopify = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      console.log('🛍️ Récupération des produits Shopify...')
+      const response = await fetch('/api/shopify')
+      
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`)
+      }
+      
+      const result = await response.json()
+      
+      if (result.success) {
+        setAllProducts(result.data)
+        setDataSource('shopify')
+        
+        // Extraire les options de filtres depuis les produits
+        const categories = [...new Set(result.data.map((p: any) => p.category).filter(Boolean))] as string[]
+        const statuses = [...new Set(result.data.map((p: any) => p.status).filter(Boolean))] as string[]
+        const sizes = [...new Set(result.data.flatMap((p: any) => p.sizes || []))] as string[]
+        const colors = [...new Set(result.data.flatMap((p: any) => p.colors || []))] as string[]
+        const vendors = [...new Set(result.data.map((p: any) => p.vendor).filter(Boolean))] as string[]
+        
+        setFilterOptions({
+          categories,
+          genders: vendors, // Utiliser vendors comme genders pour l'instant
+          statuses,
+          sizes,
+          colors
+        })
+        
+        // Traiter les informations CSV si disponibles
+        if (result.csv) {
+          setCsvInfo({
+            generated: result.csv.generated,
+            filename: result.csv.filename,
+            downloadUrl: result.csv.downloadUrl,
+            s3Url: result.csv.s3Url,
+            stats: result.csv.stats,
+            error: result.csv.s3Upload?.error
+          })
+          
+          if (result.csv.generated) {
+            console.log(`📄 CSV généré: ${result.csv.filename}`)
+            toast.success(`${result.data.length} produits synchronisés + CSV généré`, {
+              description: `Fichier CSV disponible (${result.csv.stats.productsCount} produits)`
+            })
+            
+            // Recharger l'historique CSV après génération
+            loadCSVHistory()
+          }
+        }
+        
+        console.log(`✅ ${result.data.length} produits Shopify chargés`)
+        if (!result.csv?.generated) {
+          toast.success(`${result.data.length} produits synchronisés depuis Shopify`)
+        }
+        
+        // Réinitialiser la pagination et appliquer les filtres
+        setCurrentPage(1)
+        
+      } else {
+        throw new Error(result.error || 'Erreur inconnue')
+      }
+    } catch (err: any) {
+      console.error('❌ Erreur Shopify:', err)
+      setError(`Erreur Shopify: ${err.message}`)
+      setProducts([])
+      setAllProducts([])
+      setTotalPages(1)
+      setTotalItems(0)
+      toast.error('Erreur lors de la synchronisation Shopify')
+    } finally {
+      setLoading(false)
+      setLoadingFilters(false)
+    }
+  }
+
+  // Charger les options de filtres (fallback)
   const loadFilterOptions = async () => {
     try {
       setLoadingFilters(true)
@@ -73,45 +186,29 @@ export default function ProductsPage() {
     }
   }
 
-  // Charger les produits depuis Supabase
-  const loadProducts = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      const result = await ProductService.getAll(currentPage, pageSize, searchTerm, filters)
-      
-      setProducts(result.data)
-      setTotalPages(result.totalPages)
-      setTotalItems(result.total)
-      
-    } catch (err: any) {
-      setError(err.message || "Erreur lors du chargement des produits")
-      setProducts([])
-      setTotalPages(1)
-      setTotalItems(0)
-    } finally {
-      setLoading(false)
+  // Effet pour mettre à jour les produits affichés quand les données Shopify ou les filtres changent
+  useEffect(() => {
+    if (dataSource === 'shopify' && allProducts.length > 0) {
+      updateDisplayedProducts()
     }
-  }
+  }, [allProducts, searchTerm, filters, currentPage, pageSize, dataSource])
 
-  // Charger les options de filtres au montage
-  useEffect(() => {
-    loadFilterOptions()
-  }, [])
-
-  // Charger les produits au montage et lors des changements
-  useEffect(() => {
-    loadProducts()
-  }, [currentPage, pageSize, filters])
 
   // Débounce pour la recherche
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
-      if (currentPage !== 1) {
-        setCurrentPage(1)
+      if (dataSource === 'shopify') {
+        // Pour Shopify, on reset à la page 1 et on applique les filtres
+        if (currentPage !== 1) {
+          setCurrentPage(1)
+        } else {
+          updateDisplayedProducts()
+        }
       } else {
-        loadProducts()
+        // Pour Supabase, comportement existant
+        if (currentPage !== 1) {
+          setCurrentPage(1)
+        }
       }
     }, 500)
 
@@ -154,27 +251,158 @@ export default function ProductsPage() {
 
     try {
       await ProductService.delete(productId)
-      toast({
-        title: "Produit supprimé",
+      toast.success("Produit supprimé", {
         description: "Le produit a été supprimé avec succès."
       })
-      loadProducts()
     } catch (error: any) {
-      toast({
-        title: "Erreur",
-        description: `Impossible de supprimer le produit: ${error.message}`,
-        variant: "destructive"
+      toast.error("Erreur", {
+        description: `Impossible de supprimer le produit: ${error.message}`
       })
     }
   }
 
   const handleImportComplete = () => {
-    loadProducts()
     loadFilterOptions() // Recharger les filtres après l'import
     setShowImporter(false)
   }
 
   const hasActiveFilters = Object.values(filters).some(filterArray => filterArray.length > 0)
+
+  // Charger l'historique des CSV depuis Supabase
+  const loadCSVHistory = async () => {
+    try {
+      setLoadingHistory(true)
+      const response = await fetch('/api/csv-history')
+      const result = await response.json()
+      
+      if (result.success) {
+        setCsvHistory(result.data)
+      } else {
+        console.error('Erreur lors du chargement de l\'historique CSV:', result.error)
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement de l\'historique CSV:', error)
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
+
+  // Charger l'historique au montage
+  useEffect(() => {
+    loadCSVHistory()
+  }, [])
+
+  // Fonction pour télécharger un CSV depuis l'historique
+  const downloadCSVFromHistory = async (csvItem: any) => {
+    try {
+      toast.success('Génération du lien de téléchargement...', {
+        description: 'Veuillez patienter'
+      })
+
+      // Appeler l'API pour générer une URL signée
+      const response = await fetch('/api/csv-download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filename: csvItem.filename
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        // Ouvrir l'URL signée pour télécharger
+        window.open(result.downloadUrl, '_blank')
+        
+        toast.success('Téléchargement démarré', {
+          description: `Fichier: ${csvItem.filename} (lien valable ${result.expiresIn})`
+        })
+      } else {
+        throw new Error(result.error || 'Erreur lors de la génération du lien')
+      }
+    } catch (error: any) {
+      console.error('Erreur téléchargement CSV:', error)
+      toast.error('Erreur de téléchargement', {
+        description: error.message || 'Impossible de télécharger le fichier CSV'
+      })
+    }
+  }
+
+  // Fonction pour appliquer les filtres côté client
+  const applyClientFilters = (products: any[], searchTerm: string, filters: Record<string, string[]>) => {
+    let filtered = [...products]
+
+    // Filtre de recherche
+    if (searchTerm.trim()) {
+      const search = searchTerm.toLowerCase()
+      filtered = filtered.filter(product => 
+        product.name?.toLowerCase().includes(search) ||
+        product.product_title?.toLowerCase().includes(search) ||
+        product.category?.toLowerCase().includes(search) ||
+        product.vendor?.toLowerCase().includes(search) ||
+        product.tags?.some((tag: string) => tag.toLowerCase().includes(search))
+      )
+    }
+
+    // Filtres par catégorie
+    if (filters.category && filters.category.length > 0) {
+      filtered = filtered.filter(product => 
+        filters.category!.includes(product.category)
+      )
+    }
+
+    // Filtres par genre/vendor
+    if (filters.gender && filters.gender.length > 0) {
+      filtered = filtered.filter(product => 
+        filters.gender!.includes(product.vendor)
+      )
+    }
+
+    // Filtres par statut
+    if (filters.status && filters.status.length > 0) {
+      filtered = filtered.filter(product => 
+        filters.status!.includes(product.status)
+      )
+    }
+
+    // Filtres par tailles
+    if (filters.sizes && filters.sizes.length > 0) {
+      filtered = filtered.filter(product => 
+        product.sizes?.some((size: string) => filters.sizes!.includes(size))
+      )
+    }
+
+    // Filtres par couleurs
+    if (filters.colors && filters.colors.length > 0) {
+      filtered = filtered.filter(product => 
+        product.colors?.some((color: string) => filters.colors!.includes(color))
+      )
+    }
+
+    return filtered
+  }
+
+  // Fonction pour appliquer la pagination côté client
+  const applyClientPagination = (products: any[], currentPage: number, pageSize: number) => {
+    const startIndex = (currentPage - 1) * pageSize
+    const endIndex = startIndex + pageSize
+    return products.slice(startIndex, endIndex)
+  }
+
+  // Fonction unifiée pour mettre à jour la liste des produits affichés
+  const updateDisplayedProducts = () => {
+    if (dataSource === 'shopify' && allProducts.length > 0) {
+      // Appliquer filtres et pagination côté client pour les données Shopify
+      const filtered = applyClientFilters(allProducts, searchTerm, filters)
+      const paginated = applyClientPagination(filtered, currentPage, pageSize)
+      
+      setProducts(paginated)
+      setTotalItems(filtered.length)
+      setTotalPages(Math.ceil(filtered.length / pageSize))
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -191,37 +419,177 @@ export default function ProductsPage() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={loadFilterOptions}
-            disabled={loadingFilters}
+            onClick={loadProductsFromShopify}
+            disabled={loading}
             className="flex items-center gap-2"
           >
-            <RefreshCw className={`h-4 w-4 ${loadingFilters ? 'animate-spin' : ''}`} />
-            Actualiser
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Synchroniser Shopify
           </Button>
           <Button
             variant="outline"
             onClick={() => setShowImporter(!showImporter)}
-            className="flex items-center gap-2"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Upload className="h-4 w-4" />
             Importer CSV
           </Button>
-          <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
-            <Link href="/products/new">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Ajouter un produit
-            </Link>
-          </Button>
         </div>
       </div>
 
-      {/* Importateur CSV */}
-      {showImporter && (
-        <AdvancedCSVImporter
-          availableTypes={['products']}
-          onImportComplete={handleImportComplete}
-        />
+      {/* Informations CSV généré */}
+      {csvInfo && csvInfo.generated && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              CSV généré automatiquement
+            </CardTitle>
+            <CardDescription>
+              Les données Shopify ont été exportées en CSV
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <strong>Fichier:</strong> {csvInfo.filename}
+              </div>
+              <div>
+                <strong>Produits:</strong> {csvInfo.stats.productsCount}
+              </div>
+              <div>
+                <strong>Variants:</strong> {csvInfo.stats.variantsCount}
+              </div>
+              <div>
+                <strong>Taille:</strong> {(csvInfo.stats.csvSize / 1024).toFixed(1)} KB
+              </div>
+            </div>
+            
+            <div className="flex gap-2 pt-2">
+              {csvInfo.downloadUrl && (
+                <Button asChild variant="outline" size="sm">
+                  <a 
+                    href={csvInfo.downloadUrl} 
+                    download={csvInfo.filename}
+                    className="flex items-center gap-2"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Télécharger CSV
+                  </a>
+                </Button>
+              )}
+              
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setCsvInfo(null)}
+                className="text-muted-foreground"
+              >
+                Masquer
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
+
+      {/* Historique des CSV */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Historique des exports CSV
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadCSVHistory}
+                disabled={loadingHistory}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${loadingHistory ? 'animate-spin' : ''}`} />
+                Actualiser
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowHistory(!showHistory)}
+                className="flex items-center gap-2"
+              >
+                {showHistory ? 'Masquer' : 'Afficher'}
+              </Button>
+            </div>
+          </CardTitle>
+          <CardDescription>
+            {loadingHistory ? (
+              "Chargement de l'historique..."
+            ) : (
+              `${csvHistory.length} fichier${csvHistory.length > 1 ? "s" : ""} CSV disponible${csvHistory.length > 1 ? "s" : ""}`
+            )}
+          </CardDescription>
+        </CardHeader>
+        
+        {showHistory && (
+          <CardContent>
+            {loadingHistory ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                <span className="ml-2">Chargement...</span>
+              </div>
+            ) : csvHistory.length > 0 ? (
+              <div className="space-y-3">
+                {csvHistory.map((csvItem) => (
+                  <div
+                    key={csvItem.id}
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">
+                        {csvItem.filename}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(csvItem.created_at).toLocaleString('fr-FR', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => downloadCSVFromHistory(csvItem)}
+                        className="flex items-center gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        Télécharger
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => window.open(csvItem.doc_url, '_blank')}
+                        className="flex items-center gap-2"
+                      >
+                     
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Upload className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Aucun fichier CSV trouvé</p>
+                <p className="text-sm">Synchronisez Shopify pour générer votre premier export</p>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
 
       {/* Liste des produits */}
       <Card>
@@ -233,7 +601,9 @@ export default function ProductsPage() {
             ) : error ? (
               `Erreur: ${error}`
             ) : (
-              `${totalItems} produit${totalItems > 1 ? "s" : ""} trouvé${totalItems > 1 ? "s" : ""}.`
+              <>
+                {`${totalItems} produit${totalItems > 1 ? "s" : ""} trouvé${totalItems > 1 ? "s" : ""}.`}
+              </>
             )}
           </CardDescription>
         </CardHeader>
@@ -445,7 +815,11 @@ export default function ProductsPage() {
                     <TableCell colSpan={7} className="text-center h-24">
                       <div className="text-center">
                         <p className="text-red-500 mb-2">Erreur: {error}</p>
-                        <Button onClick={loadProducts} variant="outline" size="sm">
+                        <Button 
+                          onClick={loadProductsFromShopify} 
+                          variant="outline" 
+                          size="sm"
+                        >
                           Réessayer
                         </Button>
                       </div>
@@ -544,16 +918,9 @@ export default function ProductsPage() {
                         <p className="mb-2">
                           {hasActiveFilters ? 'Aucun produit ne correspond à vos filtres.' : 'Aucun produit trouvé.'}
                         </p>
-                        {hasActiveFilters ? (
+                        {hasActiveFilters && (
                           <Button onClick={clearFilters} variant="outline" size="sm">
                             Effacer les filtres
-                          </Button>
-                        ) : (
-                          <Button asChild variant="outline" size="sm">
-                            <Link href="/products/new">
-                              <PlusCircle className="mr-2 h-4 w-4" />
-                              Ajouter le premier produit
-                            </Link>
                           </Button>
                         )}
                       </div>

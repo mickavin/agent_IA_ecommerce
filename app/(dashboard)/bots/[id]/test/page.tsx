@@ -68,13 +68,7 @@ export default function TestBotPage() {
   const params = useParams()
   const botId = params?.id as string
   const [chatbot] = useState<Chatbot>(mockChatbot)
-  const [suggestions, setSuggestions] = useState<string[]>([
-    'Je cherche un t-shirt noir en M',
-    'Conseille-moi une tenue pour l\'hiver',
-    'Quelles sont vos dernières tendances ?',
-    'J\'ai un budget de 100€, que recommandes-tu ?',
-    'Guide des tailles pour les pantalons'
-  ])
+  const [suggestions, setSuggestions] = useState<string[]>(["Je cherche un sweat blanc en M", "Je cherche un jean noir taille 38", "Je cherche un t-shirt rouge en M", "Je cherche un jean slim taille 38"])
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -122,6 +116,7 @@ export default function TestBotPage() {
     }
 
     setMessages(prev => [...prev, userMessage])
+    setInputMessage("")
     setIsLoading(true)
 
     try {
@@ -134,7 +129,7 @@ export default function TestBotPage() {
           message,
           chatbotId: botId,
           context: {
-            conversationHistory: messages.slice(-10),
+            conversationHistory: messages.reverse(),
             userPreferences: {},
             userId: `test-${botId}-${Date.now()}`
           },
@@ -153,7 +148,8 @@ export default function TestBotPage() {
           content: data?.response?.content || data?.response?.message || data?.message,
           type: 'bot' as const,
           timestamp: new Date().toISOString(),
-          metadata: data?.response?.metadata || {}
+          metadata: data?.response?.metadata || {},
+          products: data?.response?.products || data?.products || []
         }
         setMessages(prev => [...prev, botMessage])
         setSuggestions(data?.response?.suggestions || data?.suggestions || [])
@@ -252,7 +248,8 @@ export default function TestBotPage() {
               <ScrollArea className="flex-1 pr-4 overflow-x-hidden relative p-6">
                 <div className="space-y-4">
                   {!isTyping && messages.map((message) => (
-                    <div key={message.id} className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className="flex flex-col gap-3">
+                    <div key={message.id} className={`flex gap-3 mb-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                       {message.type === 'bot' && (
                         <Avatar className="h-8 w-8 mt-1 bg-gradient-to-br from-blue-500 to-purple-600">
                           <AvatarFallback>
@@ -314,15 +311,13 @@ export default function TestBotPage() {
                           </AvatarFallback>
                         </Avatar>
                       )}
-                      
-            
-                      
-                 
+                      </div> 
+                      {(message.products && message.products.length > 0 && message.products[0]?.colors?.length && message.type === 'bot') == true ?(
+                        <ProductCarousel products={message?.products?.slice(0, 3) || []} />
+                      ) : null}    
                     </div>
                   ))}
-                  {(dataProducts.length > 0 && dataProducts[0]?.colors?.length) && (
-                    <ProductCarousel products={dataProducts} />
-                  )}
+
                   {/* <div className="flex gap-2 mt-2 flex-col">
                   <Avatar className="h-8 w-8 mt-1 bg-gradient-to-br from-blue-500 to-purple-600">
                       <AvatarFallback>

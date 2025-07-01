@@ -25,6 +25,7 @@ export class AdvancedCSVImportService {
     file: File, 
     options: ImportOptions = { skipDuplicates: true, validateData: true, batchSize: 100 }
   ): Promise<ImportResult> {
+    console.log('Import des produits')
     try {
       const csvText = await file.text()
       const { data, errors: parseErrors } = Papa.parse(csvText, {
@@ -50,7 +51,6 @@ export class AdvancedCSVImportService {
         duplicates: 0,
         skipped: 0
       }
-
       // Validation et transformation des données
       const validProducts: TablesInsert<'products'>[] = []
       const seenHandles = new Set<string>()
@@ -58,20 +58,20 @@ export class AdvancedCSVImportService {
       for (const row of data as any[]) {
         try {
           // Validation des champs obligatoires
-          if (!row.name && !row.product_title) {
+          if (!row.name && !row.product_title && !row.titre_extrait) {
             result.errors.push(`Ligne ignorée : nom de produit manquant`)
             result.skipped++
             continue
           }
 
-          if (!row.price || isNaN(Number(row.price))) {
-            result.errors.push(`Ligne ignorée : prix invalide pour ${row.name || row.product_title}`)
+          if (!row.price || !row.prix || row.price === '' || row.prix === '' || isNaN(Number(row.price)) || isNaN(Number(row.prix))) {
+            result.errors.push(`Ligne ignorée : prix invalide pour ${row.name || row.product_title || row.titre_extrait}`)
             result.skipped++
             continue
           }
 
           // Création du handle unique
-          const handle = row.handle || this.generateHandle(row.name || row.product_title)
+          const handle = row.handle || this.generateHandle(row.name || row.product_title || row.titre_extrait)
           
           // Vérification des doublons
           if (options.skipDuplicates && seenHandles.has(handle)) {
@@ -79,40 +79,38 @@ export class AdvancedCSVImportService {
             continue
           }
           seenHandles.add(handle)
-
-          let sizes: string[] = []
-            let colors: string[] = []
-            let other_variants: string[] = []
-            data.forEach((item_cmp: any) => {
-               if (row.handle === item_cmp.handle) {
-                if (item_cmp.taille && !sizes?.includes(item_cmp.taille)) {
-                    sizes.push(item_cmp.taille)
-                }
-                if (item_cmp.couleur && !colors?.includes(item_cmp.couleur)) {
-                    colors.push(item_cmp.couleur)
-                }
-                if (item_cmp.variant_title && !other_variants?.includes(item_cmp.variant_title)) {
-                    other_variants.push(item_cmp.variant_title)
-                }
-               }
-            })
-            console.log(row)
+          console.log('Validation et transformation des données', row)
+            //data.forEach((item_cmp: any) => {
+               //if (row.handle === item_cmp.handle) {
+                //if (item_cmp.taille && !sizes?.includes(item_cmp.taille)) {
+                    //sizes.push(item_cmp.taille)
+                //}
+                //if (item_cmp.couleur && !colors?.includes(item_cmp.couleur)) {
+                    //colors.push(item_cmp.couleur)
+                //}
+                //if (item_cmp.variant_title && !other_variants?.includes(item_cmp.variant_title)) {
+                    //other_variants.push(item_cmp.variant_title)
+                //}
+               //}
+            //})
+            console.log(row, "dsd")
           // Transformation des données
           const product: TablesInsert<'products'> = {
-            name: row.name || row.product_title,
-            product_title: row.product_title || row.name,
+            name: row.name || row.product_title || row.titre_extrait,
+            product_title: row.product_title || row.name || row.titre_extrait,
             description: row.description || '',
             handle,
-            thumbnail_url: row.thumbnail_url || row.image_url || '/placeholder.svg',
+            thumbnail_url: row.thumbnail_url || row.image_url || row.image || '/placeholder.svg',
             stock: Math.floor(Math.random() * 100),
-            price: parseFloat(row.price),
-            category: row.type_produit_classifié || 'Non classé',
+            price: row.price ? parseFloat(row.price) : row.prix ? parseFloat(row.prix) : 0,
+            category: row.type_produit_classifié ? row.type_produit_classifié : row.type_extrait ? row.type_extrait : 'Non classé',
             gender: this.normalizeGender(row.gender),
-            sizes,
-            colors,
+            sizes: row.taille ? [row.taille] : [],
+            colors: row.couleur ? [row.couleur] : [],
             status: this.normalizeStatus(row.status),
-            images: this.parseArray(row.images),
-            variant_title: row.variant_title || null,
+            images: this.parseArray(row.images).length > 0 ? this.parseArray(row.images) : [row.image],
+            variant_title: row.variant_title || row.couleur + ' - ' + row.taille,
+            url: row.url || null,
             available_for_sale: row.availableForSale !== 'false',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()

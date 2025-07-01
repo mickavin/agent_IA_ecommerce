@@ -1,6 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useState } from "react"
 import {
   Sidebar,
   SidebarContent,
@@ -12,6 +13,9 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from "@/components/ui/sidebar"
 import {
   Package,
@@ -32,24 +36,109 @@ import {
   Mail,
   MessageCircleQuestion,
   Instagram,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react"
 
 const mainNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/bots", label: "Assistants IA", icon: Bot },
-  { href: "/products", label: "Produits", icon: Package },
+  { 
+    label: "Assistants IA", 
+    icon: Bot, 
+    subItems: [
+      { href: "/bots", label: "Liste des bots" },
+      { href: "/bots/new", label: "Créer un bot" },
+      { href: "/bots/configuration", label: "Configuration" }
+    ]
+  },
+  { 
+    label: "Produits", 
+    icon: Package, 
+    subItems: [
+      { href: "/products", label: "Produits source" }, 
+      { href: "/products-enriched", label: "Produits enrichis" },
+    ] 
+  },
   { href: "/conversations", label: "Conversations", icon: MessageCircle },
-  //{ href: "/reviews", label: "Avis & Commentaires", icon: Star },
-  { href: "/clients", label: "Clients", icon: Users },
-  { href: "/orders", label: "Commandes", icon: ShoppingCart },
+  { 
+    label: "Clients", 
+    icon: Users, 
+    subItems: [
+      { href: "/clients", label: "Liste clients" },
+      { href: "/clients/segments", label: "Segmentation" },
+      { href: "/clients/analytics", label: "Analytics clients" }
+    ]
+  },
+  { 
+    label: "Commandes", 
+    icon: ShoppingCart, 
+    subItems: [
+      { href: "/orders", label: "Toutes les commandes" },
+      { href: "/orders/pending", label: "En attente" },
+      { href: "/orders/shipped", label: "Expédiées" }
+    ]
+  },
   { href: "/faq", label: "FAQ", icon: MessageCircleQuestion },
-  { href: "/analytics", label: "Statistiques", icon: BarChartBig },
+  { 
+    label: "Statistiques", 
+    icon: BarChartBig, 
+    subItems: [
+      { href: "/analytics", label: "Vue d'ensemble" },
+      { href: "/analytics/sales", label: "Ventes" },
+      { href: "/analytics/performance", label: "Performance IA" }
+    ]
+  },
 ]
 
-const secondaryNavItems = [{ href: "/settings", label: "Paramètres", icon: Settings }, { href: "/support", label: "Support Younzee", icon: Headset }]
+const secondaryNavItems = [
+  { href: "/settings", label: "Paramètres", icon: Settings }, 
+  { href: "/support", label: "Support Younzee", icon: Headset }
+]
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const [openSubMenus, setOpenSubMenus] = useState<string[]>([])
+
+  // Fonction pour basculer l'ouverture d'un sous-menu
+  const toggleSubMenu = (label: string) => {
+    setOpenSubMenus(prev => 
+      prev.includes(label) 
+        ? prev.filter(item => item !== label)
+        : [...prev, label]
+    )
+  }
+
+  // Fonction pour vérifier si un élément ou ses sous-éléments sont actifs
+  const isItemActive = (item: any) => {
+    if (item.href) {
+      return item.href === "/dashboard" 
+        ? pathname === item.href 
+        : pathname?.startsWith(item.href)
+    }
+    if (item.subItems) {
+      return item.subItems.some((subItem: any) => pathname?.startsWith(subItem.href))
+    }
+    return false
+  }
+
+  // Fonction pour vérifier si un sous-menu doit être ouvert par défaut
+  const shouldSubMenuBeOpen = (item: any) => {
+    if (item.subItems) {
+      return item.subItems.some((subItem: any) => pathname?.startsWith(subItem.href))
+    }
+    return false
+  }
+
+  // Ouvrir automatiquement les sous-menus qui contiennent la page active
+  useState(() => {
+    const activeSubMenus = mainNavItems
+      .filter(item => item.subItems && shouldSubMenuBeOpen(item))
+      .map(item => item.label)
+    
+    if (activeSubMenus.length > 0) {
+      setOpenSubMenus(activeSubMenus)
+    }
+  })
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/60 bg-background">
@@ -68,18 +157,60 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {mainNavItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={item.href === "/dashboard" ? pathname === item.href : (pathname?.startsWith(item?.href || "") || false)}
-                    tooltip={{ children: item.label, side: "right", align: "center" }}
-                    className="justify-start"
-                  >
-                    <Link href={item?.href || ""}>
-                      <item.icon className="h-5 w-5 shrink-0" />
-                      <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
+                <SidebarMenuItem key={item.href || item.label}>
+                  {/* Élément principal */}
+                  {item.subItems ? (
+                    // Élément avec sous-menu
+                    <>
+                      <SidebarMenuButton
+                        onClick={() => toggleSubMenu(item.label)}
+                        isActive={isItemActive(item)}
+                        tooltip={{ children: item.label, side: "right", align: "center" }}
+                        className="justify-start cursor-pointer"
+                      >
+                        <item.icon className="h-5 w-5 shrink-0" />
+                        <span className="group-data-[collapsible=icon]:hidden flex-1">{item.label}</span>
+                        <div className="group-data-[collapsible=icon]:hidden">
+                          {openSubMenus.includes(item.label) || shouldSubMenuBeOpen(item) ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </div>
+                      </SidebarMenuButton>
+                      
+                      {/* Sous-menu */}
+                      {(openSubMenus.includes(item.label) || shouldSubMenuBeOpen(item)) && (
+                        <SidebarMenuSub className="group-data-[collapsible=icon]:hidden">
+                          {item.subItems.map((subItem) => (
+                            <SidebarMenuSubItem key={subItem.href}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={pathname?.startsWith(subItem.href)}
+                              >
+                                <Link href={subItem.href}>
+                                  <span style={{ fontWeight: item.href == subItem.href ? "bold" : "normal" }}>{subItem.label}</span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      )}
+                    </>
+                  ) : (
+                    // Élément simple sans sous-menu
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isItemActive(item)}
+                      tooltip={{ children: item.label, side: "right", align: "center" }}
+                      className="justify-start"
+                    >
+                      <Link href={item.href || ""}>
+                        <item.icon className="h-5 w-5 shrink-0" />
+                        <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

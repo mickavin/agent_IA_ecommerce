@@ -43,6 +43,7 @@ export type Database = {
           status: string
           images: string[]
           variant_title: string | null
+          url: string | null
           available_for_sale: boolean
           created_at: string
           updated_at: string
@@ -61,7 +62,8 @@ export type Database = {
           sizes?: string[]
           colors?: string[]
           status?: string
-          images?: string[]
+          images?: string[],
+          url?: string | null,
           variant_title?: string | null
           available_for_sale?: boolean
           created_at?: string
@@ -82,6 +84,7 @@ export type Database = {
           colors?: string[]
           status?: string
           images?: string[]
+          url?: string | null,
           variant_title?: string | null
           available_for_sale?: boolean
           created_at?: string

@@ -287,830 +287,107 @@ export default function NewBotPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader 
-        title="Nouveau Chatbot Intelligent"
-        description="Créez et configurez votre assistant virtuel avec IA"
-        backHref="/bots"
-      >
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={exportTemplate}>
-            <Download className="h-4 w-4 mr-2" />
-            Exporter Template
-          </Button>
+    <div className="space-y-6">
+      {/* Navigation */}
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Link href="/bots" className="hover:text-foreground flex items-center gap-1">
+          <ArrowLeft className="h-4 w-4" />
+          Retour aux bots
+        </Link>
+      </div>
+
+      {/* En-tête */}
+      <div className="flex flex-col gap-4">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <Bot className="h-7 w-7 text-blue-600" />
+            Créer un nouveau bot
+          </h1>
+          <p className="text-muted-foreground">
+            Configurez votre assistant IA personnalisé
+          </p>
         </div>
-      </PageHeader>
+      </div>
 
-      <div className="grid grid-cols-1">{/* lg:grid-cols-3 gap-6 */}
-        {/* Configuration */}
-        <div className="lg:col-span-2">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Templates prédéfinis */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5" />
-                  Templates Prédéfinis
-                </CardTitle>
-                <CardDescription>
-                  Commencez rapidement avec un template optimisé
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {chatbotTemplates.map((template) => (
-                    <Button
-                      key={template.name}
-                      variant={selectedTemplate === template.name ? "default" : "outline"}
-                      className="h-auto p-4 flex flex-col items-start gap-2"
-                      onClick={() => applyTemplate(template.name)}
-                      type="button"
-                    >
-                      <div className="font-medium text-sm">{template.name}</div>
-                      <div className={`text-xs text-left ${selectedTemplate === template.name ? "text-white" : "text-muted-foreground"}`}>
-                        {template.description}
-                      </div>
-                    </Button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Informations générales */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Bot className="h-5 w-5" />
-                  Informations Générales
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Nom du chatbot *</Label>
-                    <Input
-                      id="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Assistant Younzee"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="status">Statut initial</Label>
-                    <Select value={status} onValueChange={(value) => setStatus(value as ChatbotStatus)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="En test">En test</SelectItem>
-                        <SelectItem value="Actif">Actif</SelectItem>
-                        <SelectItem value="Inactif">Inactif</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Décrivez le rôle et les capacités de ce chatbot..."
-                    rows={3}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Tabs defaultValue="personality" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-4">
-                {/*<TabsTrigger value="design">Design</TabsTrigger>*/}
-                <TabsTrigger value="personality">Personnalité</TabsTrigger>
-                <TabsTrigger value="data">Données</TabsTrigger>
-                <TabsTrigger value="behavior">Comportement</TabsTrigger>
-                <TabsTrigger value="advanced">Avancé</TabsTrigger>
-              </TabsList>
-
-              {/* Configuration du design */}
-              <TabsContent value="design">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Palette className="h-5 w-5" />
-                      Apparence Visuelle
-                    </CardTitle>
-                    <CardDescription>
-                      Personnalisez l'aspect visuel de votre chatbot
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Palettes de couleurs */}
-                    <div className="space-y-3">
-                      <Label>Palettes de couleurs prédéfinies</Label>
-                      <div className="grid grid-cols-2 gap-3">
-                        {colorPalettes.map((palette) => (
-                          <Button
-                            key={palette.name}
-                            variant="outline"
-                            className="h-auto p-3 flex flex-col items-start gap-2"
-                            onClick={() => applyColorPalette(palette)}
-                            type="button"
-                          >
-                            <div className="flex gap-1">
-                              <div 
-                                className="w-4 h-4 rounded-full border" 
-                                style={{ backgroundColor: palette.primary }}
-                              />
-                              <div 
-                                className="w-4 h-4 rounded-full border" 
-                                style={{ backgroundColor: palette.secondary }}
-                              />
-                              <div 
-                                className="w-4 h-4 rounded-full border" 
-                                style={{ backgroundColor: palette.accent }}
-                              />
-                            </div>
-                            <span className="text-sm">{palette.name}</span>
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {/* Couleurs personnalisées */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Couleur principale</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            type="color"
-                            value={visualConfig.primaryColor}
-                            onChange={(e) => setVisualConfig({...visualConfig, primaryColor: e.target.value})}
-                            className="w-12 h-10 p-1 border rounded"
-                          />
-                          <Input
-                            value={visualConfig.primaryColor}
-                            onChange={(e) => setVisualConfig({...visualConfig, primaryColor: e.target.value})}
-                            placeholder="#3B82F6"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Couleur secondaire</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            type="color"
-                            value={visualConfig.secondaryColor}
-                            onChange={(e) => setVisualConfig({...visualConfig, secondaryColor: e.target.value})}
-                            className="w-12 h-10 p-1 border rounded"
-                          />
-                          <Input
-                            value={visualConfig.secondaryColor}
-                            onChange={(e) => setVisualConfig({...visualConfig, secondaryColor: e.target.value})}
-                            placeholder="#EFF6FF"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Taille et position */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Taille</Label>
-                        <Select 
-                          value={visualConfig.size} 
-                          onValueChange={(value: any) => setVisualConfig({...visualConfig, size: value})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Compact">Compact (72x96)</SelectItem>
-                            <SelectItem value="Standard">Standard (80x500)</SelectItem>
-                            <SelectItem value="Large">Large (96x600)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Position</Label>
-                        <Select 
-                          value={visualConfig.position} 
-                          onValueChange={(value: any) => setVisualConfig({...visualConfig, position: value})}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Bas droite">Bas droite</SelectItem>
-                            <SelectItem value="Bas gauche">Bas gauche</SelectItem>
-                            <SelectItem value="Flottant centre">Flottant centre</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    {/* Bordures */}
-                    <div className="space-y-2">
-                      <Label>Style des bordures</Label>
-                      <RadioGroup 
-                        value={visualConfig.borderRadius} 
-                        onValueChange={(value: any) => setVisualConfig({...visualConfig, borderRadius: value})}
-                        className="flex gap-6"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="Carré" id="square" />
-                          <Label htmlFor="square">Carré</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="Arrondi" id="rounded" />
-                          <Label htmlFor="rounded">Arrondi</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="Très arrondi" id="very-rounded" />
-                          <Label htmlFor="very-rounded">Très arrondi</Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
-
-                    {/* Messages */}
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Message de bienvenue</Label>
-                        <Textarea
-                          value={visualConfig.welcomeMessage}
-                          onChange={(e) => setVisualConfig({...visualConfig, welcomeMessage: e.target.value})}
-                          placeholder="Bonjour ! Comment puis-je vous aider ?"
-                          rows={2}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Placeholder de saisie</Label>
-                        <Input
-                          value={visualConfig.placeholder}
-                          onChange={(e) => setVisualConfig({...visualConfig, placeholder: e.target.value})}
-                          placeholder="Tapez votre message..."
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Configuration de la personnalité */}
-              <TabsContent value="personality">
-                <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Bot className="h-5 w-5" />
-                    Personnalité du chatbot
-                  </CardTitle>
-                  <CardDescription>
-                    Définissez le ton et le style de communication
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Ton */}
-                  <div className="space-y-3">
-                    <Label>Ton de communication</Label>
-                    <Select 
-                      value={personality.tone} 
-                      onValueChange={(value: any) => setPersonality({...personality, tone: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Professionnel">
-                          <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4" />
-                            Professionnel
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="Décontracté">
-                          <div className="flex items-center gap-2">
-                            <Smile className="h-4 w-4" />
-                            Décontracté
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="Amical">
-                          <div className="flex items-center gap-2">
-                            <Heart className="h-4 w-4" />
-                            Amical
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="Expert">
-                          <div className="flex items-center gap-2">
-                            <Brain className="h-4 w-4" />
-                            Expert
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="Humoristique">
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="h-4 w-4" />
-                            Humoristique
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Formalité */}
-                  <div className="space-y-3">
-                    <Label>Niveau de formalité</Label>
-                    <RadioGroup 
-                      value={personality.formality} 
-                      onValueChange={(value: any) => setPersonality({...personality, formality: value})}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="Tutoiement" id="tu" />
-                        <Label htmlFor="tu">Tutoiement (tu/te)</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="Vouvoiement" id="vous" />
-                        <Label htmlFor="vous">Vouvoiement (vous)</Label>
-                      </div>
-                    </RadioGroup>
-                  </div>
-
-                  {/* Verbosité */}
-                  <div className="space-y-3">
-                    <Label>Niveau de détail des réponses</Label>
-                    <Select 
-                      value={personality.verbosity} 
-                      onValueChange={(value: any) => setPersonality({...personality, verbosity: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Concis">Concis - Réponses courtes</SelectItem>
-                        <SelectItem value="Détaillé">Détaillé - Réponses équilibrées</SelectItem>
-                        <SelectItem value="Très détaillé">Très détaillé - Réponses complètes</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Empathie */}
-                  <div className="space-y-3">
-                    <Label>Niveau d'empathie</Label>
-                    <div className="space-y-2">
-                      <Slider
-                        value={[
-                          personality.empathy === "Faible" ? 1 : 
-                          personality.empathy === "Moyenne" ? 2 : 3
-                        ]}
-                        onValueChange={(value) => {
-                          const empathyLevel = value[0] === 1 ? "Faible" : 
-                                             value[0] === 2 ? "Moyenne" : "Élevée"
-                          setPersonality({...personality, empathy: empathyLevel})
-                        }}
-                        max={3}
-                        min={1}
-                        step={1}
-                        className="w-full"
-                      />
-                      <div className="flex justify-between text-sm text-muted-foreground">
-                        <span>Faible</span>
-                        <span>Moyenne</span>
-                        <span>Élevée</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Proactivité */}
-                  <div className="space-y-3">
-                    <Label>Proactivité</Label>
-                    <Select 
-                      value={personality.proactivity} 
-                      onValueChange={(value: any) => setPersonality({...personality, proactivity: value})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Réactif">Réactif - Répond seulement aux questions</SelectItem>
-                        <SelectItem value="Proactif">Proactif - Propose des suggestions</SelectItem>
-                        <SelectItem value="Très proactif">Très proactif - Guide activement</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </CardContent>
-              </Card>
-              </TabsContent>
-              <TabsContent value="behavior" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Target className="h-5 w-5" />
-                    Comportement et fonctionnalités
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Options de comportement */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Indicateur de frappe</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Afficher "en train d'écrire..." pendant les réponses
-                        </p>
-                      </div>
-                      <Switch
-                        checked={advancedConfig.enableTypingIndicator}
-                        onCheckedChange={(checked) => 
-                          setAdvancedConfig(prev => ({ ...prev, enableTypingIndicator: checked }))
-                        }
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Accusés de lecture</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Marquer les messages comme lus
-                        </p>
-                      </div>
-                      <Switch
-                        checked={advancedConfig.enableReadReceipts}
-                        onCheckedChange={(checked) => 
-                          setAdvancedConfig(prev => ({ ...prev, enableReadReceipts: checked }))
-                        }
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Réponses rapides</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Boutons de réponses suggérées
-                        </p>
-                      </div>
-                      <Switch
-                        checked={advancedConfig.enableQuickReplies}
-                        onCheckedChange={(checked) => 
-                          setAdvancedConfig(prev => ({ ...prev, enableQuickReplies: checked }))
-                        }
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Emojis</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Autoriser l'utilisation d'emojis
-                        </p>
-                      </div>
-                      <Switch
-                        checked={advancedConfig.enableEmojis}
-                        onCheckedChange={(checked) => 
-                          setAdvancedConfig(prev => ({ ...prev, enableEmojis: checked }))
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Délai de réponse */}
-                  <div className="space-y-3">
-                    <Label>Délai de simulation de réponse</Label>
-                    <div className="space-y-2">
-                      <Slider
-                        value={[advancedConfig.responseDelay]}
-                        onValueChange={(value) => 
-                          setAdvancedConfig(prev => ({ ...prev, responseDelay: value[0] }))
-                        }
-                        max={5000}
-                        min={500}
-                        step={250}
-                        className="w-full"
-                      />
-                      <div className="flex justify-between text-sm text-muted-foreground">
-                        <span>0.5s</span>
-                        <span className="font-medium">{advancedConfig.responseDelay}ms</span>
-                        <span>5s</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Longueur max des conversations */}
-                  <div className="space-y-2">
-                    <Label>Nombre maximum de messages par conversation</Label>
-                    <Input
-                      type="number"
-                      min={10}
-                      max={200}
-                      value={advancedConfig.maxConversationLength}
-                      onChange={(e) => 
-                        setAdvancedConfig(prev => ({ 
-                          ...prev, 
-                          maxConversationLength: parseInt(e.target.value) || 50 
-                        }))
-                      }
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-              {/* Sources de données */}
-              <TabsContent value="data">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Database className="h-5 w-5" />
-                      Sources de Données IA
-                    </CardTitle>
-                    <CardDescription>
-                      Configurez les sources d'information du chatbot
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {dataSources.map((source) => (
-                        <div key={source.id} className="flex items-center justify-between p-4 border rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <Switch
-                              checked={source.isEnabled}
-                              onCheckedChange={(checked) => updateDataSource(source.id, { isEnabled: checked })}
-                            />
-                            <div>
-                              <div className="font-medium">{source.name}</div>
-                              <div className="text-sm text-muted-foreground">Type: {source.type}</div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Label className="text-sm">Priorité:</Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              max="10"
-                              value={source.priority}
-                              onChange={(e) => updateDataSource(source.id, { priority: parseInt(e.target.value) })}
-                              className="w-16"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Configuration avancée */}
-              <TabsContent value="advanced">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Settings className="h-5 w-5" />
-                      Configuration Avancée
-                    </CardTitle>
-                    <CardDescription>
-                      Options avancées pour personnaliser l'expérience
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Options de comportement */}
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label>Indicateur de frappe</Label>
-                          <p className="text-sm text-muted-foreground">Affiche quand le bot "tape"</p>
-                        </div>
-                        <Switch
-                          checked={advancedConfig.enableTypingIndicator}
-                          onCheckedChange={(checked) => setAdvancedConfig(prev => ({...prev, enableTypingIndicator: checked}))}
-                        />
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label>Réponses rapides</Label>
-                          <p className="text-sm text-muted-foreground">Boutons de suggestions</p>
-                        </div>
-                        <Switch
-                          checked={advancedConfig.enableQuickReplies}
-                          onCheckedChange={(checked) => setAdvancedConfig(prev => ({...prev, enableQuickReplies: checked}))}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label>Emojis</Label>
-                          <p className="text-sm text-muted-foreground">Support des emojis</p>
-                        </div>
-                        <Switch
-                          checked={advancedConfig.enableEmojis}
-                          onCheckedChange={(checked) => setAdvancedConfig(prev => ({...prev, enableEmojis: checked}))}
-                        />
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {/* Sliders de configuration */}
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Délai de réponse (ms)</Label>
-                        <Slider
-                          value={[advancedConfig.responseDelay]}
-                          onValueChange={(value) => setAdvancedConfig(prev => ({...prev, responseDelay: value[0]}))}
-                          max={3000}
-                          min={500}
-                          step={100}
-                          className="w-full"
-                        />
-                        <p className="text-sm text-muted-foreground">Actuel: {advancedConfig.responseDelay}ms</p>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Longueur max conversation</Label>
-                        <Slider
-                          value={[advancedConfig.maxConversationLength]}
-                          onValueChange={(value) => setAdvancedConfig(prev => ({...prev, maxConversationLength: value[0]}))}
-                          max={100}
-                          min={10}
-                          step={5}
-                          className="w-full"
-                        />
-                        <p className="text-sm text-muted-foreground">Actuel: {advancedConfig.maxConversationLength} messages</p>
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {/* Heures de travail */}
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label>Heures de travail</Label>
-                          <p className="text-sm text-muted-foreground">Limite les heures actives</p>
-                        </div>
-                        <Switch
-                          checked={advancedConfig.workingHours.enabled}
-                          onCheckedChange={(checked) => setAdvancedConfig(prev => ({
-                            ...prev, 
-                            workingHours: {...prev.workingHours, enabled: checked}
-                          }))}
-                        />
-                      </div>
-                      
-                      {advancedConfig.workingHours.enabled && (
-                        <div className="grid grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
-                          <div className="space-y-2">
-                            <Label>Début</Label>
-                            <Input
-                              type="time"
-                              value={advancedConfig.workingHours.start}
-                              onChange={(e) => setAdvancedConfig(prev => ({
-                                ...prev,
-                                workingHours: {...prev.workingHours, start: e.target.value}
-                              }))}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Fin</Label>
-                            <Input
-                              type="time"
-                              value={advancedConfig.workingHours.end}
-                              onChange={(e) => setAdvancedConfig(prev => ({
-                                ...prev,
-                                workingHours: {...prev.workingHours, end: e.target.value}
-                              }))}
-                            />
-                          </div>
-                          <div className="col-span-2 space-y-2">
-                            <Label>Message hors horaires</Label>
-                            <Textarea
-                              value={advancedConfig.workingHours.offlineMessage}
-                              onChange={(e) => setAdvancedConfig(prev => ({
-                                ...prev,
-                                workingHours: {...prev.workingHours, offlineMessage: e.target.value}
-                              }))}
-                              rows={2}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-
-            {/* Actions */}
-            <div className="flex gap-3">
-              <Button type="submit" disabled={isLoading} className="flex-1">
-                {isLoading ? (
-                  <>
-                    <Settings className="h-4 w-4 mr-2 animate-spin" />
-                    Création en cours...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Créer le Chatbot IA
-                  </>
-                )}
-              </Button>
-              <Button type="button" variant="outline">
-                <Eye className="h-4 w-4 mr-2" />
-                Aperçu
-              </Button>
+      {/* Contenu principal */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-purple-600" />
+              Configuration du bot
+            </CardTitle>
+            <CardDescription>
+              Définissez les paramètres de base de votre assistant IA
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Nom du bot</label>
+                <input 
+                  type="text" 
+                  placeholder="Ex: Assistant Younzee"
+                  className="w-full mt-1 px-3 py-2 border rounded-md"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Description</label>
+                <textarea 
+                  placeholder="Décrivez les fonctionnalités de votre bot..."
+                  className="w-full mt-1 px-3 py-2 border rounded-md h-20"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Type de bot</label>
+                <select className="w-full mt-1 px-3 py-2 border rounded-md">
+                  <option>Support client</option>
+                  <option>Recommandation produits</option>
+                  <option>FAQ automatique</option>
+                  <option>Assistant vente</option>
+                </select>
+              </div>
             </div>
-          </form>
-        </div>
-        
-        {/*<div className="lg:col-span-1">
-          <Card className="sticky top-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Eye className="h-5 w-5" />
-                Aperçu en Temps Réel
-              </CardTitle>
-              <CardDescription>
-                Visualisez votre chatbot intelligent
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <Button
-                  variant={previewDevice === "desktop" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setPreviewDevice("desktop")}
-                  type="button"
-                >
-                  <Monitor className="h-4 w-4 mr-2" />
-                  Desktop
-                </Button>
-                <Button
-                  variant={previewDevice === "mobile" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setPreviewDevice("mobile")}
-                  type="button"
-                >
-                  <Smartphone className="h-4 w-4 mr-2" />
-                  Mobile
-                </Button>
-              </div>
+          </CardContent>
+        </Card>
 
-              <div className={`${
-                previewDevice === "mobile" ? "w-full max-w-sm mx-auto" : "w-full"
-              } ${previewDevice === "mobile" ? "h-96" : "h-[600px]"} relative border rounded-lg overflow-hidden`}>
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-100">
-                  <ChatbotPreview
-                    visualConfig={visualConfig}
-                    personality={personality}
-                    chatbotName={name || "Assistant"}
-                    interactive={false}
-                    className={previewDevice === "mobile" ? "scale-75 origin-top-left" : ""}
-                  />
+        <Card>
+          <CardHeader>
+            <CardTitle>Aperçu</CardTitle>
+            <CardDescription>
+              Prévisualisation de votre bot en action
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="border rounded-lg p-4 bg-muted/20">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                  <Bot className="h-4 w-4 text-white" />
+                </div>
+                <span className="font-medium">Assistant Younzee</span>
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="bg-blue-100 p-2 rounded">
+                  Bonjour ! Je suis votre assistant Younzee. Comment puis-je vous aider aujourd'hui ?
+                </div>
+                <div className="text-muted-foreground text-right">
+                  Tapez votre message...
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-              <div className="p-4 bg-muted/30 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <Zap className="h-4 w-4" />
-                  <span className="text-sm font-medium">Test Intelligent</span>
-                </div>
-                <p className="text-xs text-muted-foreground mb-3">
-                  Testez votre configuration avec l'IA réelle
-                </p>
-                <div className="relative h-48 border rounded-lg overflow-hidden">
-                  <ChatbotPreview
-                    visualConfig={visualConfig}
-                    personality={personality}
-                    chatbotName={name || "Assistant"}
-                    interactive={true}
-                    className="scale-90 origin-top-left"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Separator />
-                <div className="text-xs space-y-1">
-                  <div className="flex justify-between">
-                    <span>Sources actives:</span>
-                    <Badge variant="secondary">{dataSources.filter(ds => ds.isEnabled).length}</Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Template:</span>
-                    <Badge variant="outline">{selectedTemplate || "Personnalisé"}</Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>IA activée:</span>
-                    <Badge variant="default" className="bg-green-100 text-green-800">
-                      <Heart className="h-3 w-3 mr-1" />
-                      Oui
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>*/}
+      {/* Actions */}
+      <div className="flex gap-2">
+        <Button className="flex items-center gap-2">
+          <Bot className="h-4 w-4" />
+          Créer le bot
+        </Button>
+        <Button variant="outline" asChild>
+          <Link href="/bots">Annuler</Link>
+        </Button>
       </div>
     </div>
   )

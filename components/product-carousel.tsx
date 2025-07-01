@@ -85,9 +85,9 @@ export function ProductCarousel({
         }}
         className="w-full"
       >
-        <CarouselContent className="-ml-2 md:-ml-4" style={{ paddingLeft: '8rem', paddingRight: '8rem' }}>
+        <CarouselContent className="-ml-2 md:-ml-4" style={{ paddingLeft: '8rem', paddingRight: '8rem', alignItems: 'end' }}>
           {products.map((product, index) => (
-            <CarouselItem key={product.id} className="pl-2 md:pl-4 basis-4/5 md:basis-1/2 lg:basis-1/3">
+            <CarouselItem key={product.id} className="pl-2 md:pl-4 basis-3/3 md:basis-3/3 lg:basis-3/3 xl:basis-2/3 2xl:basis-1/3">
               <Card 
                 className="overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] border border-gray-200"
                 onClick={() => handleProductClick(product)}
@@ -99,8 +99,8 @@ export function ProductCarousel({
                     <img
                       src={getProductImage(product)}
                       alt={getProductTitle(product)}
-                      className="w-full h-32 object-cover"
-                      style={{ width: 180 }}
+                      className="w-full h-full object-cover"
+                      style={{ minWidth: 180 }}
                       onError={(e) => {
                         const img = e.target as HTMLImageElement
                         img.src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=300&h=300&fit=crop'
