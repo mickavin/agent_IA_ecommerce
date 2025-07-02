@@ -49,6 +49,8 @@ interface ShopifyProduct {
     name: string
     values: string[]
   }>
+  description: string
+  body_html: string
 }
 
 interface FormattedProduct {
@@ -125,7 +127,7 @@ function formatShopifyProduct(shopifyProduct: ShopifyProduct): FormattedProduct 
       color: variant.option2
     })),
     tags: shopifyProduct.tags ? shopifyProduct.tags.split(',').map(tag => tag.trim()) : [],
-    description: '', // Shopify body_html peut être ajouté si nécessaire
+    description: shopifyProduct?.description ? shopifyProduct?.description : shopifyProduct?.body_html ? shopifyProduct?.body_html : '', // Shopify body_html peut être ajouté si nécessaire
     availableForSale: shopifyProduct.status === 'active' && totalStock > 0
   }
 }
@@ -284,7 +286,6 @@ async function saveProductsAsCSV(products: FormattedProduct[]): Promise<{
     
     // Convertir en CSV
     const csvContent = convertProductsToCSV(products)
-    
     if (!csvContent) {
       return {
         csvGenerated: false,
@@ -364,7 +365,7 @@ async function getAllProducts(limit: number = 250): Promise<FormattedProduct[]> 
       const products = await shopify.product.list({
         limit: limit,
         since_id: sinceId,
-        fields: 'id,title,body_html,handle,product_type,vendor,tags,status,images,variants,options'
+        fields: 'id,title,description,body_html,handle,product_type,vendor,tags,status,images,variants,options'
       }) as ShopifyProduct[]
 
       if (products.length === 0) {
@@ -373,7 +374,7 @@ async function getAllProducts(limit: number = 250): Promise<FormattedProduct[]> 
         allProducts = allProducts.concat(products)
         sinceId = products[products.length - 1].id
         hasNextPage = products.length === limit
-        
+        console.log(products[0], 'products')
         console.log(`📦 ${products.length} produits récupérés (Total: ${allProducts.length})`)
         
         // Pause pour éviter les limites de taux
@@ -504,7 +505,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (csvResult.s3Upload.success) {
         console.log('✅ CSV sauvegardé vers S3 avec succès')
         response.csv.s3Url = csvResult.s3Upload.url
-        console.log(response, 's3Url')
       } else {
         console.log('⚠️ Upload S3 non disponible:', csvResult.s3Upload.error)
       }
@@ -513,7 +513,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Ajouter le contenu CSV pour téléchargement si généré
     if (csvResult.csvGenerated && csvResult.csvContent) {
       response.csv.downloadUrl = csvResult.s3Upload?.url
-      console.log(response, 'downloadUrl')
       console.log(`✅ CSV généré: ${csvResult.filename} (${csvResult.stats.csvSize} bytes)`)
     }
     {
