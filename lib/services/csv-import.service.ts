@@ -64,14 +64,8 @@ export class AdvancedCSVImportService {
             continue
           }
 
-          if (!row.price || !row.prix || row.price === '' || row.prix === '' || isNaN(Number(row.price)) || isNaN(Number(row.prix))) {
-            result.errors.push(`Ligne ignorée : prix invalide pour ${row.name || row.product_title || row.titre_extrait}`)
-            result.skipped++
-            continue
-          }
-
           // Création du handle unique
-          const handle = row.handle || this.generateHandle(row.name || row.product_title || row.titre_extrait)
+          const handle = (row.handle || this.generateHandle(row.name || row.product_title || row.titre_extrait)) + row.taille + row.couleur
           
           // Vérification des doublons
           if (options.skipDuplicates && seenHandles.has(handle)) {

@@ -68,7 +68,7 @@ export default function TestBotPage() {
   const params = useParams()
   const botId = params?.id as string
   const [chatbot] = useState<Chatbot>(mockChatbot)
-  const [suggestions, setSuggestions] = useState<string[]>(["Je cherche un sweat blanc en M", "Je cherche un jean noir taille 38", "Je cherche un t-shirt rouge en M", "Je cherche un jean slim taille 38"])
+  const [suggestions, setSuggestions] = useState<string[]>(["Je cherche un t-shirt blanc en M", "Je cherche un jean noir taille 38", "Je cherche un t-shirt rouge en M", "Je cherche un jean slim taille 38"])
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -129,7 +129,7 @@ export default function TestBotPage() {
           message,
           chatbotId: botId,
           context: {
-            conversationHistory: messages.reverse(),
+            conversationHistory: messages,
             userPreferences: {},
             userId: `test-${botId}-${Date.now()}`
           },

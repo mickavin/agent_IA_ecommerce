@@ -499,7 +499,7 @@ export function ChatbotPreview({
                               </ReactMarkdown>
                             </div>
                           ) : (
-                            <div className="whitespace-pre-wrap">{message.content}</div>
+                          <div className="whitespace-pre-wrap">{message.content}</div>
                           )}
                         </div>
 

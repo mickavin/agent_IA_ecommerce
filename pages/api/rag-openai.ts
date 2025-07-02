@@ -39,20 +39,6 @@ interface RAGSearchResult {
   searchType: 'semantic' | 'keyword' | 'hybrid' | 'clarification'
 }
 
-interface PromptCategorization {
-  primaryType: 'ITEM' | 'OUTFIT' | 'FAQ'
-  confidence: number
-  context?: string
-  requiredInfo: {
-    size?: string
-    color?: string  
-    categoryGroup?: string
-  }
-  missingInfo: string[]
-  detectedElements: string[]
-  reasoning: string
-}
-
 const CATEGORIZATION_PROMPT = `
 Tu es un expert en catégorisation de requêtes e-commerce pour Younzee.
 
@@ -392,74 +378,6 @@ class OpenAIRAGService {
     })
   }
 
-  // ✅ NOUVELLE MÉTHODE: Extraction des catégories pertinentes du référentiel
-  private async getRelevantCategoriesFromReferential(query: string, categoryAnalysis: any): Promise<string[]> {
-    try {
-      // Obtenir les données du référentiel hiérarchique
-      const referentialData = await excelReferentialService.getReferentialData()
-      
-      if (!referentialData?.productHierarchy) {
-        console.warn('⚠️ Données de hiérarchie produit non disponibles')
-        return []
-      }
-      
-      // Filtrer les catégories de niveau 3 (Libellé Niveau 3)
-      const level3Categories = referentialData.productHierarchy
-        .filter(item => item.level === 3)
-        .map(item => item.name) // Libellé Niveau 3 TYPE PRODUIT
-      
-      console.log(`📊 Total catégories niveau 3 disponibles: ${level3Categories.length}`)
-      
-      // Recherche de correspondances avec la catégorie détectée
-      const relevantCategories: string[] = []
-      const queryLower = query.toLowerCase()
-      const detectedCategory = categoryAnalysis.detectedCategory?.toLowerCase() || ''
-      
-      // 1️⃣ Correspondance directe avec la catégorie détectée
-      if (detectedCategory && detectedCategory !== 'non spécifié') {
-        for (const category of level3Categories) {
-          const categoryLower = category.toLowerCase()
-          
-          // Correspondance directe
-          if (categoryLower.includes(detectedCategory) || detectedCategory.includes(categoryLower)) {
-            if (!relevantCategories.includes(category)) {
-              relevantCategories.push(category)
-              console.log(`🎯 Correspondance directe: "${detectedCategory}" -> "${category}"`)
-            }
-          }
-        }
-      }
-      
-      // 2️⃣ Recherche par mots-clés du prompt
-      const queryWords = queryLower.split(/\s+/).filter(w => w.length > 2)
-      for (const category of level3Categories) {
-        const categoryLower = category.toLowerCase()
-        
-        for (const word of queryWords) {
-          if (categoryLower.includes(word) || word.includes(categoryLower)) {
-            if (!relevantCategories.includes(category)) {
-              relevantCategories.push(category)
-              console.log(`🔍 Correspondance par mot-clé: "${word}" -> "${category}"`)
-            }
-          }
-        }
-      }
-      
-      // 3️⃣ Si aucune correspondance trouvée, prendre les catégories les plus générales
-      if (relevantCategories.length === 0) {
-        console.log('⚠️ Aucune correspondance spécifique trouvée, utilisation de toutes les catégories')
-        return level3Categories.slice(0, 50) // Limiter pour éviter la surcharge
-      }
-      
-      console.log(`✅ ${relevantCategories.length} catégories pertinentes identifiées`)
-      return relevantCategories
-      
-    } catch (error) {
-      console.error('❌ Erreur lors de l\'extraction des catégories du référentiel:', error)
-      return [] // Fallback: aucun filtrage
-    }
-  }
-
   private extractArray(value: any): string[] {
     if (!value) return []
     if (Array.isArray(value)) return value
@@ -563,12 +481,9 @@ class OpenAIRAGService {
     console.log(`✅ RAG initialisé: ${this.documents.length} produits + ${referentialStats.total} référentiels`)
 
 
-   // if (!this.vectorStore) {
-   //  throw new Error('Vector store non initialisé')
-   // }
-
     // ✅ 3️⃣ FILTRAGE DES PRODUITS par catégorie, par taille ET couleur détectées
     let filteredDocuments = this.filterDocumentsByCategory(promptCategorizationParsed.type_produit_classifié)
+    console.log(`🔄 Après filtrage catégorie: ${filteredDocuments.length} produits`)    
     filteredDocuments = this.filterDocumentsBySizes(filteredDocuments, promptCategorizationParsed.taille_extraite)
     console.log(`🔄 Après filtrage taille: ${filteredDocuments.length} produits`)    
     const colorFiltered = this.filterDocumentsByColors(filteredDocuments, promptCategorizationParsed.couleur_younzee)
@@ -591,7 +506,8 @@ class OpenAIRAGService {
       await this.createVectorStore()
       this.isInitialized = true
       // ✅ 4️⃣ PREPROCESSING de la requête
-      const processedQuery = this.preprocessQuery(query)
+      //const processedQuery = this.preprocessQuery(query
+      const processedQuery = query
       console.log(`🔍 Query preprocessing: "${query}" -> "${processedQuery}"`)
 
       const k = Math.min(options.k || 5, 20)
@@ -646,143 +562,8 @@ class OpenAIRAGService {
       })
       .filter(result => result !== null) as RAGSearchResult[] // Filtrer les résultats null
   }
-
-  private async categorizedKeywordSearch(query: string, k: number, filteredDocuments: ProductDocument[]): Promise<RAGSearchResult[]> {
-    const queryLower = query.toLowerCase()
-    const results: RAGSearchResult[] = []
-    const words = queryLower.split(/\s+/).filter(w => w.length > 1)
-
-    for (const doc of filteredDocuments) {
-      const contentLower = doc.content.toLowerCase()
-      const titleLower = doc.metadata.title.toLowerCase()
-      const descriptionLower = (doc.metadata.description || '').toLowerCase()
-      const categoryLower = doc.metadata.category.toLowerCase()
-      
-      let score = 0
-      let matchCount = 0
-      
-      for (const word of words) {
-        let wordScore = 0
-        
-        // ✅ Correspondance exacte dans le titre (score élevé)
-        if (titleLower.includes(word)) {
-          wordScore += 1.0
-          matchCount++
-        }
-        
-        // ✅ Correspondance dans la catégorie (score moyen-élevé)
-        if (categoryLower.includes(word)) {
-          wordScore += 0.8
-          matchCount++
-        }
-        
-        // ✅ Correspondance dans la description (score moyen)
-        if (descriptionLower.includes(word)) {
-          wordScore += 0.6
-          matchCount++
-        }
-        
-        // ✅ Correspondance dans le contenu complet (score faible)
-        if (contentLower.includes(word)) {
-          wordScore += 0.3
-        }
-        
-        // ✅ Bonus pour correspondance de couleur
-        if (doc.metadata.colors.some(color => color.toLowerCase().includes(word))) {
-          wordScore += 0.7
-          matchCount++
-        }
-        
-        // ✅ Bonus pour correspondance de taille
-        if (doc.metadata.sizes.some(size => size.toLowerCase().includes(word))) {
-          wordScore += 0.5
-          matchCount++
-        }
-        
-        score += wordScore
-      }
-
-      // ✅ Calcul du score final avec pondération intelligente
-      if (score > 0) {
-        // Normalisation par le nombre de mots
-        let normalizedScore = score / words.length
-        
-        // ✅ Bonus si plusieurs mots matchent (cohérence)
-        if (matchCount > 1) {
-          normalizedScore *= 1.2
-        }
-        
-        // ✅ Bonus si correspondance exacte complète
-        if (titleLower.includes(queryLower)) {
-          normalizedScore *= 1.5
-        }
-        
-        // ✅ Limitation du score maximum
-        const finalScore = Math.min(normalizedScore, 1.0)
-        
-        if (finalScore > 0.1) { // Seuil minimum pour éviter les résultats non pertinents
-          results.push({
-            document: doc,
-            score: finalScore,
-            relevance: this.getRelevanceFromScore(finalScore),
-            searchType: 'keyword'
-          })
-        }
-      }
-    }
-
-    return results.sort((a, b) => b.score - a.score).slice(0, k * 2) // Plus de résultats pour la recherche hybride
-  }
-
-  private async categorizedHybridSearch(query: string, k: number, filteredDocuments: ProductDocument[]): Promise<RAGSearchResult[]> {
-    // Récupérer plus de résultats pour un meilleur mélange
-    const searchK = Math.min(k * 2, 50)
-    
-    const [semantic, keyword] = await Promise.all([
-      this.categorizedSemanticSearch(query, searchK, filteredDocuments),
-      this.categorizedKeywordSearch(query, searchK, filteredDocuments)
-    ])
-
-    const combined = new Map<string, RAGSearchResult>()
-
-    // Ajouter les résultats sémantiques (pondération 70%)
-    for (const result of semantic) {
-      const hybridScore = result.score * 0.7
-      combined.set(result.document.id, {
-        ...result,
-        score: hybridScore,
-        relevance: this.getRelevanceFromScore(hybridScore),
-        searchType: 'hybrid'
-      })
-    }
-
-    // Combiner avec les résultats par mots-clés (pondération 30%)
-    for (const result of keyword) {
-      const existing = combined.get(result.document.id)
-      if (existing) {
-        // Combiner les scores intelligemment
-        const keywordContribution = result.score * 0.3
-        const finalScore = Math.min(existing.score + keywordContribution, 1.0)
-        existing.score = finalScore
-        existing.relevance = this.getRelevanceFromScore(finalScore)
-      } else {
-        const hybridScore = result.score * 0.3
-        combined.set(result.document.id, {
-          ...result,
-          score: hybridScore,
-          relevance: this.getRelevanceFromScore(hybridScore),
-          searchType: 'hybrid'
-        })
-      }
-    }
-
-    // TRI PAR SCORE DÉCROISSANT + LIMITATION
-    return Array.from(combined.values())
-      .sort((a, b) => b.score - a.score)
-      .slice(0, k)
-  }
-
-  // ✅ Preprocessing intelligent des requêtes
+  
+  // ✅ Translations basiques des requêtes
   private preprocessQuery(query: string): string {
     let processed = query.toLowerCase().trim()
     
@@ -818,66 +599,7 @@ class OpenAIRAGService {
     return filteredWords.join(' ')
   }
 
-  // ✅ Fonction utilitaire pour recalculer la relevance (seuils optimisés)
-  private getRelevanceFromScore(score: number): 'high' | 'medium' | 'low' {
-    return score >= 0.8 ? 'high' : score >= 0.5 ? 'medium' : 'low' // ✅ Seuils plus réalistes
-  }
-
-  // ✅ Post-processing des résultats pour booster la pertinence
-  private postProcessResults(results: RAGSearchResult[], originalQuery: string, processedQuery: string): RAGSearchResult[] {
-    return results.map(result => {
-      let boostedScore = result.score
-      const title = result.document.metadata.title.toLowerCase()
-      const originalLower = originalQuery.toLowerCase()
-      
-      // ✅ Boost si correspondance exacte dans le titre
-      if (title.includes(originalLower)) {
-        boostedScore = Math.min(boostedScore * 1.2, 1.0)
-      }
-      
-      // ✅ Boost si le produit est disponible
-      if (result.document.metadata.availableForSale) {
-        boostedScore = Math.min(boostedScore * 1.1, 1.0)
-      }
-      
-      // ✅ Boost selon la gamme de prix (préférence pour prix moyens)
-      const price = result.document.metadata.price
-      if (price >= 20 && price <= 100) {
-        boostedScore = Math.min(boostedScore * 1.05, 1.0)
-      }
-      
-      return {
-        ...result,
-        score: boostedScore,
-        relevance: this.getRelevanceFromScore(boostedScore)
-      }
-    })
-  }
-
-
-  // ✅ Application du boost catégoriel
-  private applyCategoryBoost(results: RAGSearchResult[], categoryAnalysis: any): RAGSearchResult[] {
-    return results.map(result => {
-      let boostedScore = result.score
-      const category = result.document.metadata.type_produit_classifié.toLowerCase()
-      const detectedCategory = categoryAnalysis.toLowerCase()
-      
-      // ✅ Boost si correspondance catégorielle
-      if (category.includes(detectedCategory) || detectedCategory.includes(category)) {
-        boostedScore = Math.min(boostedScore * 1.2, 1.0) // Boost +20%
-        console.log(`📊 Boost catégoriel appliqué: ${result.document.metadata.title}`)
-      }
-      
-      return {
-        ...result,
-        score: boostedScore,
-        relevance: this.getRelevanceFromScore(boostedScore)
-      }
-    })
-  }
-
- 
-  // ✅ NOUVELLE MÉTHODE: Filtrage strict par couleurs
+  // ✅ Filtrage strict par couleurs
   private filterDocumentsByColors(documents: ProductDocument[], detectedColors: string): ProductDocument[] {
     return documents.filter(doc => {
       const docColors = doc.metadata.colors || []
@@ -905,7 +627,7 @@ class OpenAIRAGService {
     })
   }
 
-  // ✅ NOUVELLE MÉTHODE: Obtenir les synonymes d'une couleur
+  // Translations basiques des couleurs
   private getColorSynonyms(color: string): string[] {
     const synonymMap: { [key: string]: string[] } = {
       'rouge': ['red', 'burgundy', 'bordeaux'],
@@ -924,7 +646,7 @@ class OpenAIRAGService {
     return synonymMap[color] || []
   }
 
-  // ✅ NOUVELLE MÉTHODE: Filtrage par tailles
+  // ✅ Filtrage strict par tailles
   private filterDocumentsBySizes(documents: ProductDocument[], detectedSizes: string): ProductDocument[] {
     return documents.filter(doc => {
       const docSizes = doc.metadata.sizes || []
@@ -942,48 +664,6 @@ class OpenAIRAGService {
           }
         }      
       return false
-    })
-  }
-
-  // ✅ NOUVELLE MÉTHODE: Boost basé sur les couleurs
-  private applyColorBoost(results: RAGSearchResult[], detectedColors: string[]): RAGSearchResult[] {
-    if (detectedColors.length === 0) return results
-    
-    return results.map(result => {
-      let boostedScore = result.score
-      const docColors = result.document.metadata.colors || []
-      const title = result.document.metadata.title.toLowerCase()
-      
-      // Vérifier correspondance couleur
-      let hasColorMatch = false
-      for (const detectedColor of detectedColors) {
-        // Correspondance dans métadonnées couleurs
-        for (const docColor of docColors) {
-          if (docColor.toLowerCase().includes(detectedColor) || detectedColor.includes(docColor.toLowerCase())) {
-            hasColorMatch = true
-            break
-          }
-        }
-        
-        // Correspondance dans titre
-        if (title.includes(detectedColor)) {
-          hasColorMatch = true
-        }
-        
-        if (hasColorMatch) break
-      }
-      
-      // Boost si correspondance couleur
-      if (hasColorMatch) {
-        boostedScore = Math.min(boostedScore * 1.25, 1.0) // Boost +25%
-        console.log(`🎨 Boost couleur appliqué: ${result.document.metadata.title}`)
-      }
-      
-      return {
-        ...result,
-        score: boostedScore,
-        relevance: this.getRelevanceFromScore(boostedScore)
-      }
     })
   }
 
@@ -1062,7 +742,7 @@ Format: Texte direct, pas de JSON.`
     }
   }
 
-  // ✅ FALLBACK: Demande de clarification simple
+  // ✅ Demande de clarification simple
   private generateFallbackClarificationRequest(originalQuery: string, missingInfo: string): string {
     const missingTexts: { [key: string]: string } = {
       'couleur': 'la couleur souhaitée',

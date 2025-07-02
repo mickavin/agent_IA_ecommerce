@@ -15,23 +15,12 @@ import {
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import type { Product, ProductStatus } from "@/lib/types"
-import { PlusCircle, Search, ListFilter, MoreHorizontal, Edit, Trash2, Eye, Upload, RefreshCw, Download, ExternalLink } from "lucide-react"
+import type { ProductStatus } from "@/lib/types"
+import { Search, ListFilter, MoreHorizontal, Edit, Trash2, Eye, Upload, RefreshCw, Download, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import { ProductService } from "@/lib/services/api.service"
-import { AdvancedCSVImporter } from "@/components/advanced-csv-importer"
-import { CSVExportInfo } from "@/components/csv-export-info"
+
 import { toast } from "sonner"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
-import { PageHeader } from "@/components/page-header"
-import { Progress } from "@/components/ui/progress"
-
-
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([])
@@ -48,7 +37,7 @@ export default function ProductsPage() {
   // États pour les options de filtres dynamiques
   const [filterOptions, setFilterOptions] = useState({
     categories: [] as string[],
-    genders: [] as string[],
+    marques: [] as string[],
     statuses: [] as string[],
     sizes: [] as string[],
     colors: [] as string[]
@@ -112,7 +101,7 @@ export default function ProductsPage() {
         
         setFilterOptions({
           categories,
-          genders: vendors, // Utiliser vendors comme genders pour l'instant
+          marques: vendors, // Utiliser vendors comme genders pour l'instant
           statuses,
           sizes,
           colors
@@ -176,7 +165,7 @@ export default function ProductsPage() {
       // Utiliser des valeurs par défaut en cas d'erreur
       setFilterOptions({
         categories: ['Tshirt', 'Sweatshirt', 'Robe', 'Pantalon'],
-        genders: ['Homme', 'Femme', 'Unisexe'],
+        marques: [],
         statuses: ['Actif', 'Archivé', 'Rupture de stock'],
         sizes: ['XS', 'S', 'M', 'L', 'XL'],
         colors: ['Noir', 'Blanc', 'Rouge', 'Bleu']
@@ -353,10 +342,10 @@ export default function ProductsPage() {
       )
     }
 
-    // Filtres par genre/vendor
-    if (filters.gender && filters.gender.length > 0) {
+    // Filtres par marque
+    if (filters.marques && filters.marques.length > 0) {
       filtered = filtered.filter(product => 
-        filters.gender!.includes(product.vendor)
+        filters.marques!.includes(product.vendor)
       )
     }
 
@@ -621,151 +610,6 @@ export default function ProductsPage() {
               />
             </div>
 
-            <div className="flex gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex-shrink-0">
-                    <ListFilter className="mr-2 h-4 w-4" />
-                    Filtres
-                    {hasActiveFilters && (
-                      <Badge variant="secondary" className="ml-2 px-1 py-0 text-xs">
-                        {Object.values(filters).reduce((total, arr) => total + arr.length, 0)}
-                      </Badge>
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[300px]">
-                  <DropdownMenuLabel className="flex items-center justify-between">
-                    Filtrer par
-                    {hasActiveFilters && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={clearFilters}
-                        className="h-auto p-1 text-xs"
-                      >
-                        Effacer
-                      </Button>
-                    )}
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-
-                  {/* Catégories */}
-                  <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                    Catégorie
-                  </DropdownMenuLabel>
-                  {loadingFilters ? (
-                    <div className="px-2 py-1 text-sm text-muted-foreground">Chargement...</div>
-                  ) : (
-                    <div className="max-h-32 overflow-y-auto">
-                    {filterOptions.categories.map((category) => (
-                      <DropdownMenuCheckboxItem
-                        key={category}
-                        checked={(filters.category || []).includes(category)}
-                        onCheckedChange={() => handleFilterChange("category", category)}
-                      >
-                        {category}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                    </div>
-                  )}
-
-                  {filterOptions.genders.length > 0 && (
-                    <DropdownMenuSeparator />
-                  )}
-
-                  {/* Genres */}
-                  {filterOptions.genders.length > 0 && (
-                    <>
-                  <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                    Genre
-                  </DropdownMenuLabel>
-                  {loadingFilters ? (
-                    <div className="px-2 py-1 text-sm text-muted-foreground">Chargement...</div>
-                  ) : (
-                    <div className="max-h-32 overflow-y-auto">
-                    {filterOptions.genders.map((gender) => (
-                      <DropdownMenuCheckboxItem
-                        key={gender}
-                        checked={(filters.gender || []).includes(gender)}
-                        onCheckedChange={() => handleFilterChange("gender", gender)}
-                      >
-                        {gender}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                    </div>
-                  )}
-                  </>
-                  )}
-
-                  <DropdownMenuSeparator />
-
-                  {/* Statuts */}
-                  <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                    Statut
-                  </DropdownMenuLabel>
-                  {loadingFilters ? (
-                    <div className="px-2 py-1 text-sm text-muted-foreground">Chargement...</div>
-                  ) : (
-                    <div className="max-h-32 overflow-y-auto">
-                    {filterOptions.statuses.map((status) => (
-                      <DropdownMenuCheckboxItem
-                        key={status}
-                        checked={(filters.status || []).includes(status)}
-                        onCheckedChange={() => handleFilterChange("status", status)}
-                      >
-                        {status}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                    </div>
-                  )}
-
-                  <DropdownMenuSeparator />
-
-                  {/* Tailles */}
-                  <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                    Tailles
-                  </DropdownMenuLabel>
-                  {loadingFilters ? (
-                    <div className="px-2 py-1 text-sm text-muted-foreground">Chargement...</div>
-                  ) : (
-                    <div className="max-h-32 overflow-y-auto">
-                      {filterOptions.sizes.map((size) => (
-                        <DropdownMenuCheckboxItem
-                          key={size}
-                          checked={(filters.sizes || []).includes(size)}
-                          onCheckedChange={() => handleFilterChange("sizes", size)}
-                        >
-                          {size}
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                    </div>
-                  )}
-
-                  <DropdownMenuSeparator />
-
-                  {/* Couleurs */}
-                  <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                    Couleurs
-                  </DropdownMenuLabel>
-                  {loadingFilters ? (
-                    <div className="px-2 py-1 text-sm text-muted-foreground">Chargement...</div>
-                  ) : (
-                    <div className="max-h-32 overflow-y-auto">
-                      {filterOptions.colors.map((color) => (
-                        <DropdownMenuCheckboxItem
-                          key={color}
-                          checked={(filters.colors || []).includes(color)}
-                          onCheckedChange={() => handleFilterChange("colors", color)}
-                        >
-                          {color}
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                    </div>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
           </div>
 
           {/* Indicateur de filtres actifs */}
@@ -849,8 +693,8 @@ export default function ProductsPage() {
                           <div className="flex gap-1 mt-1">
                             {product.sizes && product.sizes.length > 0 && (
                               <div className="text-xs text-muted-foreground">
-                                Tailles: {product.sizes.slice(0, 3).join(', ')}
-                                {product.sizes.length > 3 && '...'}
+                                Tailles: {product.size}
+                                
                               </div>
                             )}
                           </div>

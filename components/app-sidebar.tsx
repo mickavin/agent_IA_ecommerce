@@ -199,17 +199,17 @@ export function AppSidebar() {
                     </>
                   ) : (
                     // Élément simple sans sous-menu
-                    <SidebarMenuButton
-                      asChild
+                  <SidebarMenuButton
+                    asChild
                       isActive={isItemActive(item)}
-                      tooltip={{ children: item.label, side: "right", align: "center" }}
-                      className="justify-start"
-                    >
+                    tooltip={{ children: item.label, side: "right", align: "center" }}
+                    className="justify-start"
+                  >
                       <Link href={item.href || ""}>
-                        <item.icon className="h-5 w-5 shrink-0" />
-                        <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
+                      <item.icon className="h-5 w-5 shrink-0" />
+                      <span className="group-data-[collapsible=icon]:hidden">{item.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
                   )}
                 </SidebarMenuItem>
               ))}

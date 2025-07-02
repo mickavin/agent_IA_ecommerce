@@ -294,7 +294,7 @@ export default function NewBotPage() {
           <ArrowLeft className="h-4 w-4" />
           Retour aux bots
         </Link>
-      </div>
+                    </div>
 
       {/* En-tête */}
       <div className="flex flex-col gap-4">
@@ -305,40 +305,40 @@ export default function NewBotPage() {
           </h1>
           <p className="text-muted-foreground">
             Configurez votre assistant IA personnalisé
-          </p>
-        </div>
-      </div>
+                        </p>
+                      </div>
+                    </div>
 
       {/* Contenu principal */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-600" />
               Configuration du bot
-            </CardTitle>
-            <CardDescription>
+                    </CardTitle>
+                    <CardDescription>
               Définissez les paramètres de base de votre assistant IA
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                            <div>
                 <label className="text-sm font-medium">Nom du bot</label>
                 <input 
                   type="text" 
                   placeholder="Ex: Assistant Younzee"
                   className="w-full mt-1 px-3 py-2 border rounded-md"
-                />
-              </div>
-              <div>
+                            />
+                          </div>
+                        <div>
                 <label className="text-sm font-medium">Description</label>
                 <textarea 
                   placeholder="Décrivez les fonctionnalités de votre bot..."
                   className="w-full mt-1 px-3 py-2 border rounded-md h-20"
-                />
-              </div>
-              <div>
+                        />
+                      </div>
+                        <div>
                 <label className="text-sm font-medium">Type de bot</label>
                 <select className="w-full mt-1 px-3 py-2 border rounded-md">
                   <option>Support client</option>
@@ -346,18 +346,18 @@ export default function NewBotPage() {
                   <option>FAQ automatique</option>
                   <option>Assistant vente</option>
                 </select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                          </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
         <Card>
-          <CardHeader>
+            <CardHeader>
             <CardTitle>Aperçu</CardTitle>
-            <CardDescription>
+              <CardDescription>
               Prévisualisation de votre bot en action
-            </CardDescription>
-          </CardHeader>
+              </CardDescription>
+            </CardHeader>
           <CardContent>
             <div className="border rounded-lg p-4 bg-muted/20">
               <div className="flex items-center gap-2 mb-3">
@@ -372,11 +372,11 @@ export default function NewBotPage() {
                 </div>
                 <div className="text-muted-foreground text-right">
                   Tapez votre message...
+                  </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
       </div>
 
       {/* Actions */}

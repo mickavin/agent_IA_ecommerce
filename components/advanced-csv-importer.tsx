@@ -50,8 +50,9 @@ export function AdvancedCSVImporter({
   }
 
   const handleImport = async () => {
+    console.log('handleImport')
     if (!file) return
-
+    console.log('file', file)
     setIsImporting(true)
     setImportResult(null)
 
@@ -71,7 +72,7 @@ export function AdvancedCSVImporter({
         default:
           throw new Error('Type d\'import non supporté')
       }
-
+      console.log('result', result)
       setImportResult(result)
       
       if (result.success) {

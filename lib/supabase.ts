@@ -38,6 +38,8 @@ export type Database = {
           price: number
           category: string | null
           gender: string | null
+          size: string | null
+          color: string | null
           sizes: string[]
           colors: string[]
           status: string
@@ -59,6 +61,8 @@ export type Database = {
           price: number
           category?: string | null
           gender?: string | null
+          size?: string | null
+          color?: string | null
           sizes?: string[]
           colors?: string[]
           status?: string
@@ -80,6 +84,8 @@ export type Database = {
           price?: number
           category?: string | null
           gender?: string | null
+          size?: string | null
+          color?: string | null
           sizes?: string[]
           colors?: string[]
           status?: string

@@ -27,6 +27,8 @@ interface ShopifyProduct {
   vendor: string
   tags: string
   status: string
+  size: string
+  color: string
   images: Array<{
     id: number
     src: string
@@ -61,8 +63,10 @@ interface FormattedProduct {
   stock: number
   thumbnail_url: string
   images: string[]
-  size: string[]
-  color: string[]
+  size: string
+  color: string
+  sizes: string[]
+  colors: string[]
   variants: Array<{
     id: string
     title: string
@@ -107,8 +111,8 @@ function formatShopifyProduct(shopifyProduct: ShopifyProduct): FormattedProduct 
     stock: totalStock,
     thumbnail_url: images[0]?.src || '',
     images: images.map(img => img.src),
-    size: [shopifyProduct.opt1],
-    color: [shopifyProduct.opt2],
+    size: shopifyProduct.size,
+    color: shopifyProduct.color,
     sizes: sizes,
     colors: colors,
     variants: variants.map(variant => ({
@@ -190,8 +194,10 @@ async function uploadCSVToS3(csvContent: string, filename: string): Promise<{suc
       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
       bucketName: process.env.AWS_S3_BUCKET_NAME,
-      region: process.env.AWS_REGION || 'eu-west-1'
+      region: process.env.AWS_REGION || 'eu-west-3'
     }
+
+    console.log(`🔧 Configuration AWS S3: région=${awsConfig.region}, bucket=${awsConfig.bucketName}`)
 
     if (!awsConfig.accessKeyId || !awsConfig.secretAccessKey || !awsConfig.bucketName) {
       console.warn('⚠️ Configuration AWS S3 incomplète - CSV sera seulement généré localement')
@@ -208,7 +214,9 @@ async function uploadCSVToS3(csvContent: string, filename: string): Promise<{suc
         accessKeyId: awsConfig.accessKeyId,
         secretAccessKey: awsConfig.secretAccessKey,
       },
-      forcePathStyle: false // Utiliser le style d'URL virtuel
+      forcePathStyle: false, // Utiliser le style d'URL virtuel
+      useAccelerateEndpoint: false, // Désactiver l'accélération pour éviter les conflits de région
+      maxAttempts: 3, // Nombre de tentatives en cas d'erreur
     });
 
     // Préparer la commande d'upload
@@ -374,9 +382,18 @@ async function getAllProducts(limit: number = 250): Promise<FormattedProduct[]> 
     }
 
     console.log(`✅ Total final: ${allProducts.length} produits Shopify récupérés`)
-    
+    let arr: ShopifyProduct[] = []
+    const preFormattedProducts = allProducts.forEach(item => {
+      item.variants.forEach(variant => {
+        arr.push({
+          ...item,
+          size: variant.option2,
+          color: variant.option1
+        })
+      })
+    })
     // Formater tous les produits
-    const formattedProducts = allProducts.map(formatShopifyProduct)
+    const formattedProducts = arr.map(formatShopifyProduct)
     
     return formattedProducts
   } catch (error) {
