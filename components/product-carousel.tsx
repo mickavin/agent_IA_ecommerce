@@ -65,7 +65,6 @@ export function ProductCarousel({
   const getProductTitle = (product: Product) => {
     return product.title || product.name || 'Produit sans nom'
   }
-
   return (
     <div className={`w-full ${className}`}>
       {/* Titre du carousel */}
@@ -91,7 +90,7 @@ export function ProductCarousel({
               <Card 
                 className="overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] border border-gray-200"
                 onClick={() => handleProductClick(product)}
-                style={{ width: 180 }}
+                style={{ width: 180, maxHeight: 350 }}
               >
                 <CardContent className="p-0">
                   {/* Image du produit */}
@@ -100,7 +99,7 @@ export function ProductCarousel({
                       src={getProductImage(product)}
                       alt={getProductTitle(product)}
                       className="w-full h-full object-cover"
-                      style={{ minWidth: 180 }}
+                      style={{ maxWidth: 180, maxHeight: 180 }}
                       onError={(e) => {
                         const img = e.target as HTMLImageElement
                         img.src = 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=300&h=300&fit=crop'
@@ -171,6 +170,7 @@ export function ProductCarousel({
                       className="w-full text-xs h-7 mt-2"
                       style={{ backgroundColor: '#ffdd5b' }}
                       disabled={product.availableForSale === false}
+                      onClick={() => window.open(product.url)}
                     >
                       {product.availableForSale === false ? 'Rupture' : 'Voir le produit'}
                     </Button>

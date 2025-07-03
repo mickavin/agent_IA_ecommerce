@@ -19,6 +19,7 @@ export type Product = {
   status?: ProductStatus
   description?: string
   images?: string[] // For multiple product images
+  url?: string
 }
 
 export type OrderStatus = "Payée" | "En préparation" | "Expédiée" | "Livrée" | "Annulée"

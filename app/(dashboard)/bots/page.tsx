@@ -105,6 +105,7 @@ const mockChatbots: Chatbot[] = [
     status: "En test",
     createdAt: "2024-01-10",
     updatedAt: "2024-01-18",
+    isDefault: false,
     personality: {
       tone: "Expert",
       formality: "Vouvoiement", 

@@ -95,7 +95,6 @@ export class OpenAIService {
           'Authorization': `Bearer ${this.config.apiKey}`
         },
         body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(this.config.timeout)
       })
 
       if (!response.ok) {

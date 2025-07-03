@@ -40,6 +40,7 @@ const mockChatbot: Chatbot = {
   status: "En test",
   createdAt: "2024-01-15",
   updatedAt: "2024-01-20",
+  isDefault: false,
   personality: {
     tone: "Amical",
     formality: "Tutoiement",
@@ -68,7 +69,12 @@ export default function TestBotPage() {
   const params = useParams()
   const botId = params?.id as string
   const [chatbot] = useState<Chatbot>(mockChatbot)
-  const [suggestions, setSuggestions] = useState<string[]>(["Je cherche un t-shirt blanc en M", "Je cherche un jean noir taille 38", "Je cherche un t-shirt rouge en M", "Je cherche un jean slim taille 38"])
+  const [suggestions, setSuggestions] = useState<string[]>([
+    "Auriez-vous des trenchs noirs en S ?", 
+    "Je cherche des bottines marrons en 44", 
+    "Je cherche une veste noire en M ?", 
+    "Je voudrais un pantalon noir pour femme taille 38 ?"
+  ])
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -120,7 +126,8 @@ export default function TestBotPage() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('/api/ai/master', {
+      //const response = await fetch('/api/ai/master', {
+      const response = await fetch('/api/ai/master-json', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -151,8 +158,9 @@ export default function TestBotPage() {
           metadata: data?.response?.metadata || {},
           products: data?.response?.products || data?.products || []
         }
+        console.log('products;;', data)
         setMessages(prev => [...prev, botMessage])
-        setSuggestions(data?.response?.suggestions || data?.suggestions || [])
+        //setSuggestions(data?.response?.suggestions || data?.suggestions || [])
         setDataProducts(data?.response?.products || data?.products || [])
         console.log('botMessage', data)
         } catch (error) {

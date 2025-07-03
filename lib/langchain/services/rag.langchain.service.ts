@@ -77,7 +77,7 @@ export class RAGLangchainService {
 
   constructor(config?: Partial<RAGConfig>) {
     this.config = {
-      csvFiles: ['files/produits_final.csv'],
+      csvFiles: ['files/shopify_processed.csv'],
       embeddingModel: 'text-embedding-3-small',
       chunkSize: 500,
       overlapSize: 50,
