@@ -34,7 +34,7 @@ export function AdvancedCSVImporter({
   const [importOptions, setImportOptions] = useState<ImportOptions>({
     skipDuplicates: true,
     validateData: true,
-    batchSize: 100
+    batchSize: 500
   })
   
   const fileInputRef = useRef<HTMLInputElement>(null)

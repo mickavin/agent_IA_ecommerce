@@ -85,6 +85,24 @@ interface FormattedProduct {
   availableForSale: boolean
 }
 
+interface FormattedProductS3 {
+  titre_extrait: string
+  couleur: string
+  taille: string
+  prix: number
+  stock?: number
+  url: string
+  image: string
+  description: string
+  genre: string
+  type: string
+  matiere?: string
+  marque?: string
+  collection?: string
+  categorie?: string
+  tags?: string[]
+}
+
 /**
  * Formate un produit Shopify pour notre application
  */
@@ -197,6 +215,53 @@ function convertProductsToCSV(products: FormattedProduct[]): string {
       product.availableForSale.toString(),
       product.variants.length.toString(),
       //`"${JSON.stringify(product.variants).replace(/"/g, '""')}"` // Variants en JSON échappé
+    ].join(','))
+  ]
+
+  return csvRows.join('\n')
+}
+
+function convertProductsToCSVFormattedS3(products: FormattedProductS3[]): string {
+  if (products.length === 0) return ''
+
+  // Headers CSV
+  const headers = [
+    'titre_extrait',
+    'couleur',
+    'taille',
+    'prix',
+    'stock',
+    'url',
+    'image',
+    'description',
+    'genre',
+    'type',
+    'matiere',
+    'marque',
+    'collection',
+    'categorie',
+    'tags',
+  ]
+
+  // Créer les lignes CSV
+  const csvRows = [
+    headers.join(','), // Ligne d'en-tête
+    ...products.map(product => [
+      `"${product.titre_extrait}"`,
+      `"${product.couleur}"`,
+      `"${product.taille}"`,
+      `"${product.prix}"`,
+      `"${product.stock}"`,
+      `"${product.url}"`,
+      `"${product.image}"`,
+      `"${product.description}"`,
+      `"${product.genre}"`,
+      `"${product.type}"`,
+      `"${product.matiere}"`,
+      `"${product.marque}"`,
+      `"${product.collection}"`,
+      `"${product.categorie}"`,
+      `"${product.tags?.join(';')}"`,
     ].join(','))
   ]
 
@@ -533,15 +598,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       response.csv.downloadUrl = csvResult.s3Upload?.url
       console.log(`✅ CSV généré: ${csvResult.filename} (${csvResult.stats.csvSize} bytes)`)
     }
-    {
-        if (supabase) {
-            await supabase?.from('importations').insert({
-            doc_url: "https://eu-west-3.console.aws.amazon.com/s3/object/younzee?region=eu-west-3&bucketType=general&prefix=" + csvResult.filename,
-            created_at: new Date().toISOString(),
-            filename: csvResult.filename,
-            access_token: process.env.SHOPIFY_ACCESS_TOKEN,
-          })
+    // Sauvegarder dans Supabase
+    if (supabase) {
+      await supabase?.from('importations').insert({
+        doc_url: "https://eu-west-3.console.aws.amazon.com/s3/object/younzee?region=eu-west-3&bucketType=general&prefix=" + csvResult.filename,
+        created_at: new Date().toISOString(),
+        filename: csvResult.filename,
+        access_token: process.env.SHOPIFY_ACCESS_TOKEN,
+      })
+    }
+
+    // 🔄 Mise à jour automatique du RAG S3 après upload réussi
+    if (csvResult.s3Upload?.success) {
+      try {
+        console.log('🔄 Déclenchement mise à jour RAG S3...')
+        const { s3RagService } = await import('@/lib/langchain/services/rag-s3.service')
+        
+        // Déclencher le rafraîchissement en arrière-plan
+        setTimeout(async () => {
+          try {
+            const refreshed = await s3RagService.refreshFromS3()
+            console.log(refreshed ? '✅ RAG S3 mis à jour avec succès' : '⚠️ RAG S3 déjà à jour')
+          } catch (error) {
+            console.error('❌ Erreur mise à jour RAG S3:', error)
+          }
+        }, 5000) // Attendre 5 secondes pour que l'upload S3 soit complètement propagé
+        
+        response.ragUpdate = {
+          triggered: true,
+          message: 'Mise à jour RAG S3 déclenchée en arrière-plan'
         }
+      } catch (error) {
+        console.error('❌ Erreur déclenchement RAG S3:', error)
+        response.ragUpdate = {
+          triggered: false,
+          error: 'Erreur lors du déclenchement de la mise à jour RAG'
+        }
+      }
     }
     
     return res.status(200).json(response)

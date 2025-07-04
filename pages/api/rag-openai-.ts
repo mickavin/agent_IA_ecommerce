@@ -155,8 +155,8 @@ class OpenAIRAGService {
     this.embeddings = new OpenAIEmbeddings({
       model: 'text-embedding-3-large', // ✅ Modèle plus performant
       apiKey: process.env.OPENAI_API_KEY,
-      batchSize: 50, // ✅ Batch plus petit pour meilleure qualité
-      dimensions: 1536 // ✅ Dimensions complètes pour précision maximale
+      batchSize: 500, // ✅ Batch plus petit pour meilleure qualité
+      //dimensions: 1536 // ✅ Dimensions complètes pour précision maximale
     })
     this.openaiService = new OpenAIService()
   }
@@ -403,7 +403,7 @@ class OpenAIRAGService {
     console.log(`🔄 Création embeddings pour ${langchainDocs.length} documents...`)
 
     // Traitement par batches
-    const batchSize = 50
+    const batchSize = 500
     if (langchainDocs.length <= batchSize) {
       this.vectorStore = await MemoryVectorStore.fromDocuments(
         langchainDocs,

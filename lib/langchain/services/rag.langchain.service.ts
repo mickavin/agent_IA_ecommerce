@@ -90,7 +90,7 @@ export class RAGLangchainService {
     this.embeddings = new OpenAIEmbeddings({
       model: this.config.embeddingModel,
       apiKey: process.env.OPENAI_API_KEY,
-      batchSize: 50 // Optimisation pour traitement par batch
+      batchSize: 500 // Optimisation pour traitement par batch
     })
 
     this.metrics = {
@@ -316,7 +316,7 @@ export class RAGLangchainService {
     }))
 
     // Création du vector store par batches pour éviter les timeouts
-    const batchSize = 50
+    const batchSize = 500
     const batches = []
     
     for (let i = 0; i < langchainDocs.length; i += batchSize) {

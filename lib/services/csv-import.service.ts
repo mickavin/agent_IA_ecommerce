@@ -23,7 +23,7 @@ export class AdvancedCSVImportService {
   // Import des produits avec validation avancée
   static async importProducts(
     file: File, 
-    options: ImportOptions = { skipDuplicates: true, validateData: true, batchSize: 100 }
+    options: ImportOptions = { skipDuplicates: true, validateData: true, batchSize: 500 }
   ): Promise<ImportResult> {
     console.log('Import des produits')
     try {
@@ -145,7 +145,7 @@ export class AdvancedCSVImportService {
   // Import des commandes
   static async importOrders(
     file: File,
-    options: ImportOptions = { skipDuplicates: true, validateData: true, batchSize: 100 }
+    options: ImportOptions = { skipDuplicates: true, validateData: true, batchSize: 500 }
   ): Promise<ImportResult> {
     try {
       const csvText = await file.text()
@@ -240,7 +240,7 @@ export class AdvancedCSVImportService {
   // Import des clients
   static async importClients(
     file: File,
-    options: ImportOptions = { skipDuplicates: true, validateData: true, batchSize: 100 }
+    options: ImportOptions = { skipDuplicates: true, validateData: true, batchSize: 500 }
   ): Promise<ImportResult> {
     try {
       const csvText = await file.text()
