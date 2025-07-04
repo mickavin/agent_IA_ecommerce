@@ -27,8 +27,6 @@ interface ShopifyProduct {
   vendor: string
   tags: string
   status: string
-  size: string
-  color: string
   images: Array<{
     id: number
     src: string
@@ -47,7 +45,8 @@ interface ShopifyProduct {
   options: Array<{
     id: number
     name: string
-    values: string[]
+    values: string[],
+    position: number
   }>
   description: string
   body_html: string
@@ -65,18 +64,21 @@ interface FormattedProduct {
   stock: number
   thumbnail_url: string
   images: string[]
-  size: string
-  color: string
-  sizes: string[]
-  colors: string[]
+  option1: string
+  option2?: string
+  option3?: string
+  others_options1: string[]
+  others_options2: string[]
+  others_options3: string[]
   variants: Array<{
     id: string
     title: string
     price: number
     sku: string
     stock: number
-    size?: string
-    color?: string
+    option1?: string
+    option2?: string
+    option3?: string
   }>
   tags: string[]
   description?: string
@@ -86,13 +88,14 @@ interface FormattedProduct {
 /**
  * Formate un produit Shopify pour notre application
  */
-function formatShopifyProduct(shopifyProduct: ShopifyProduct): FormattedProduct {
+function formatShopifyProduct(shopifyProduct: ShopifyProduct & { option1?: string; option2?: string; option3?: string }): FormattedProduct {
   const variants = shopifyProduct.variants || []
   const images = shopifyProduct.images || []
   
   // Extraire les tailles et couleurs des variants
-  const sizes = [...new Set(variants.map(v => v.option2).filter(Boolean))]
-  const colors = [...new Set(variants.map(v => v.option1).filter(Boolean))]
+  const options1 = [...new Set(variants.map(v => v.option1).filter(Boolean))]
+  const options2 = [...new Set(variants.map(v => v.option2).filter(Boolean))]
+  const options3 = [...new Set(variants.map(v => v.option3).filter(Boolean))]
   
   // Calculer le prix moyen ou prendre le premier
   const prices = variants.map(v => parseFloat(v.price)).filter(p => !isNaN(p))
@@ -108,23 +111,29 @@ function formatShopifyProduct(shopifyProduct: ShopifyProduct): FormattedProduct 
     handle: shopifyProduct.handle,
     category: shopifyProduct.product_type || 'Non classé',
     vendor: shopifyProduct.vendor || '',
-    status: shopifyProduct.status === 'active' ? 'Actif' : 'Archivé',
+    status: shopifyProduct.status,
     price: averagePrice,
     stock: totalStock,
     thumbnail_url: images[0]?.src || '',
     images: images.map(img => img.src),
-    size: shopifyProduct.size,
-    color: shopifyProduct.color,
-    sizes: sizes,
-    colors: colors,
+    option1: shopifyProduct?.options?.findIndex(option => option?.position === 1) > -1 ? 
+                shopifyProduct?.options?.find(option => option?.position === 1)?.name + ' : ' + shopifyProduct?.option1 : '',
+    option2: shopifyProduct?.options?.findIndex(option => option?.position === 2) > -1 ? 
+                shopifyProduct?.options?.find(option => option?.position === 2)?.name + ' : ' + shopifyProduct?.option2 : '',
+    option3: shopifyProduct?.options?.findIndex(option => option?.position === 3) > -1 ? 
+                shopifyProduct?.options?.find(option => option?.position === 3)?.name + ' : ' + shopifyProduct?.option3 : '',
+    others_options1: options1,
+    others_options2: options2,
+    others_options3: options3,
     variants: variants.map(variant => ({
       id: variant.id.toString(),
       title: variant.title,
       price: parseFloat(variant.price) || 0,
       sku: variant.sku || '',
       stock: variant.inventory_quantity || 0,
-      size: variant.option1,
-      color: variant.option2
+      option1: variant.option1,
+      option2: variant.option2,
+      option3: variant.option3
     })),
     tags: shopifyProduct.tags ? shopifyProduct.tags.split(',').map(tag => tag.trim()) : [],
     description: shopifyProduct?.description ? shopifyProduct?.description : shopifyProduct?.body_html ? shopifyProduct?.body_html : '', // Shopify body_html peut être ajouté si nécessaire
@@ -150,13 +159,17 @@ function convertProductsToCSV(products: FormattedProduct[]): string {
     'stock',
     'thumbnail_url',
     'images',
-    'sizes',
-    'colors',
+    'others_options1',
+    'others_options2',
+    'others_options3',
+    'option1',
+    'option2',
+    'option3',
     'tags',
-    'description',
+    //'description',
     'availableForSale',
     'variant_count',
-    'variants_details'
+    //'variants_details'
   ]
 
   // Créer les lignes CSV
@@ -173,13 +186,17 @@ function convertProductsToCSV(products: FormattedProduct[]): string {
       product.stock.toString(),
       `"${product.thumbnail_url}"`,
       `"${product.images.join(';')}"`, // Séparer par point-virgule
-      `"${product.sizes.join(';')}"`,
-      `"${product.colors.join(';')}"`,
+      `"${product.others_options1.join(';')}"`,
+      `"${product.others_options2.join(';')}"`,
+      `"${product.others_options3.join(';')}"`,
+      `"${product.option1}"`,
+      `"${product.option2}"`,
+      `"${product.option3}"`,
       `"${product.tags.join(';')}"`,
-      `"${(product.description || '').replace(/"/g, '""')}"`,
+      //`"${(product.description || '').replace(/"/g, '""')}"`,
       product.availableForSale.toString(),
       product.variants.length.toString(),
-      `"${JSON.stringify(product.variants).replace(/"/g, '""')}"` // Variants en JSON échappé
+      //`"${JSON.stringify(product.variants).replace(/"/g, '""')}"` // Variants en JSON échappé
     ].join(','))
   ]
 
@@ -367,7 +384,7 @@ async function getAllProducts(limit: number = 250): Promise<FormattedProduct[]> 
         since_id: sinceId,
         fields: 'id,title,description,body_html,handle,product_type,vendor,tags,status,images,variants,options'
       }) as ShopifyProduct[]
-
+      console.log(products[0], 'productsDWD')
       if (products.length === 0) {
         hasNextPage = false
       } else {
@@ -383,13 +400,14 @@ async function getAllProducts(limit: number = 250): Promise<FormattedProduct[]> 
     }
 
     console.log(`✅ Total final: ${allProducts.length} produits Shopify récupérés`)
-    let arr: ShopifyProduct[] = []
+    let arr: (ShopifyProduct & { option1?: string; option2?: string; option3?: string })[] = []
     const preFormattedProducts = allProducts.forEach(item => {
       item.variants.forEach(variant => {
         arr.push({
           ...item,
-          size: variant.option2,
-          color: variant.option1
+          option1: variant.option1,
+          option2: variant.option2,
+          option3: variant.option3,
         })
       })
     })
@@ -474,7 +492,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       totalProducts: products.length,
       totalVariants: products.reduce((total, p) => total + p.variants.length, 0),
       totalStock: products.reduce((total, p) => total + p.stock, 0),
-      activeProducts: products.filter(p => p.status === 'Actif').length,
+      activeProducts: products.filter(p => p.status === 'active').length,
       averagePrice: products.length > 0 
         ? products.reduce((total, p) => total + p.price, 0) / products.length 
         : 0,

@@ -7,8 +7,7 @@ import fs from 'fs'
 import path from 'path'
 import { excelReferentialService } from '../../lib/services/excel-referential.service'
 import { OpenAIService } from '../../lib/services/openai.service'
-import productRef1 from '../../files/data/productRef1.json'
-import productRef2 from '../../files/data/productRef2.json'
+
 
 /**
  * API RAG complète avec OpenAI Embeddings
@@ -163,14 +162,13 @@ class OpenAIRAGService {
   }
 
   private async getUniqueColors(objectsArray: ProductDocument[]): Promise<string[]> {
-    //const allColors = objectsArray.flatMap(obj => obj.metadata.colors);
-    const allColors = objectsArray.flatMap(obj => obj.metadata.handle);
+    const allColors = objectsArray.flatMap(obj => obj.metadata.colors);
     const uniqueColors = [...new Set(allColors)];
     return uniqueColors;
   }
 
   private async getUniqueSizes(objectsArray: ProductDocument[]): Promise<string[]> {
-    const allSizes = objectsArray.flatMap(obj => obj.metadata.sizes || obj.metadata.colors.split(';'));
+    const allSizes = objectsArray.flatMap(obj => obj.metadata.sizes);
     const uniqueSizes = [...new Set(allSizes)];
     return uniqueSizes;
   }
@@ -323,12 +321,13 @@ class OpenAIRAGService {
     }
     
     // Couleurs avec enrichissement
-   // if (product.colors?.length > 0) {
-    if (product?.handle || product.colors?.length > 0) {
+   if (product.colors?.length > 0) {
+    //if (product?.handle || product.colors?.length > 0) {
     const cleanColors = product.colors.filter((c: string) => c && c !== 'Non spécifié')
-      const cleanColors2 = product?.handle
+      //const cleanColors2 = product?.handle
       if (cleanColors?.length > 0) {
-        parts.push(`Couleurs disponibles ou handle: ${cleanColors.join(', ')} handle: ${cleanColors2}`)
+        parts.push(`Couleurs disponibles ou handle: ${cleanColors.join(', ')}`)
+        //parts.push(`Couleurs disponibles ou handle: ${cleanColors.join(', ')} handle: ${cleanColors2}`)
         parts.push(`Coloris: ${cleanColors.join(', ')}`) // Synonyme
       }
     }
@@ -574,8 +573,8 @@ class OpenAIRAGService {
   // ✅ Filtrage strict par couleurs
   private filterDocumentsByColors(documents: ProductDocument[], detectedColors: string): ProductDocument[] {
     return documents.filter(doc => {
-      //const docColors = doc.metadata.colors || []
-      const docColors = doc.metadata.handle
+      const docColors = doc.metadata.colors || []
+      //const docColors = doc.metadata.handle
       console.log(`🔍 couleurs du produit: "${docColors}"`)
       // Vérifier si le produit a une des couleurs détectées
         for (const docColor of docColors) {
