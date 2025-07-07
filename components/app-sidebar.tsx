@@ -48,7 +48,6 @@ const mainNavItems = [
     subItems: [
       { href: "/bots", label: "Liste des bots" },
       { href: "/bots/new", label: "Créer un bot" },
-      { href: "/bots/configuration", label: "Configuration" }
     ]
   },
   { 
@@ -63,30 +62,18 @@ const mainNavItems = [
   { 
     label: "Clients", 
     icon: Users, 
-    subItems: [
-      { href: "/clients", label: "Liste clients" },
-      { href: "/clients/segments", label: "Segmentation" },
-      { href: "/clients/analytics", label: "Analytics clients" }
-    ]
+    href: "/clients"
   },
   { 
     label: "Commandes", 
     icon: ShoppingCart, 
-    subItems: [
-      { href: "/orders", label: "Toutes les commandes" },
-      { href: "/orders/pending", label: "En attente" },
-      { href: "/orders/shipped", label: "Expédiées" }
-    ]
+    href: "/orders"
   },
   { href: "/faq", label: "FAQ", icon: MessageCircleQuestion },
   { 
     label: "Statistiques", 
     icon: BarChartBig, 
-    subItems: [
-      { href: "/analytics", label: "Vue d'ensemble" },
-      { href: "/analytics/sales", label: "Ventes" },
-      { href: "/analytics/performance", label: "Performance IA" }
-    ]
+    href: "/analytics"
   },
 ]
 

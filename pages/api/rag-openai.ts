@@ -110,6 +110,24 @@ Tu es un assistant e-commerce spécialisé dans la mode. Ta tâche est d'extrair
                     {"type_produit_classifié":"...","taille_extraite":"...","couleur_younzee":"..."}
 `
 
+const CATEGORIZATION_PROMPT_ITEM2 = (types_valides: string[], tailles_valides: string[], couleurs_valides: string[]) => `
+Tu es un assistant e-commerce spécialisé dans la mode. Ta tâche est d'extraire trois attributs d'un texte :
+                    - types_produit_classifiés : les types exacts et similaires du vêtement parmi les choix disponibles
+                    - tailles_extraites : les tailles exactes et similaires
+                    - couleurs_younzee : les couleurs exactes et similaires parmi les choix disponibles
+                    Types valides : ${types_valides.join(', ')}
+                    Tailles valides : ${tailles_valides.join(', ')}
+                    Couleurs valides : ${couleurs_valides.join(', ')}
+                    Instructions spéciales :
+                    1. Pour les pulls : associe 'pull' à 'Pulls (cols ronds et V)' sauf si un col spécifique est mentionné
+                    2. Pour les t-shirts : utilise 'T-shirts manches courtes' par défaut sauf si 'manches longues' est spécifié
+                    3. Pour les pantalons : utilise 'Pantalons Chino & Classiques' sauf si un style spécifique est mentionné
+                    4. Ignore la casse dans la recherche
+                    5. Si un des attributs n'est pas valide, retourne null pour cet attribut
+                    Réponds uniquement en JSON :
+                    {"types_produit_classifiés": ["type produits exacte","type produit similaire ou voisin 1", "type produit similaire ou voisin 2", ...],"tailles_extraites": ["taille exacte","taille similaire ou voisin 1", "taille similaire ou voisin 2", ...],"couleurs_younzee": ["couleur exacte","couleur similaire ou voisin 1", "couleur similaire ou voisin 2", ...]}
+`
+
 export interface AICategorization {
   // Catégorisation principale
   primaryType: 'ITEM' | 'OUTFIT' | 'FAQ'
@@ -683,6 +701,15 @@ class OpenAIRAGService {
       maxTokens: 1000,
       temperature: 0.7
     })
+    const prompt2 = CATEGORIZATION_PROMPT_ITEM2(uniqueColors, uniqueSizes, uniqueTypes)
+    const response2 = await this.openaiService.generateResponse({
+      systemPrompt: prompt2,
+      userMessage: query,
+      maxTokens: 1000,
+      temperature: 0.7
+    })
+    console.log('🔍 Response 1:', response)
+    console.log('🔍 Response 2:', response2)
     return response
   }
 

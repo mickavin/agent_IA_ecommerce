@@ -126,8 +126,8 @@ export default function TestBotPage() {
     setIsLoading(true)
 
     try {
-      //const response = await fetch('/api/ai/master', {
-      const response = await fetch('/api/ai/master-json', {
+      const response = await fetch('/api/ai/master', {
+      //const response = await fetch('/api/ai/master-json', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
