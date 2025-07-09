@@ -179,10 +179,15 @@
       display: flex;
       align-items: flex-start;
       gap: 8px;
+      flex-direction: column;
     }
     
     .younzee-chatbot-message.user {
       flex-direction: row-reverse;
+    }
+
+    .younzee-chatbot-message.bot {
+      flex-direction: column;
     }
     
     .younzee-chatbot-message-content {
@@ -191,6 +196,11 @@
       border-radius: 18px;
       font-size: 14px;
       line-height: 1.4;
+    }
+
+    .younzee-chatbot-message-content h2 {
+      font-size: 1rem;
+      font-weight: bold;
     }
     
     .younzee-chatbot-message.bot .younzee-chatbot-message-content {
@@ -317,6 +327,200 @@
       }
     }
   `;
+
+  // Ajout du CSS pour le mini-carousel
+  const CAROUSEL_CSS = `
+    .younzee-carousel-container {
+      margin-top: 12px;
+      width: 100%;
+      max-width: 340px;
+      overflow: hidden;
+      position: relative;
+      background: #fffbe6;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      padding: 12px 0 8px 0;
+    }
+    .younzee-carousel-track {
+      display: flex;
+      transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+    }
+    .younzee-carousel-item {
+      min-width: 150px;
+      max-width: 150px;
+      max-height: 280px;
+      margin: 0 8px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px 8px 12px 8px;
+      position: relative;
+    }
+    .younzee-carousel-img {
+      width: 120px;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 8px;
+      background: #f3f4f6;
+      margin-bottom: 8px;
+    }
+    .younzee-carousel-title {
+      font-size: .875rem;
+      font-weight: 500;
+      color: #1f2937;
+      margin-bottom: 4px;
+      text-align: center;
+      min-height: 2.2em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .younzee-carousel-price {
+        font-size: 0.7rem;
+        font-weight: bold;
+        color: #121212;
+        margin-bottom: 8px;
+        position: absolute;
+        background-color: #ffdd5b;
+        padding: 2px 8px;
+        border-radius: 8px;
+        margin-top: 4px;
+        top: 103px;
+        right: 12px;
+    }
+    .younzee-carousel-btn {
+      background: #ffdd5b;
+      color: #1f2937;
+      border: none;
+      border-radius: 6px;
+      padding: 3px 14px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 4px;
+      transition: background 0.2s;
+    }
+    .younzee-carousel-btn:hover {
+      background: #ffe88a;
+    }
+    .younzee-carousel-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #fff;
+      border: 1px solid #eee;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      color: #1f2937;
+      cursor: pointer;
+      z-index: 2;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      transition: background 0.2s;
+    }
+    .younzee-carousel-arrow:hover {
+      background: #ffdd5b;
+    }
+    .younzee-carousel-arrow.left { left: 4px; }
+    .younzee-carousel-arrow.right { right: 4px; }
+  `;
+
+  // Ajoute le CSS du carousel au head si pas déjà fait
+  function injectCarouselStyles() {
+    if (!document.getElementById('younzee-carousel-styles')) {
+      const style = document.createElement('style');
+      style.id = 'younzee-carousel-styles';
+      style.textContent = CAROUSEL_CSS;
+      document.head.appendChild(style);
+    }
+  }
+
+  // Génère le HTML du mini-carousel
+  function createCarousel(products) {
+    injectCarouselStyles();
+    const container = document.createElement('div');
+    container.className = 'younzee-carousel-container';
+    const track = document.createElement('div');
+    track.className = 'younzee-carousel-track';
+    products.forEach((product) => {
+      const item = document.createElement('div');
+      item.className = 'younzee-carousel-item';
+      const img = document.createElement('img');
+      img.className = 'younzee-carousel-img';
+      img.src = product.images && product.images.length > 0 ? product.images[0] : (product.thumbnailUrl || '/no-image.jpg');
+      img.alt = product.title || product.name || 'Produit';
+      img.onerror = () => { img.src = '/no-image.jpg'; };
+      const title = document.createElement('div');
+      title.className = 'younzee-carousel-title';
+      title.textContent = product.title || product.name || 'Produit';
+      const price = document.createElement('div');
+      price.className = 'younzee-carousel-price';
+      price.textContent = (product.price ? product.price + '€' : '');
+      // Ajout couleur si présente
+      let colorDiv = null;
+      if (product.colors && Array.isArray(product.colors) && product.colors.length > 0) {
+        colorDiv = document.createElement('div');
+        colorDiv.style.fontSize = '0.7rem';
+        colorDiv.style.marginTop = '2px';
+        colorDiv.style.color = '#666';
+        colorDiv.textContent = 'Couleur : ' + product.colors[0];
+      }
+      // Ajout taille si présente
+      let sizeDiv = null;
+      if (product.sizes && Array.isArray(product.sizes) && product.sizes.length > 0) {
+        sizeDiv = document.createElement('div');
+        sizeDiv.style.fontSize = '0.7rem';
+        sizeDiv.style.marginTop = '2px';
+        sizeDiv.style.color = '#666';
+        sizeDiv.textContent = 'Taille : ' + product.sizes[0];
+      }
+      const btn = document.createElement('button');
+      btn.className = 'younzee-carousel-btn';
+      btn.textContent = 'Voir le produit';
+      btn.onclick = () => { if (product.url) window.open(product.url, '_blank'); };
+      item.appendChild(img);
+      item.appendChild(title);
+      item.appendChild(price);
+      if (colorDiv) item.appendChild(colorDiv);
+      if (sizeDiv) item.appendChild(sizeDiv);
+      item.appendChild(btn);
+      track.appendChild(item);
+    });
+    container.appendChild(track);
+    // Flèches si plusieurs produits
+    if (products.length > 1) {
+      let current = 0;
+      const left = document.createElement('div');
+      left.className = 'younzee-carousel-arrow left';
+      left.innerHTML = '&#8592;';
+      left.onclick = (e) => {
+        e.stopPropagation();
+        if (current > 0) current--;
+        track.style.transform = `translateX(-${current * 148}px)`;
+      };
+      const right = document.createElement('div');
+      right.className = 'younzee-carousel-arrow right';
+      right.innerHTML = '&#8594;';
+      right.onclick = (e) => {
+        e.stopPropagation();
+        if (current < products.length - 1) current++;
+        track.style.transform = `translateX(-${current * 148}px)`;
+      };
+      container.appendChild(left);
+      container.appendChild(right);
+    }
+    return container;
+  }
 
   class YounzeeChatbot {
     constructor(config = {}) {
@@ -445,12 +649,12 @@
       this.container.querySelector('.younzee-chatbot-window').classList.remove('open');
     }
 
-    addMessage(content, type = 'bot', showTyping = false) {
+    addMessage(content, type = 'bot', showTyping = false, products = null) {
       if (showTyping && type === 'bot') {
         this.showTypingIndicator();
         setTimeout(() => {
           this.hideTypingIndicator();
-          this.addMessage(content, type, false);
+          this.addMessage(content, type, false, products);
         }, 1000 + Math.random() * 1000);
         return;
       }
@@ -465,18 +669,28 @@
         contentDiv.style.backgroundColor = this.config.primaryColor;
       }
       
-      // Support simple du markdown
-      content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-      content = content.replace(/\*(.*?)\*/g, '<em>$1</em>');
-      content = content.replace(/\n/g, '<br>');
+      // Support complet du markdown avec marked si disponible
+      if (window.marked) {
+        contentDiv.innerHTML = window.marked.parse(content);
+      } else {
+        // Fallback simple du markdown
+        content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        content = content.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        content = content.replace(/\n/g, '<br>');
+        contentDiv.innerHTML = content;
+      }
       
-      contentDiv.innerHTML = content;
       messageDiv.appendChild(contentDiv);
+      // Ajout du carousel si products fourni et non vide
+      if (type === 'bot' && products && Array.isArray(products) && products.length > 0) {
+        const carousel = createCarousel(products);
+        messageDiv.appendChild(carousel);
+      }
       
       this.messagesContainer.appendChild(messageDiv);
       this.scrollToBottom();
       
-      this.messages.push({ content, type, timestamp: new Date() });
+      this.messages.push({ content, type, timestamp: new Date(), products });
     }
 
     showTypingIndicator() {
@@ -520,10 +734,11 @@
       }
       
       try {
-        const response = await fetch(this.config.apiEndpoint || '/api/ai/master', {
+        const response = await fetch('http://localhost:3000/api/ai/master', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Accept': 'application/json'
           },
           body: JSON.stringify({
             message,
@@ -543,18 +758,19 @@
           })
         });
 
-        if (!response.ok) {
+        if (response.status !== 200) {
           throw new Error(`Erreur HTTP: ${response.status}`);
         }
 
         const data = await response.json();
-        
+
         if (this.config.showTypingIndicator) {
           this.hideTypingIndicator();
         }
         
+        // Ajout du carousel si data.response.products existe
         if (data.success && data.response) {
-          this.addMessage(data.response.content, 'bot');
+          this.addMessage(data.response.content, 'bot', false, data.response.products);
         } else {
           this.addMessage('Désolé, une erreur s\'est produite. Veuillez réessayer.', 'bot');
         }

@@ -701,15 +701,7 @@ class OpenAIRAGService {
       maxTokens: 1000,
       temperature: 0.7
     })
-    const prompt2 = CATEGORIZATION_PROMPT_ITEM2(uniqueColors, uniqueSizes, uniqueTypes)
-    const response2 = await this.openaiService.generateResponse({
-      systemPrompt: prompt2,
-      userMessage: query,
-      maxTokens: 1000,
-      temperature: 0.7
-    })
-    console.log('🔍 Response 1:', response)
-    console.log('🔍 Response 2:', response2)
+   
     return response
   }
 

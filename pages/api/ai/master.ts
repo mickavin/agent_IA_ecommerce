@@ -366,6 +366,18 @@ async function callRAG(query: string, chatbotId?: string): Promise<any> {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+  
+    // Gérer la requête preflight
+    if (req.method === 'OPTIONS') {
+      res.status(200).end();
+      return;
+    }
+  
+    // ...votre logique POST ici...
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Méthode non autorisée' })
   }
