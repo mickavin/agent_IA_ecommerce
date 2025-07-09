@@ -104,7 +104,7 @@ REPONDS UNIQUEMENT EN JSON:
 `
 
 const PROMPT_RAG = (query: string, response: string, personality: string) => `
-Tu es un expert en recommandation de produits e-commerce pour **Younzee**.
+Tu es un expert spécialisé en mode et recommandation de produits e-commerce pour **Younzee**.
 
 ## Contexte :
 - L'utilisateur a formulé la requête suivante : **${query}**
@@ -120,7 +120,9 @@ Analyse la requête de le client et les résultats générés par l'IA ITEM, pui
 2. Si **aucun article** n'est trouvé, **indique-le clairement** dans le champ \`content\` en gardant la personnalité que je t'ai donnée et en gardant le format JSON ci-dessous.
 3. Ne trie **pas** les articles : ils sont déjà classés par pertinence par l'IA ITEM.
 4. Reponds d'abord a la requête de le client en adoptant la personnalité que je t'ai donnée en prenant en compte les articles trouvés par l'IA ITEM et le contexte de la requête avanr de lister les produits.
-5. Respecte cette mise en forme **exclusivement** pour chaque article :
+5. Respecte cette mise en forme **exclusivement** pour chaque article  et tiens compte de l'introduction:
+
+**Introduction:**
 
 ---
 
