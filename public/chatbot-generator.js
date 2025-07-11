@@ -36,6 +36,15 @@
 
   // Classes CSS intégrées
   const CSS_STYLES = `
+    .younzee-chatbot-message-content p {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+
+    .younzee-chatbot-message-content p {
+      margin: 0;
+    }
+
     .younzee-chatbot-container {
       position: fixed;
       z-index: 999999;
@@ -273,8 +282,11 @@
       border-radius: 18px;
       border-bottom-left-radius: 6px;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-      max-width: 70%;
-      margin-bottom: 16px;
+      max-width: 20%;
+      min-width: 20%;
+      min-height: 45px;
+      margin-bottom: 0;
+      margin-top: 0;
     }
     
     .younzee-chatbot-typing-dot {
@@ -330,6 +342,10 @@
 
   // Ajout du CSS pour le mini-carousel
   const CAROUSEL_CSS = `
+      .younzee-chatbot-message-content p {
+      margin: 0;
+    }
+
     .younzee-carousel-container {
       margin-top: 12px;
       width: 100%;
@@ -506,7 +522,11 @@
       left.onclick = (e) => {
         e.stopPropagation();
         if (current > 0) current--;
-        track.style.transform = `translateX(-${current * 148}px)`;
+        if (current == 0) {
+          track.style.transform = `translateX(30px)`;
+        } else {
+          track.style.transform = `translateX(-${(current + 1) * 70}px)`;
+        }
       };
       const right = document.createElement('div');
       right.className = 'younzee-carousel-arrow right';
@@ -514,7 +534,11 @@
       right.onclick = (e) => {
         e.stopPropagation();
         if (current < products.length - 1) current++;
-        track.style.transform = `translateX(-${current * 148}px)`;
+        if (current == products.length - 1) {
+          track.style.transform = `translateX(-${(current + 1) * 70}px)`;
+        } else {
+          track.style.transform = `translateX(-${(current + 1) * 70}px)`;
+        }
       };
       container.appendChild(left);
       container.appendChild(right);
@@ -772,7 +796,12 @@
         if (data.success && data.response) {
           this.addMessage(data.response.content, 'bot', false, data.response.products);
         } else {
-          this.addMessage('Désolé, une erreur s\'est produite. Veuillez réessayer.', 'bot');
+          console.log(data);
+          if (data.primaryType === 'FALLBACK') {
+            this.addMessage(data.message, 'bot');
+          } else {
+            this.addMessage('Désolé, une erreur s\'est produite. Veuillez réessayer.', 'bot');
+          }
         }
       } catch (error) {
         console.error('Erreur chatbot widget:', error);

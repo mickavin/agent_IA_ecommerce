@@ -2,6 +2,8 @@ import { NextApiRequest, NextApiResponse } from 'next'
 import { ChatbotConfig, ChatbotConfigService } from '../../../lib/services/chatbot-config.service'
 import { OpenAIService } from '../../../lib/services/openai.service'
 
+const filterUniqueBy = (arr: any[], fn: (v: any, x: any, i: number, j: number) => boolean) =>
+  arr.filter((v, i) => arr.some((x, j) => (i !== j) === fn(v, x, i, j)));
 
 function parse_json(json_string: string)
 {
@@ -119,9 +121,9 @@ Analyse la requête de le client et les résultats générés par l'IA ITEM, pui
 1. **Réponds à la requête** en respectant la personnalité indiquée, en t'appuyant sur les articles fournis dans le JSON.
 2. Si **aucun article** n'est trouvé, **indique-le clairement** dans le champ \`content\` en gardant la personnalité que je t'ai donnée et en gardant le format JSON ci-dessous.
 3. Ne trie **pas** les articles : ils sont déjà classés par pertinence par l'IA ITEM.
-4. Reponds d'abord a la requête de le client en adoptant la personnalité que je t'ai donnée en prenant en compte les articles trouvés par l'IA ITEM et le contexte de la requête avanr de lister les produits.
-5. Respecte cette mise en forme **exclusivement** pour chaque article  et tiens compte de l'introduction:
-
+4. Pas besoin d'effectuer de salutations
+5. Dans le cas d'une clarification n'emet aucune recommandation
+6. Respecte cette mise en forme **exclusivement** pour chaque article en les listant tous et tiens compte de l'introduction:
 **Introduction:**
 
 ---
@@ -157,8 +159,8 @@ Analyse la requête de le client et les résultats générés par l'IA ITEM, pui
 **🛒 [Ajouter au panier](#)**
 ---
 
-6. Ne laisse **aucun saut de ligne ou espace inutile** dans \`content\`. La réponse doit être **esthétique, moderne, professionnelle, élégante, claire et épurée**.
-7. Retourne uniquement un **objet JSON valide** (parsable via \`JSON.parse()\`) au format suivant :
+7. Ne laisse **aucun saut de ligne ou espace inutile** dans \`content\`. La réponse doit être **esthétique, moderne, professionnelle, élégante, claire et épurée**.
+8. Retourne uniquement un **objet JSON valide** (parsable via \`JSON.parse()\`) au format suivant :
 
 RETOURNE UNIQUEMENT DU JSON VALIDE et Parseable par JSON.parse():
 {
@@ -175,11 +177,78 @@ RETOURNE UNIQUEMENT DU JSON VALIDE et Parseable par JSON.parse():
 }
 
 
-8. Les suggestions doivent être **cohérentes avec la requête et le contenu retourné** par l'IA ITEM.
+9. Les suggestions doivent être **cohérentes avec la requête et le contenu retourné** par l'IA ITEM.
 
 ---
 `;
 
+
+const PROMPT_RAG_NO_PRODUCTS = (query: string, response: string, personality: string) => `
+Tu es un expert spécialisé en mode et recommandation de produits e-commerce pour **Younzee**.
+
+## Contexte :
+- L'utilisateur a formulé la requête suivante : **${query}**
+- L'IA de recommandation nommée **IA ITEM** n'a pas trouvé d'article correspondant à la requête.
+
+## Ta mission :
+Analyse la requête de le client et rédige une réponse dans le style de la personnalité suivante : **${personality}**.
+
+### Instructions obligatoires :
+
+1. **Réponds à la requête** en respectant la personnalité indiquée.
+2. Si **aucun article** n'est trouvé, **indique-le clairement** dans le champ \`content\` en gardant la personnalité que je t'ai donnée et en gardant le format JSON ci-dessous.
+3. Respecte cette mise en forme **exclusivement** pour chaque article en les listant tous et tiens compte de l'introduction:
+4. Pas besoin d'effectuer de formulations de salutations
+
+## **Formulation pour indiquer qu'aucun article n'a été trouvé**
+
+> ✨ _Phrase d'accroche ou usage recommandé, adaptée à la personnalité._
+
+---
+
+5. Ne laisse **aucun saut de ligne ou espace inutile** dans \`content\`. La réponse doit être **esthétique, moderne, professionnelle, élégante, claire et épurée**.
+6. Retourne uniquement un **objet JSON valide** (parsable via \`JSON.parse()\`) au format suivant :
+
+RETOURNE UNIQUEMENT DU JSON VALIDE et Parseable par JSON.parse():
+{
+  "content": "Réponse complète en markdown générée dynamiquement à partir des articles et de la personnalité",
+  "request": "Contenu exact de la requête utilisateur",
+  "timestamp": "timestamp ISO de la requête",
+  "suggestions": [
+    "Suggestion 1 pertinente et dynamique",
+    "Suggestion 2 adaptée à la demande",
+    "Suggestion 3 contextuelle",
+    "Suggestion 4 personnalisée",
+    "Suggestion 5 basée sur les articles"
+  ]
+}
+
+
+7. Les suggestions doivent être **cohérentes avec la requête et le contenu retourné** par l'IA ITEM.
+
+---
+`;
+
+const PROMPT_RAG_CLARIFICATION = (query: string, response: string, personality: string) => `
+Tu es un expert spécialisé en mode et recommandation de produits e-commerce pour **Younzee**.
+
+## Contexte :
+- L'utilisateur a formulé la requête suivante : **${query}**
+- L'IA de recommandation nommée **IA ITEM** a généré une clarification : **${response}**
+
+## Ta mission :
+Analyse la requête de le client et rédige une réponse dans le style de la personnalité suivante : **${personality}**.
+
+### Instructions obligatoires :
+
+1. **Réponds à la requête** en respectant la personnalité indiquée.
+2. Si **aucun article** n'est trouvé, **indique-le clairement** dans le champ \`content\` en gardant la personnalité que je t'ai donnée et en gardant le format JSON ci-dessous.
+3. Respecte cette mise en forme **exclusivement** pour chaque article en les listant tous et tiens compte de l'introduction:
+4. Pas besoin d'effectuer de formulations de salutations
+
+## **Formulation pour indiquer qu'aucun article n'a été trouvé et reformulation de la clarification**
+
+`
 
 /**
  * IA Master - Orchestrateur intelligent avec personnalisation du chatbot depuis Supabase
@@ -245,11 +314,11 @@ async function callMasterAI(message: string, chatbotId?: string, history?: any):
   const data = parse_json(response)
   if (!data) {
     return {
-      success: false,
-      aiType: 'error',
-      confidence: 0,
-      content: '',
-      error: `Erreur HTTP: ${data}`
+      success: true,
+      aiType: 'master',
+      confidence: 1,
+      response: data,
+      content: response
     }
   }
   return {
@@ -280,7 +349,9 @@ async function callMasterAIToRAG(message: string, chatbotId?: string, history?: 
   const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
   const config = await getChatbotConfig(chatbotId)
   const responseRAG = await openaiService.generateResponse({
-    systemPrompt: PROMPT_RAG(message, JSON.stringify(response.data.results), JSON.stringify(config?.personality)),
+    systemPrompt: response.data.results.length > 0 ?  response.data.results[0].document.metadata.category === 'Clarification' ? PROMPT_RAG_CLARIFICATION(message, JSON.stringify(response.data.results), JSON.stringify(config?.personality)) : PROMPT_RAG(message, JSON.stringify(response.data.results.filter((prod: any, idx: number, arr: any[]) =>
+      prod.document.metadata.title && arr.findIndex(p => p.document.metadata.title && p.document.metadata.title.toLowerCase() === prod.document.metadata.title.toLowerCase()) === idx
+    )), JSON.stringify(config?.personality)) : PROMPT_RAG_NO_PRODUCTS(message, JSON.stringify(response.data.results), JSON.stringify(config?.personality)),
     userMessage: message,
     context: {
       conversationHistory: [],
@@ -301,7 +372,11 @@ async function callMasterAIToRAG(message: string, chatbotId?: string, history?: 
   const data = parse_json(responseRAG)
   
   // Ajouter les produits formatés pour le carousel
-  const products = formatProductsFromRAG(response.data.results || [])
+  let products = formatProductsFromRAG(response.data.results || [])
+  // Filtrer les doublons par nom (title)
+  products = products.filter((prod: any, idx: number, arr: any[]) =>
+    prod.category !== 'Clarification' && prod.title && arr.findIndex(p => p.title && p.title.toLowerCase() === prod.title.toLowerCase()) === idx
+  )
   
   return {
     success: true,
@@ -414,7 +489,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const response = routingResult.response
       //const personalizedContent = applyPersonalization(response.message, personality)
       //console.log('personalizedContent', personalizedContent)
-      if (response.primaryType === 'ITEM') {
+      if (response?.primaryType === 'ITEM') {
         const ragResult = await callMasterAIToRAG(response.request, chatbotId, history)
         console.log('ragResult', ragResult)
         console.log('ragResult.response', ragResult.response)

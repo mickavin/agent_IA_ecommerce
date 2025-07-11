@@ -25,7 +25,7 @@ export default function SettingsPage() {
   const [timezone, setTimezone] = useState("Europe/Paris")
   const [defaultLanguage, setDefaultLanguage] = useState("fr")
   const [aiModel, setAiModel] = useState("gpt-4")
-  const [temperature, setTemperature] = useState([0.7])
+  const [temperature, setTemperature] = useState([0.1])
   const [maxTokens, setMaxTokens] = useState([500])
   const [confidenceThreshold, setConfidenceThreshold] = useState([0.8])
   const [fallbackToHuman, setFallbackToHuman] = useState(true)

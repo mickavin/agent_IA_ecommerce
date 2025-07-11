@@ -39,7 +39,7 @@ export class MasterLangchainAgent extends BaseLangchainService {
   constructor(config?: Partial<LangchainAgentConfig>) {
     super({
       agentType: 'master',
-      temperature: 0.3,
+      temperature: 0.1,
       maxTokens: 1200,
       confidenceThreshold: 0.4,
       ...config
