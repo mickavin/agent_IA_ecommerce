@@ -6,7 +6,7 @@ import Papa from 'papaparse'
 import fs from 'fs'
 import path from 'path'
 import { excelReferentialService } from '../../lib/services/excel-referential.service'
-import { OpenAIService } from '../../lib/services/openai.service'
+import { OpenAIService } from '../../lib/services/openai.service' // Migré vers le AI SDK de Vercel
 import productRef1 from '../../files/productRef1.json'
 import productRef2 from '../../files/productRef2.json'
 /**

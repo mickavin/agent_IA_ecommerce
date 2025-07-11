@@ -1,36 +1,12 @@
 /**
  * Service OpenAI pour génération intelligente de réponses
  * Utilisé par toutes les IAs spécialisées
+ * Migré vers le AI SDK de Vercel
  */
 
+import { generateText } from 'ai'
+import { openai } from '@ai-sdk/openai'
 import { getAIProviderConfig } from '../config/ai-config'
-
-interface OpenAIMessage {
-  role: 'system' | 'user' | 'assistant'
-  content: string
-}
-
-interface OpenAIRequest {
-  model: string
-  messages: OpenAIMessage[]
-  max_tokens: number
-  temperature: number
-  stream?: boolean
-}
-
-interface OpenAIResponse {
-  choices: Array<{
-    message: {
-      content: string
-    }
-    finish_reason: string
-  }>
-  usage?: {
-    prompt_tokens: number
-    completion_tokens: number
-    total_tokens: number
-  }
-}
 
 interface GenerateResponseOptions {
   systemPrompt: string
@@ -50,14 +26,14 @@ export class OpenAIService {
   }
 
   /**
-   * Génère une réponse via OpenAI
+   * Génère une réponse via OpenAI avec le AI SDK de Vercel
    */
   async generateResponse(options: GenerateResponseOptions): Promise<string> {
     const { systemPrompt, userMessage, context, maxTokens, temperature } = options
 
-
     try {
-      const messages: OpenAIMessage[] = [
+      // Préparation des messages
+      const messages: Array<{role: 'system' | 'user' | 'assistant', content: string}> = [
         {
           role: 'system',
           content: systemPrompt
@@ -81,37 +57,18 @@ export class OpenAIService {
         content: userMessage
       })
 
-      const requestBody: OpenAIRequest = {
-        model: this.config.model,
+      // Utilisation du AI SDK de Vercel
+      const { text } = await generateText({
+        model: this.config.vercelAIModel || openai(this.config.model as any),
         messages,
-        max_tokens: maxTokens || this.config.maxTokens,
-        temperature: temperature !== undefined ? temperature : this.config.temperature
-      }
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.config.apiKey}`
-        },
-        body: JSON.stringify(requestBody),
+        maxTokens: maxTokens || this.config.maxTokens,
+        temperature: temperature !== undefined ? temperature : this.config.temperature,
       })
 
-      if (!response.ok) {
-        const errorData = await response.text()
-        throw new Error(`OpenAI API Error ${response.status}: ${errorData}`)
-      }
-
-      const data: OpenAIResponse = await response.json()
-      
-      if (!data.choices?.[0]?.message?.content) {
-        throw new Error('Réponse OpenAI invalide')
-      }
-
-      return data.choices[0].message.content.trim()
+      return text.trim()
 
     } catch (error: any) {
-      console.error('❌ Erreur OpenAI Service:', error)
+      console.error('❌ Erreur OpenAI Service (AI SDK):', error)
       throw error
     }
   }

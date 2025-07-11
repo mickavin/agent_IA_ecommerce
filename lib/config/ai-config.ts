@@ -1,7 +1,10 @@
 /**
  * Configuration centralisée pour le système d'IA Master
  * Gère les variables d'environnement et les paramètres par défaut
+ * Mis à jour pour intégrer le AI SDK de Vercel
  */
+
+import { openai } from '@ai-sdk/openai'
 
 export interface AIProviderConfig {
   provider: 'openai' | 'grok' | 'anthropic' | 'local'
@@ -10,6 +13,8 @@ export interface AIProviderConfig {
   maxTokens: number
   temperature: number
   timeout: number
+  // Nouveau: configuration pour le AI SDK de Vercel
+  vercelAIModel?: any
 }
 
 export interface IAMasterEnvironmentConfig {
@@ -176,7 +181,8 @@ export function getAIProviderConfig(provider?: string): AIProviderConfig {
         model: getEnvVar('OPENAI_MODEL', 'gpt-3.5-turbo'),
         maxTokens: getEnvNumber('OPENAI_MAX_TOKENS', 1000),
         temperature: getEnvNumber('OPENAI_TEMPERATURE', 0.7),
-        timeout: getEnvNumber('OPENAI_TIMEOUT', 10000)
+        timeout: getEnvNumber('OPENAI_TIMEOUT', 10000),
+        vercelAIModel: openai(getEnvVar('OPENAI_MODEL', 'gpt-3.5-turbo'))
       }
       
     case 'grok':

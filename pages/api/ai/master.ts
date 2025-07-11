@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { ChatbotConfig, ChatbotConfigService } from '../../../lib/services/chatbot-config.service'
-import { OpenAIService } from '../../../lib/services/openai.service'
+import { OpenAIService } from '../../../lib/services/openai.service' // Migré vers le AI SDK de Vercel
 
 const filterUniqueBy = (arr: any[], fn: (v: any, x: any, i: number, j: number) => boolean) =>
   arr.filter((v, i) => arr.some((x, j) => (i !== j) === fn(v, x, i, j)));

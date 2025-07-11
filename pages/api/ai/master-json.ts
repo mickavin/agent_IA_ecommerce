@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { ChatbotConfig, ChatbotConfigService } from '../../../lib/services/chatbot-config.service'
-import { OpenAIService } from '../../../lib/services/openai.service'
+import { OpenAIService } from '../../../lib/services/openai.service' // Migré vers le AI SDK de Vercel
 
 
 function parse_json(json_string: string)

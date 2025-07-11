@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next'
-import { OpenAIService } from '../../../lib/services/openai.service'
+import { OpenAIService } from '../../../lib/services/openai.service' // Migré vers le AI SDK de Vercel
 import { ChatbotConfigService } from '../../../lib/services/chatbot-config.service'
 
 /**
