@@ -7,6 +7,7 @@ import fs from 'fs'
 import path from 'path'
 import { excelReferentialService } from '../../lib/services/excel-referential.service'
 import { OpenAIService } from '../../lib/services/openai.service' // Migré vers le AI SDK de Vercel
+import { z } from 'zod'
 
 /**
  * API RAG complète avec OpenAI Embeddings
@@ -54,7 +55,7 @@ Tu es un assistant e-commerce spécialisé dans la mode. Ta tâche est d'extrair
                     3. Pour les pantalons : utilise 'Pantalons Chino & Classiques' sauf si un style spécifique est mentionné
                     4. Ignore la casse dans la recherche
                     5. Si un des attributs n'est pas valide, retourne null pour cet attribut
-                    Réponds uniquement en JSON :
+                    Réponds uniquement en JSON parsable :
                     {"type_produit_classifié":"...","taille_extraite":"...","couleur_younzee":"..."}
 `
 
@@ -388,7 +389,7 @@ class OpenAIRAGService {
     const promptCategorization = await this.precategorizePrompt(query, uniqueColors, uniqueSizes, uniqueTypes)
     console.log(`🏷️ Pré-catégorisation: ${promptCategorization}`)
 
-    const promptCategorizationParsed = JSON.parse(promptCategorization)
+    const promptCategorizationParsed = promptCategorization
     console.log(`🏷️ Pré-catégorisation: ${promptCategorizationParsed}`)
 
     if (promptCategorizationParsed.type_produit_classifié === null || promptCategorizationParsed.taille_extraite === null || promptCategorizationParsed.couleur_younzee === null) {
@@ -590,12 +591,18 @@ class OpenAIRAGService {
   }
 
   private async precategorizePrompt(query: string, uniqueColors: string[], uniqueSizes: string[], uniqueTypes: string[]) {
+    console.log(`🔍 Pré-catégorisation de la requête: "${query}"`)
     const prompt = CATEGORIZATION_PROMPT_ITEM(uniqueColors, uniqueSizes, uniqueTypes)
-    const response = await this.openaiService.generateResponse({
+    const response = await this.openaiService.generateObjectResponse({
+      model: "gpt-4o",
       systemPrompt: prompt,
       userMessage: query,
       maxTokens: 1000,
       temperature: 0.7
+    }, {
+      type_produit_classifié: z.string().describe('Type de produit classifié'),
+      taille_extraite: z.string().describe('Taille extraite'),
+      couleur_younzee: z.string().describe('Couleur Younzee'),
     })
    
     return response

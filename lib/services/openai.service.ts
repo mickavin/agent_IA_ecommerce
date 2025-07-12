@@ -4,9 +4,10 @@
  * Migré vers le AI SDK de Vercel
  */
 
-import { generateText } from 'ai'
+import { generateText, generateObject } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { getAIProviderConfig } from '../config/ai-config'
+import { z } from 'zod';
 
 interface GenerateResponseOptions {
   systemPrompt: string
@@ -14,6 +15,7 @@ interface GenerateResponseOptions {
   context?: any
   maxTokens?: number
   temperature?: number
+  model?: string
 }
 
 export class OpenAIService {
@@ -29,7 +31,7 @@ export class OpenAIService {
    * Génère une réponse via OpenAI avec le AI SDK de Vercel
    */
   async generateResponse(options: GenerateResponseOptions): Promise<string> {
-    const { systemPrompt, userMessage, context, maxTokens, temperature } = options
+    const { systemPrompt, userMessage, context, maxTokens, temperature, model } = options
 
     try {
       // Préparation des messages
@@ -59,13 +61,64 @@ export class OpenAIService {
 
       // Utilisation du AI SDK de Vercel
       const { text } = await generateText({
-        model: this.config.vercelAIModel || openai(this.config.model as any),
+        model: (typeof model == 'string' ? openai(model) : null) || this.config.vercelAIModel || openai(this.config.model as any),
         messages,
         maxTokens: maxTokens || this.config.maxTokens,
         temperature: temperature !== undefined ? temperature : this.config.temperature,
       })
 
       return text.trim()
+
+    } catch (error: any) {
+      console.error('❌ Erreur OpenAI Service (AI SDK):', error)
+      throw error
+    }
+  }
+
+  
+  /**
+   * Génère une réponse via OpenAI avec le AI SDK de Vercel
+   */
+  async generateObjectResponse(options: GenerateResponseOptions, schema: any): Promise<any> {
+    const { systemPrompt, userMessage, context, maxTokens, temperature, model } = options
+
+    try {
+      // Préparation des messages
+      const messages: Array<{role: 'system' | 'user' | 'assistant', content: string}> = [
+        {
+          role: 'system',
+          content: systemPrompt
+        }
+      ]
+
+      // Ajouter le contexte si disponible
+      if (context?.conversationHistory?.length) {
+        const recentHistory = context.conversationHistory // 4 derniers messages
+        for (const msg of recentHistory) {
+          messages.push({
+            role: msg.type === 'user' ? 'user' : 'assistant',
+            content: msg.content
+          })
+        }
+      }
+
+      // Ajouter le message utilisateur
+      messages.push({
+        role: 'user',
+        content: userMessage
+      })
+
+      // Utilisation du AI SDK de Vercel
+      const { object } = await generateObject({
+        model: (typeof model == 'string' ? openai(model) : null) || this.config.vercelAIModel || openai(this.config.model as any),
+        system: systemPrompt,
+        prompt: userMessage,
+        schema: z.object(schema),
+        maxTokens: maxTokens || this.config.maxTokens,
+        temperature: temperature !== undefined ? temperature : this.config.temperature,
+      })
+
+        return object
 
     } catch (error: any) {
       console.error('❌ Erreur OpenAI Service (AI SDK):', error)
@@ -118,11 +171,11 @@ export class OpenAIService {
 
     const personalityPrompt = `
 PERSONNALITÉ:
-- ${toneInstructions[basePersonality.tone]}
-- ${formalityInstructions[basePersonality.formality]}
-- ${verbosityInstructions[basePersonality.verbosity]}
-- ${empathyInstructions[basePersonality.empathy]}
-- ${proactivityInstructions[basePersonality.proactivity]}
+- ${toneInstructions[basePersonality.tone as keyof typeof toneInstructions]}
+- ${formalityInstructions[basePersonality.formality as keyof typeof formalityInstructions]}
+- ${verbosityInstructions[basePersonality.verbosity as keyof typeof verbosityInstructions]}
+- ${empathyInstructions[basePersonality.empathy as keyof typeof empathyInstructions]}
+- ${proactivityInstructions[basePersonality.proactivity as keyof typeof proactivityInstructions]}
 `
 
     switch (aiType) {
