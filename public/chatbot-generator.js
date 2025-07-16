@@ -23,7 +23,7 @@
     enableSound: false,
     autoOpen: false,
     autoOpenDelay: 3000,
-    welcomeMessage: 'Bonjour ! Comment puis-je vous aider aujourd\'hui ?',
+    welcomeMessage: '🤖 Bonjour, Je suis votre Styliste Personnel. Comment je peux vous aider aujourd\'hui ? Donnez moi une catégorie de produit, une couleur et votre taille pour que je puisse vous proposer des articles adaptés à vous.',
     placeholder: 'Tapez votre message...',
     personality: {
       tone: 'Amical',
@@ -525,7 +525,7 @@
         if (current == 0) {
           track.style.transform = `translateX(30px)`;
         } else {
-          track.style.transform = `translateX(-${(current + 1) * 70}px)`;
+          track.style.transform = `translateX(-${(current + 1) * 48 + 30}px)`;
         }
       };
       const right = document.createElement('div');
@@ -535,9 +535,9 @@
         e.stopPropagation();
         if (current < products.length - 1) current++;
         if (current == products.length - 1) {
-          track.style.transform = `translateX(-${(current + 1) * 70}px)`;
+          track.style.transform = `translateX(-${(current + 1) * 48 + 30 + 24}px)`;
         } else {
-          track.style.transform = `translateX(-${(current + 1) * 70}px)`;
+          track.style.transform = `translateX(-${(current + 1) * 48 + 30}px)`;
         }
       };
       container.appendChild(left);

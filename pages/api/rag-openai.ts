@@ -1,16 +1,17 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { OpenAIEmbeddings } from '@langchain/openai'
+import { GoogleGenerativeAI, GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { MemoryVectorStore } from 'langchain/vectorstores/memory'
 import { Document } from '@langchain/core/documents'
 import Papa from 'papaparse'
 import fs from 'fs'
 import path from 'path'
 import { excelReferentialService } from '../../lib/services/excel-referential.service'
-import { OpenAIService } from '../../lib/services/openai.service' // Migré vers le AI SDK de Vercel
+import { ProvidersService } from '../../lib/services/providers.service' // Migré vers le AI SDK de Vercel
 import { z } from 'zod'
 
 /**
- * API RAG complète avec OpenAI Embeddings
+ * API RAG complète
  * Usage: GET /api/rag-openai?q=t-shirt&k=5&type=semantic
  *        POST /api/rag-openai { "query": "sweat bleu", "k": 3, "searchType": "hybrid" }
  */
@@ -91,22 +92,21 @@ export interface AICategorization {
 }
 
 /**
- * Service RAG avec OpenAI
+ * Service RAG
  */
-class OpenAIRAGService {
-  private embeddings: OpenAIEmbeddings
+class RAGService {
+  private embeddings: GoogleGenerativeAIEmbeddings
   private vectorStore: MemoryVectorStore | null = null
   private documents: ProductDocument[] = []
   private isInitialized = false
-  private openaiService: OpenAIService
+  private providersService: ProvidersService
 
   constructor() {
-    this.embeddings = new OpenAIEmbeddings({
-      model: 'text-embedding-3-large', // ✅ Modèle plus performant
-      apiKey: process.env.OPENAI_API_KEY,
-      batchSize: 500, // ✅ Batch plus petit pour meilleure qualité
+    this.embeddings = new GoogleGenerativeAIEmbeddings({
+      model: 'models/gemini-embedding-001', // ✅ Modèle plus performant
+      apiKey: process.env.GEMINI_API_KEY,
     })
-    this.openaiService = new OpenAIService()
+    this.providersService = new ProvidersService()
   }
 
   private async getUniqueColors(objectsArray: ProductDocument[]): Promise<string[]> {
@@ -371,7 +371,7 @@ class OpenAIRAGService {
 
   async search(query: string, options: any = {}): Promise<RAGSearchResult[]> {
 
-    console.log('🚀 Initialisation RAG OpenAI...')
+    console.log('🚀 Initialisation RAG AI...')
 
     // ✅ 5️⃣ CHARGEMENT DES PRODUITS
     await this.loadCSVData()
@@ -586,15 +586,16 @@ class OpenAIRAGService {
       isInitialized: this.isInitialized,
       documentsLoaded: this.documents.length,
       hasVectorStore: !!this.vectorStore,
-      embeddingmodel: 'text-embedding-3-large'
+      embeddingmodel: 'gemini-embedding-001'
     }
   }
 
   private async precategorizePrompt(query: string, uniqueColors: string[], uniqueSizes: string[], uniqueTypes: string[]) {
     console.log(`🔍 Pré-catégorisation de la requête: "${query}"`)
     const prompt = CATEGORIZATION_PROMPT_ITEM(uniqueColors, uniqueSizes, uniqueTypes)
-    const response = await this.openaiService.generateObjectResponse({
-      model: "gpt-4o",
+    const response = await this.providersService.generateObjectResponse({
+      model: "gemini-2.0-flash",
+      provider: "gemini",
       systemPrompt: prompt,
       userMessage: query,
       maxTokens: 1000,
@@ -678,11 +679,11 @@ Format: Texte direct, pas de JSON.`
 }
 
 // Instance globale
-let ragService: OpenAIRAGService | null = null
+let ragService: RAGService | null = null
 
-function getRAGService(): OpenAIRAGService {
+function getRAGService(): RAGService {
   if (!ragService) {
-    ragService = new OpenAIRAGService()
+    ragService = new RAGService()
   }
   return ragService
 }
@@ -704,14 +705,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Méthode non autorisée' })
   }
 
-  // Vérification OpenAI
-  if (!process.env.OPENAI_API_KEY) {
-    return res.status(500).json({
-      success: false,
-      error: 'Clé API OpenAI manquante. Ajoutez OPENAI_API_KEY dans .env.local'
-    })
-  }
-
   const startTime = Date.now()
 
   try {
@@ -728,7 +721,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ? (req.query.type as string) || 'hybrid'
       : req.body?.searchType || 'hybrid'
 
-    console.log(`🔍 RAG OpenAI Query: "${query}", k: ${k}, type: ${searchType}`)
+    console.log(`🔍 RAG AI Query: "${query}", k: ${k}, type: ${searchType}`)
 
     // Service RAG
     const service = getRAGService()
@@ -748,17 +741,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         totalFound: results.length,
         searchTime,
         searchType,
-        embeddingmodel: 'text-embedding-3-large'
       },
       metadata: {
         documentsLoaded: stats.documentsLoaded,
         vectorStoreCreated: stats.hasVectorStore,
-        openaiConfigured: true
       }
     })
 
   } catch (error: any) {
-    console.error('❌ Erreur RAG OpenAI:', error)
+    console.error('❌ Erreur RAG:', error)
 
     return res.status(500).json({
       success: false,
@@ -766,7 +757,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       metadata: {
         documentsLoaded: 0,
         vectorStoreCreated: false,
-        openaiConfigured: !!process.env.OPENAI_API_KEY
       }
     })
   }

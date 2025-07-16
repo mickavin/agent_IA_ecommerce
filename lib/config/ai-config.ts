@@ -5,9 +5,10 @@
  */
 
 import { openai } from '@ai-sdk/openai'
+import { google } from '@ai-sdk/google'
 
 export interface AIProviderConfig {
-  provider: 'openai' | 'grok' | 'anthropic' | 'local'
+  provider: 'openai' | 'grok' | 'anthropic' | 'local' | 'gemini'
   apiKey?: string
   model: string
   maxTokens: number
@@ -174,6 +175,17 @@ export function getAIProviderConfig(provider?: string): AIProviderConfig {
   const selectedProvider = provider || defaultAIConfig.aiProvider.provider
   
   switch (selectedProvider) {
+    case 'gemini':
+      return {
+        provider: 'gemini',
+        apiKey: getEnvVar('GEMINI_API_KEY', ''),
+        model: getEnvVar('GEMINI_MODEL', 'gemini-2.0-flash-001'),
+        maxTokens: getEnvNumber('GEMINI_MAX_TOKENS', 1000),
+        temperature: getEnvNumber('GEMINI_TEMPERATURE', 0.7),
+        timeout: getEnvNumber('GEMINI_TIMEOUT', 10000),
+        vercelAIModel: google(getEnvVar('GEMINI_MODEL', 'gemini-2.0-flash'))
+      }
+
     case 'openai':
       return {
         provider: 'openai',

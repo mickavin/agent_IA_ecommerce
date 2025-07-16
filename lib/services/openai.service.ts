@@ -6,6 +6,7 @@
 
 import { generateText, generateObject } from 'ai'
 import { openai } from '@ai-sdk/openai'
+import { google } from '@ai-sdk/google'
 import { getAIProviderConfig } from '../config/ai-config'
 import { z } from 'zod';
 
@@ -16,6 +17,7 @@ interface GenerateResponseOptions {
   maxTokens?: number
   temperature?: number
   model?: string
+  provider?: string
 }
 
 export class OpenAIService {
@@ -31,7 +33,7 @@ export class OpenAIService {
    * Génère une réponse via OpenAI avec le AI SDK de Vercel
    */
   async generateResponse(options: GenerateResponseOptions): Promise<string> {
-    const { systemPrompt, userMessage, context, maxTokens, temperature, model } = options
+    const { systemPrompt, userMessage, context, maxTokens, temperature, model, provider } = options
 
     try {
       // Préparation des messages
@@ -61,7 +63,7 @@ export class OpenAIService {
 
       // Utilisation du AI SDK de Vercel
       const { text } = await generateText({
-        model: (typeof model == 'string' ? openai(model) : null) || this.config.vercelAIModel || openai(this.config.model as any),
+        model: (typeof model == 'string' ? (provider == 'gemini' ? google(model) : openai(model)) : null) || this.config.vercelAIModel || openai(this.config.model as any),
         messages,
         maxTokens: maxTokens || this.config.maxTokens,
         temperature: temperature !== undefined ? temperature : this.config.temperature,
@@ -80,7 +82,7 @@ export class OpenAIService {
    * Génère une réponse via OpenAI avec le AI SDK de Vercel
    */
   async generateObjectResponse(options: GenerateResponseOptions, schema: any): Promise<any> {
-    const { systemPrompt, userMessage, context, maxTokens, temperature, model } = options
+    const { systemPrompt, userMessage, context, maxTokens, temperature, model, provider } = options
 
     try {
       // Préparation des messages
@@ -110,7 +112,7 @@ export class OpenAIService {
 
       // Utilisation du AI SDK de Vercel
       const { object } = await generateObject({
-        model: (typeof model == 'string' ? openai(model) : null) || this.config.vercelAIModel || openai(this.config.model as any),
+        model: (typeof model == 'string' ? (provider == 'gemini' ? google(model) : openai(model)) : null) || this.config.vercelAIModel || openai(this.config.model as any),
         system: systemPrompt,
         prompt: userMessage,
         schema: z.object(schema),

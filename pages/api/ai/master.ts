@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { ChatbotConfig, ChatbotConfigService } from '../../../lib/services/chatbot-config.service'
-import { OpenAIService } from '../../../lib/services/openai.service' // Migré vers le AI SDK de Vercel
+import { ProvidersService } from '../../../lib/services/providers.service' // Migré vers le AI SDK de Vercel
 import { z } from 'zod';
 
 const filterUniqueBy = (arr: any[], fn: (v: any, x: any, i: number, j: number) => boolean) =>
@@ -120,12 +120,97 @@ Tu es **l’Assistant d’Accueil** d’une boutique de mode en ligne spécialis
 }
 `
 
+const PROMPT_TEMP_MASTER = (personality: string) => `
+Tu es **l’Assistant d’Accueil** d’une boutique de mode en ligne spécialisée dans :  
+👗 Vêtements – 👠 Chaussures – 👜 Accessoires – 📦 Services client.
+
+🎯 **Ta mission** :
+1. Accueillir chaque client
+2. Identifier le besoin réel
+3. Transmettre la requête à un assistant spécialisé si tu disposes des infos nécessaires
+4. Sinon, demander les infos manquantes
+5. Toujours générer une réponse adaptée et claire à chaque message client
+
+---
+
+✅ **Tu peux gérer uniquement** :
+- Articles de mode (t-shirt, robe, jean, veste, bottines, baskets, lunettes, sac à main, etc.)
+
+❌ **Tu ne dois PAS répondre** :
+- À des questions sans lien avec la mode ou les services de la boutique
+- Aux demandes médicales, techniques, juridiques, personnelles, historiques, etc.
+- Tu ne dois jamais faire mention a des sites, boutiques ou enseignes dans ta réponse.
+- Chercher a effectuer la recommandation par toi meme.
+- Creer des articles fictifs ou inventés
+- Faire des recommandations de produits sans les infos obligatoires
+
+- Dans ce cas, retourne une réponse polie **dans le champ \`message\`** précisant que tu ne peux pas aider.
+
+---
+
+🧑‍💼 **Assistants disponibles** :
+
+1. **ITEM Finder** – Recherche d’un article spécifique  
+   **Infos obligatoires** :
+   - \`size\` : XS–XXL ou 36–50  
+   - \`color\` : noir, blanc, rouge, etc.  
+   - \`productType\` : ex. t-shirt, bottines, sac… (sans chercher a etre trop précis)
+
+
+---
+
+🔍 **Infos à extraire** :
+- \`size\`: XS, S, M, L, XL, XXL ou pointures 36–50  
+- \`color\`: noir, blanc, rouge, etc.  
+- \`context\`: mariage, soirée, sport, travail, etc.  
+- \`style\`: chic, sport, casual, vintage, etc.  
+- \`productType\`: type d’article clair
+
+---
+
+⚠️ **Règles obligatoires** :
+
+- Si tu ne peux pas répondre directement, tu dois proposer une relance ou reformulation.
+- **Ne transfère jamais à un assistant** sans les informations obligatoires.
+- Quel que soit le type de requête (\`ITEM\`, \`FAQ\`,  \`DEMANDE_INAPPROPRIEE\`, etc.), **le champ \`message\` doit toujours contenir un message clair pour le client** (accueil, explication ou relance).
+- Les suggestions doivent être cohérentes avec la demande initiale.
+- Si le type de requete est \`ITEM\` ton interlocuteur sera l'IA \`ITEM\`.
+- Si le type de requete est \`PRECISION\`, \`DEMANDE_INAPPROPRIEE\` ton interlocuteur sera l'utilisateur.
+---
+
+🧾 **Réponse attendue (JSON strictement valide)** :
+
+{
+  "message": "Réponse courte et claire pour le client (explication, demande de précision, refus, ou recommandation)",
+  "request": "Requête reformulée pour l’assistant ciblé (si applicable)",
+  "primaryType": "ITEM|FAQ|RECOMMENDATION|PRECISION|DEMANDE_INAPPROPRIEE",
+  "confidence": 0.9,
+  "reasoning": "Pourquoi cette classification",
+  "extractedInfo": {
+    "size": "M",
+    "color": "noir",
+    "context": "soirée",
+    "style": "élégant",
+    "productType": "robe"
+  },
+  "missingInfo": ["size", "color"],
+  "missingInfoSuggestions": [
+    "Quelle taille cherchez-vous ?",
+    "Avez-vous une couleur préférée ?"
+  ],
+  "suggestions": [
+    "Je cherche des bottines noires en 39",
+    "Je veux un sac à main rouge",
+  ]
+}
+`
+
 const PROMPT_RAG = (query: string, response: string, personality: string) => `
 Tu es un expert spécialisé en mode et recommandation de produits e-commerce pour **Younzee**.
 
 ## Contexte :
 - L'utilisateur a formulé la requête suivante : **${query}**
-- L'IA de recommandation nommée **IA ITEM** a généré les articles suivants (au format JSON, de 0 à 5 articles) :  
+- L'IA de recommandation nommée **IA ITEM** a généré les articles suivants (au format JSON, de 0 à 3 articles) :  
 **${response}**
 
 ## Ta mission :
@@ -139,11 +224,13 @@ Analyse la requête de le client et les résultats générés par l'IA ITEM, pui
 4. Pas besoin d'effectuer de salutations
 5. Dans le cas d'une clarification n'emet aucune recommandation
 6. Respecte cette mise en forme **exclusivement** pour chaque article en les listant tous et tiens compte de l'introduction:
-**Introduction:**
 
 ---
 
 ## emoji representant le type de produit **Nom de l'article**
+
+
+![Image du produit](url de l'image)
 
 - **Prix :** XX,XX €  
 - **Tailles :** XS à XL // ou tailles spécifiques  
@@ -155,24 +242,8 @@ Analyse la requête de le client et les résultats générés par l'IA ITEM, pui
 
 > ✨ _Phrase d'accroche ou usage recommandé, adaptée à la personnalité._
 
-**🛒 [Ajouter au panier](#)**
+**[Voir le produit](#)**
 
----
-
-## emoji representant le type de produit **Nom de l'article**
-
-- **Prix :** XX,XX €  
-- **Tailles :** XS à XL // ou tailles spécifiques  
-- **Couleurs :** Noir | Beige | Autres couleurs  
-- **Matière :** Ex: Coton bio  
-- **Coupe :** Ex: Taille haute, jambe droite (si applicable)  
-- **Écoresponsable :** ♻️ % matière recyclée (si applicable)  
-- **Stock :** ✅ Disponible (si disponible)
-
-> ✨ _Phrase d'accroche ou usage recommandé, adaptée à la personnalité._
-
-**🛒 [Ajouter au panier](#)**
----
 
 7. Ne laisse **aucun saut de ligne ou espace inutile** dans \`content\`. La réponse doit être **esthétique, moderne, professionnelle, élégante, claire et épurée**.
 8. Retourne uniquement un **objet JSON valide** (parsable via \`JSON.parse()\`) au format suivant :
@@ -365,12 +436,13 @@ async function callMasterAI(message: string, chatbotId?: string, history?: any):
 
   const id = typeof window !== 'undefined' ? window.localStorage.getItem(`${chatbotId}-chatbot-config-younzee`) : null
   console.log('history', history)
-  const openaiService = new OpenAIService()
+  const providersService = new ProvidersService()
   const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
   const config = await getChatbotConfig(chatbotId)
-  const response = await openaiService.generateObjectResponse({
-    model: "gpt-4o",
-    systemPrompt: PROMPT_MASTER(JSON.stringify(config?.personality)),
+  const response = await providersService.generateObjectResponse({
+    model: "gemini-2.0-flash",
+    provider: "gemini",
+    systemPrompt: PROMPT_TEMP_MASTER(JSON.stringify(config?.personality)),
     userMessage: message,
     context: {
       conversationHistory: history.filter((item: any) => item.content) || [],
@@ -425,7 +497,7 @@ async function callMasterAI(message: string, chatbotId?: string, history?: any):
 
 async function callMasterAIToRAG(message: string, chatbotId?: string, history?: any): Promise<AIRoutingResult> {
   const response = await callRAG(message, chatbotId)
-  console.log('responseRAG1', response)
+  //console.log('responseRAG1', response)
   if (!response.success) {
     return response
   }
@@ -437,11 +509,12 @@ async function callMasterAIToRAG(message: string, chatbotId?: string, history?: 
 
   const id = typeof window !== 'undefined' ? window.localStorage.getItem(`${chatbotId}-chatbot-config-younzee`) : null
 
-  const openaiService = new OpenAIService()
+  const providersService = new ProvidersService()
   const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
   const config = await getChatbotConfig(chatbotId)
-  const responseRAG = await openaiService.generateObjectResponse({
-    model: "gpt-4o",
+  const responseRAG = await providersService.generateObjectResponse({
+    model: "gemini-2.0-flash",
+    provider: "gemini",
     //systemPrompt: response.data.results.length > 0 ?  response.data.results[0].document.metadata.category === 'Clarification' ? PROMPT_RAG_CLARIFICATION(message, JSON.stringify(response.data.results), JSON.stringify(config?.personality)) : PROMPT_RAG(message, JSON.stringify(response.data.results.filter((prod: any, idx: number, arr: any[]) =>
     //  prod.document.metadata.title && arr.findIndex(p => p.document.metadata.title && p.document.metadata.title.toLowerCase() === prod.document.metadata.title.toLowerCase()) === idx
     //)), JSON.stringify(config?.personality)) : PROMPT_RAG_NO_PRODUCTS(message, JSON.stringify(response.data.results), JSON.stringify(config?.personality)),
@@ -466,8 +539,8 @@ async function callMasterAIToRAG(message: string, chatbotId?: string, history?: 
       error: `Erreur HTTP: ${responseRAG}`
     }
   }
-  console.log('responseRAG', responseRAG)
-  console.log('responseRAG.content', typeof responseRAG)
+  //console.log('responseRAG', responseRAG)
+  //console.log('responseRAG.content', typeof responseRAG)
   const data = responseRAG
   
   // Ajouter les produits formatés pour le carousel
