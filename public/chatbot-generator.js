@@ -13,8 +13,8 @@
     subtitle: 'Comment puis-je vous aider ?',
     apiEndpoint: window.location.origin + '/api/ai/master',
     position: 'bottom-right',
-    primaryColor: '#ffdd5b',
-    secondaryColor: '#ffdd5b',
+    primaryColor: '#edce58',
+    secondaryColor: '#edce58',
     textColor: '#1F2937',
     backgroundColor: '#FFFFFF',
     borderRadius: '12px',
@@ -36,6 +36,12 @@
 
   // Classes CSS intégrées
   const CSS_STYLES = `
+    p img {
+      height: 180px;
+      border-radius: 12px;
+      object-fit: cover;
+      margin-bottom: 10px;
+    }
     .younzee-chatbot-message-content p {
       margin-top: 0;
       margin-bottom: 0;
@@ -153,6 +159,7 @@
       font-size: 16px;
       font-weight: 600;
       color: #1f2937;
+      font-family: sans-serif;
     }
     
     .younzee-chatbot-header-text p {
@@ -180,7 +187,7 @@
         flex: 1;
         padding: 16px;
         overflow-y: auto;
-      background: #f9fafb;
+      background: #f3e6b4;
     }
     
     .younzee-chatbot-message {
@@ -213,13 +220,14 @@
     }
     
     .younzee-chatbot-message.bot .younzee-chatbot-message-content {
-      background: white;
+      background: #e9e9e9;
       color: #1f2937;
       border-bottom-left-radius: 6px;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
     
     .younzee-chatbot-message.user .younzee-chatbot-message-content {
+        background-color: #edce57;
       color: white;
       border-bottom-right-radius: 6px;
     }
@@ -245,7 +253,7 @@
     }
     
     .younzee-chatbot-input:focus {
-      border-color: var(--primary-color, #ffdd5b);
+      border-color: var(--primary-color, #edce58);
       box-shadow: 0 0 0 3px rgb(255, 221, 91);
     }
     
@@ -403,7 +411,7 @@
         color: #121212;
         margin-bottom: 8px;
         position: absolute;
-        background-color: #ffdd5b;
+        background-color: #edce58;
         padding: 2px 8px;
         border-radius: 8px;
         margin-top: 4px;
@@ -411,7 +419,7 @@
         right: 12px;
     }
     .younzee-carousel-btn {
-      background: #ffdd5b;
+      background: #edce58;
       color: #1f2937;
       border: none;
       border-radius: 6px;
@@ -445,7 +453,7 @@
       transition: background 0.2s;
     }
     .younzee-carousel-arrow:hover {
-      background: #ffdd5b;
+      background: #edce58;
     }
     .younzee-carousel-arrow.left { left: 4px; }
     .younzee-carousel-arrow.right { right: 4px; }
