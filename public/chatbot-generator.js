@@ -116,6 +116,8 @@
       right: 0;
       width: 380px;
       height: 500px;
+      max-height: 100vh !important;
+      max-width: 100vw !important;
       background: white;
       border-radius: 16px;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
@@ -359,8 +361,6 @@
         width: calc(100vw - 40px);
         height: calc(100vh - 100px);
         bottom: 80px;
-        right: 20px;
-        left: 20px;
       }
     }
   `;
