@@ -319,7 +319,8 @@
       background: #9ca3af !important;
             border-radius: 50% !important;
       animation: typing 1.4s infinite;
-          }
+      display: block !important;
+    }
           
     .younzee-chatbot-typing-dot:nth-child(2) {
             animation-delay: 0.2s;
