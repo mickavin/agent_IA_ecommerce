@@ -13,8 +13,8 @@
     subtitle: 'Comment puis-je vous aider ?',
     apiEndpoint: window.location.origin + '/api/ai/master',
     position: 'bottom-right',
-    primaryColor: '#edce58',
-    secondaryColor: '#edce58',
+    primaryColor: '#ffdd5b',
+    secondaryColor: '#ffdd5b',
     textColor: '#1F2937',
     backgroundColor: '#FFFFFF',
     borderRadius: '12px',
@@ -36,12 +36,24 @@
 
   // Classes CSS intégrées
   const CSS_STYLES = `
-    p img {
+    .younzee-chatbot-message-content div:empty {
+      display: block !important;
+    }
+
+    .younzee-chatbot-message-content hr {
+      margin: 34px 0 !important;
+    }
+    .younzee-chatbot-messages p img {
       height: 180px;
+      max-width: 100%;
       border-radius: 12px;
       object-fit: cover;
       margin-bottom: 10px;
     }
+    .younzee-chatbot-messages ul {
+      list-style: circle !important;
+    }
+    
     .younzee-chatbot-message-content p {
       margin-top: 0;
       margin-bottom: 0;
@@ -208,26 +220,30 @@
     
     .younzee-chatbot-message-content {
       max-width: 70%;
-      padding: 12px 16px;
+      padding: 12px 24px;
       border-radius: 18px;
       font-size: 14px;
       line-height: 1.4;
     }
 
     .younzee-chatbot-message-content h2 {
-      font-size: 1rem;
-      font-weight: bold;
+      font-size: 13px !important;
+      font-weight: bold !important;
+      margin-top: 7px !important;
     }
+
+    .younzee-chatbot-message.user p {
+      color: white !important;
+    } 
     
     .younzee-chatbot-message.bot .younzee-chatbot-message-content {
-      background: #e9e9e9;
+      background: white;
       color: #1f2937;
       border-bottom-left-radius: 6px;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
     
     .younzee-chatbot-message.user .younzee-chatbot-message-content {
-        background-color: #edce57;
       color: white;
       border-bottom-right-radius: 6px;
     }
@@ -253,7 +269,7 @@
     }
     
     .younzee-chatbot-input:focus {
-      border-color: var(--primary-color, #edce58);
+      border-color: var(--primary-color, #ffdd5b);
       box-shadow: 0 0 0 3px rgb(255, 221, 91);
     }
     
@@ -282,26 +298,26 @@
     }
     
     .younzee-chatbot-typing {
-            display: flex;
-            align-items: center;
-      gap: 4px;
-      padding: 12px 16px;
-      background: white;
-      border-radius: 18px;
-      border-bottom-left-radius: 6px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-      max-width: 20%;
-      min-width: 20%;
-      min-height: 45px;
-      margin-bottom: 0;
-      margin-top: 0;
+            display: flex !important;
+            align-items: center !important;
+      gap: 4px !important;
+      padding: 12px 16px !important;
+      background: white !important;
+      border-radius: 18px !important;
+      border-bottom-left-radius: 6px !important;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+      max-width: 20% !important;
+      min-width: 20% !important;
+      min-height: 45px !important;
+      margin-bottom: 0 !important;
+      margin-top: 0 !important;
     }
     
     .younzee-chatbot-typing-dot {
-      width: 6px;
-      height: 6px;
-      background: #9ca3af;
-            border-radius: 50%;
+      width: 6px !important;
+      height: 6px !important;
+      background: #9ca3af !important;
+            border-radius: 50% !important;
       animation: typing 1.4s infinite;
           }
           
@@ -392,10 +408,9 @@
       margin-bottom: 8px;
     }
     .younzee-carousel-title {
-      font-size: .875rem;
+      font-size: 11px;
       font-weight: 500;
       color: #1f2937;
-      margin-bottom: 4px;
       text-align: center;
       min-height: 2.2em;
       overflow: hidden;
@@ -406,12 +421,12 @@
       -webkit-box-orient: vertical;
     }
     .younzee-carousel-price {
-        font-size: 0.7rem;
+        font-size: 9px;
         font-weight: bold;
         color: #121212;
         margin-bottom: 8px;
         position: absolute;
-        background-color: #edce58;
+        background-color: #ffdd5b;
         padding: 2px 8px;
         border-radius: 8px;
         margin-top: 4px;
@@ -419,15 +434,15 @@
         right: 12px;
     }
     .younzee-carousel-btn {
-      background: #edce58;
+      background: #ffdd5b;
       color: #1f2937;
       border: none;
-      border-radius: 6px;
+      border-radius: 30px;
       padding: 3px 14px;
-      font-size: 0.75rem;
+      font-size: 11px;
       font-weight: 500;
       cursor: pointer;
-      margin-top: 4px;
+      margin-top: auto;
       transition: background 0.2s;
     }
     .younzee-carousel-btn:hover {
@@ -450,10 +465,20 @@
       cursor: pointer;
       z-index: 2;
       box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-      transition: background 0.2s;
+      transition: all 0.2s ease;
+      user-select: none;
     }
     .younzee-carousel-arrow:hover {
-      background: #edce58;
+      background: #ffdd5b;
+      transform: translateY(-50%) scale(1.05);
+    }
+    .younzee-carousel-arrow:active {
+      transform: translateY(-50%) scale(0.95);
+    }
+    .younzee-carousel-arrow.disabled {
+      opacity: 0.3;
+      cursor: default;
+      pointer-events: none;
     }
     .younzee-carousel-arrow.left { left: 4px; }
     .younzee-carousel-arrow.right { right: 4px; }
@@ -483,7 +508,7 @@
       img.className = 'younzee-carousel-img';
       img.src = product.images && product.images.length > 0 ? product.images[0] : (product.thumbnailUrl || '/no-image.jpg');
       img.alt = product.title || product.name || 'Produit';
-      img.onerror = () => { img.src = '/no-image.jpg'; };
+      img.onerror = () => { img.src = 'https://younzeeadmin.vercel.app/no-image.jpg'; };
       const title = document.createElement('div');
       title.className = 'younzee-carousel-title';
       title.textContent = product.title || product.name || 'Produit';
@@ -494,8 +519,7 @@
       let colorDiv = null;
       if (product.colors && Array.isArray(product.colors) && product.colors.length > 0) {
         colorDiv = document.createElement('div');
-        colorDiv.style.fontSize = '0.7rem';
-        colorDiv.style.marginTop = '2px';
+        colorDiv.style.fontSize = '10px';
         colorDiv.style.color = '#666';
         colorDiv.textContent = 'Couleur : ' + product.colors[0];
       }
@@ -503,15 +527,15 @@
       let sizeDiv = null;
       if (product.sizes && Array.isArray(product.sizes) && product.sizes.length > 0) {
         sizeDiv = document.createElement('div');
-        sizeDiv.style.fontSize = '0.7rem';
-        sizeDiv.style.marginTop = '2px';
+        sizeDiv.style.fontSize = '10px';
+        sizeDiv.style.marginBottom = '12px';
         sizeDiv.style.color = '#666';
         sizeDiv.textContent = 'Taille : ' + product.sizes[0];
       }
       const btn = document.createElement('button');
       btn.className = 'younzee-carousel-btn';
       btn.textContent = 'Voir le produit';
-      btn.onclick = () => { if (product.url) window.open(product.url, '_blank'); };
+      btn.onclick = () => { if (product.handle) window.open('https://store.younzee.com/products/' + product.handle, '_blank'); };
       item.appendChild(img);
       item.appendChild(title);
       item.appendChild(price);
@@ -521,36 +545,90 @@
       track.appendChild(item);
     });
     container.appendChild(track);
-    // Flèches si plusieurs produits
+    
+    // Flèches si plus d'articles que d'items visibles
     if (products.length > 1) {
-      let current = 0;
+      // Configuration du carousel
+      const containerWidth = 150; // Largeur max du container
+      const itemWidth = 150; // Largeur d'un item
+      const itemMargin = 16; // Margin totale (8px de chaque côté)
+      const totalItemWidth = itemWidth + itemMargin; // 166px
+      const visibleItems = Math.floor(containerWidth / totalItemWidth) + 1; // ~2 items visibles
+      
+      // Ne montrer les flèches que si nécessaire
+      if (products.length > visibleItems) {
+        let currentIndex = 0;
+        const maxIndex = Math.max(0, products.length - visibleItems);
+      
+      // Fonction pour calculer la position
+      const getTransformPosition = (index) => {
+        if (products.length <= visibleItems) {
+          // Si tous les items sont visibles, centrer
+          const totalWidth = products.length * totalItemWidth;
+          const centering = (containerWidth - totalWidth) / 2;
+          return centering;
+        }
+        
+        // Calculer la position pour l'index donné
+        const position = -index * totalItemWidth;
+        
+        // Ajuster pour centrer le premier item visible
+        const centeringOffset = (containerWidth - totalItemWidth) / 2;
+        
+        return position + centeringOffset;
+      };
+      
+      // Fonction pour mettre à jour l'affichage
+      const updateCarousel = () => {
+        const position = getTransformPosition(currentIndex);
+        track.style.transform = `translateX(${position}px)`;
+        
+        // Mettre à jour la visibilité des flèches avec les classes CSS
+        if (currentIndex <= 0) {
+          left.classList.add('disabled');
+        } else {
+          left.classList.remove('disabled');
+        }
+        
+        if (currentIndex >= maxIndex) {
+          right.classList.add('disabled');
+        } else {
+          right.classList.remove('disabled');
+        }
+      };
+      
+      // Flèche gauche
       const left = document.createElement('div');
       left.className = 'younzee-carousel-arrow left';
       left.innerHTML = '&#8592;';
       left.onclick = (e) => {
         e.stopPropagation();
-        if (current > 0) current--;
-        if (current == 0) {
-          track.style.transform = `translateX(30px)`;
-        } else {
-          track.style.transform = `translateX(-${(current + 1) * 48 + 30}px)`;
+        if (currentIndex > 0) {
+          currentIndex--;
+          updateCarousel();
         }
       };
+      
+      // Flèche droite
       const right = document.createElement('div');
       right.className = 'younzee-carousel-arrow right';
       right.innerHTML = '&#8594;';
       right.onclick = (e) => {
         e.stopPropagation();
-        if (current < products.length - 1) current++;
-        if (current == products.length - 1) {
-          track.style.transform = `translateX(-${(current + 1) * 48 + 30 + 24}px)`;
-        } else {
-          track.style.transform = `translateX(-${(current + 1) * 48 + 30}px)`;
+        if (currentIndex < maxIndex) {
+          currentIndex++;
+          updateCarousel();
         }
       };
+      
       container.appendChild(left);
       container.appendChild(right);
+      
+      // Position initiale
+      updateCarousel();
+      } // Fermeture du if (products.length > visibleItems)
     }
+    
     return container;
   }
 
@@ -705,10 +783,8 @@
       if (window.marked) {
         contentDiv.innerHTML = window.marked.parse(content);
       } else {
-        // Fallback simple du markdown
-        content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        content = content.replace(/\*(.*?)\*/g, '<em>$1</em>');
-        content = content.replace(/\n/g, '<br>');
+        // Fallback markdown amélioré
+        content = this.convertMarkdownToHtml(content);
         contentDiv.innerHTML = content;
       }
       
@@ -766,7 +842,7 @@
       }
       
       try {
-        const response = await fetch('http://localhost:3000/api/ai/master', {
+        const response = await fetch('https://younzeeadmin.vercel.app/api/ai/master', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -850,6 +926,38 @@
     
     getMessages() {
       return [...this.messages];
+    }
+
+    // Nouvelle méthode pour convertir le markdown en HTML
+    convertMarkdownToHtml(text) {
+      // Échapper les caractères HTML d'abord
+      text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      
+      // Titres (# ## ###)
+      text = text.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+      text = text.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+      text = text.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+      
+      // Images
+      text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0;">');
+      
+      // Gras et italique
+      text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+      
+      // Liens
+      text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color: #ffdd5b; text-decoration: underline;">$1</a>');
+      
+      // Retours à la ligne
+      text = text.replace(/\n\n/g, '</p><p>');
+      text = text.replace(/\n/g, '<br>');
+      
+      // Entourer dans un paragraphe
+      if (!text.includes('<h1>') && !text.includes('<h2>') && !text.includes('<h3>')) {
+        text = '<p>' + text + '</p>';
+      }
+      
+      return text;
     }
   }
 

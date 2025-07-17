@@ -48,6 +48,7 @@ export class ProvidersService {
       if (context?.conversationHistory?.length) {
         const recentHistory = context.conversationHistory // 4 derniers messages
         for (const msg of recentHistory) {
+          console.log(msg, "msg");
           messages.push({
             role: msg.type === 'user' ? 'user' : 'assistant',
             content: msg.content
@@ -97,6 +98,7 @@ export class ProvidersService {
       if (context?.conversationHistory?.length) {
         const recentHistory = context.conversationHistory // 4 derniers messages
         for (const msg of recentHistory) {
+          console.log(msg, "msg");
           messages.push({
             role: msg.type === 'user' ? 'user' : 'assistant',
             content: msg.content
@@ -114,10 +116,11 @@ export class ProvidersService {
       const { object } = await generateObject({
         model: (typeof model == 'string' ? (provider == 'gemini' ? google(model) : openai(model)) : null) || this.config.vercelAIModel || openai(this.config.model as any),
         system: systemPrompt,
-        prompt: userMessage,
         schema: z.object(schema),
         maxTokens: maxTokens || this.config.maxTokens,
         temperature: temperature !== undefined ? temperature : this.config.temperature,
+        messages,
+        mode: 'json'
       })
 
         return object

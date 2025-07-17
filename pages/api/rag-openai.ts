@@ -431,11 +431,13 @@ class RAGService {
 
 
     // ✅ 3️⃣ FILTRAGE DES PRODUITS par catégorie, par taille ET couleur détectées
-    let filteredDocuments = this.filterDocumentsByCategory(promptCategorizationParsed.type_produit_classifié)
-    console.log(`🔄 Après filtrage catégorie: ${filteredDocuments.length} produits`)    
-    filteredDocuments = this.filterDocumentsBySizes(filteredDocuments, promptCategorizationParsed.taille_extraite)
-    console.log(`🔄 Après filtrage taille: ${filteredDocuments.length} produits`)    
-    const colorFiltered = this.filterDocumentsByColors(filteredDocuments, promptCategorizationParsed.couleur_younzee)
+    this.documents = this.filterDocumentsByCategory(promptCategorizationParsed.type_produit_classifié)
+    console.log(`🔄 Après filtrage catégorie: ${this.documents.length} produits`)    
+    let filteredDocuments = this.documents
+    const filteredDocumentsTemp = this.filterDocumentsBySizes(this.documents, promptCategorizationParsed.taille_extraite)
+    console.log(`🔄 Après filtrage taille: ${filteredDocumentsTemp.length} produits`)    
+
+   const colorFiltered = this.filterDocumentsByColors(filteredDocuments, promptCategorizationParsed.couleur_younzee)
     console.log(`🎨 Après filtrage couleur: ${colorFiltered.length} produits (couleur: ${promptCategorizationParsed.couleur_younzee})`)
     filteredDocuments = colorFiltered
 
@@ -459,7 +461,7 @@ class RAGService {
       const processedQuery = query
       console.log(`🔍 Query preprocessing: "${query}" -> "${processedQuery}"`)
 
-      const k = Math.min(options.k || 5, 20)
+      const k = Math.min(options.k || 3, 20)
 
     
       let results: RAGSearchResult[] = []
@@ -713,9 +715,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ? (req.query.q as string) || 't-shirt'
       : req.body?.query || 't-shirt'
 
-    const k = req.method === 'GET'
-      ? Math.min(parseInt(req.query.k as string) || 5, 20)
-      : Math.min(req.body?.k || 5, 20)
+    //let k = req.method === 'GET'
+    //  ? Math.min(parseInt(req.query.k as string) || 3, 20)
+    //  : Math.min(req.body?.k || 3, 20)
+    const k = 4
 
     const searchType = req.method === 'GET'
       ? (req.query.type as string) || 'hybrid'

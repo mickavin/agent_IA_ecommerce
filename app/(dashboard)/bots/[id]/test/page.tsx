@@ -218,9 +218,9 @@ export default function TestBotPage() {
         </div>
       </PageHeader>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1">
         {/* Interface de chat IA */}
-        <div className="lg:col-span-3">
+        <div>
           <Card className="h-[600px] flex flex-col overflow-y-auto">
             <CardHeader className="sticky top-0 bg-stone-900" style={{zIndex: 50}}>
               <div className="flex items-center justify-between">
@@ -438,106 +438,6 @@ export default function TestBotPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Panneau de statistiques IA */}
-        <div className="lg:col-span-1">
-          <div className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Sparkles className="h-4 w-4" />
-                  Performance IA
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span>Messages:</span>
-                  <span className="font-medium">{sessionStats.messagesCount}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Temps réponse:</span>
-                  <span className="font-medium">{sessionStats.avgResponseTime.toFixed(0)}ms</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Produits suggérés:</span>
-                  <span className="font-medium">{sessionStats.productsRecommended}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Précision IA:</span>
-                  <span className="font-medium">{(sessionStats.intentAccuracy * 100).toFixed(0)}%</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Mode streaming:</span>
-                  <span className="font-medium flex items-center gap-1">
-                    {isStreaming ? (
-                      <>
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        Active
-                      </>
-                    ) : (
-                      "Prêt"
-                    )}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Configuration IA</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-2">
-                  <div className="text-xs font-medium text-muted-foreground">CAPACITÉS IA AVANCÉES</div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-sm">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span>Recherche intelligente</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span>Conseils de style</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span>Recommandations personnalisées</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span>Analyse contextuelle</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span>Mémoire conversation</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span>Filtrage par budget</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                      <span>Réponse en temps réel</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Widget chatbot flottant pour test */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Test Widget</CardTitle>
-                <CardDescription>Testez le chatbot en mode widget</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <IntelligentChatbot />
-                <p className="text-xs text-muted-foreground mt-2">
-                  Cliquez sur l'icône en bas à droite pour tester le widget (utilise aussi l'API OpenAI)
-                </p>
-              </CardContent>
-            </Card>         
-          </div>
         </div>
       </div>
     </div>

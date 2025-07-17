@@ -134,7 +134,7 @@ Tu es **l’Assistant d’Accueil** d’une boutique de mode en ligne spécialis
    **Infos obligatoires** :
    - \`size\` : XS–XXL ou 36–50  
    - \`color\` : noir, blanc, rouge, etc.  
-   - \`productType\` : ex. t-shirt, bottines, sac… (sans chercher a etre trop précis)
+   - \`productType\` : ex. t-shirt, bottines, trench, sac… (identifie le type de produit sans chercher a etre trop précis ou a demander trop de details)
 
 
 ---
@@ -144,12 +144,13 @@ Tu es **l’Assistant d’Accueil** d’une boutique de mode en ligne spécialis
 - \`color\`: noir, blanc, rouge, etc.  
 - \`context\`: mariage, soirée, sport, travail, etc.  
 - \`style\`: chic, sport, casual, vintage, etc.  
-- \`productType\`: type d’article clair
+- \`productType\`: type d’article (ex: t-shirt, bottines, sac, trench, veste, etc.)
 
 ---
 
 ⚠️ **Règles obligatoires** :
 
+- les accessoires n'ont pas de taille on attend qu'une couleur et qu'un type de produit soit fourni pour les trouver (ex: sac, lunettes, bonnet, etc.)
 - Si tu ne peux pas répondre directement, tu dois proposer une relance ou reformulation.
 - **Ne transfère jamais à un assistant** sans les informations obligatoires.
 - Quel que soit le type de requête (\`ITEM\`, \`FAQ\`,  \`DEMANDE_INAPPROPRIEE\`, etc.), **le champ \`message\` doit toujours contenir un message clair pour le client** (accueil, explication ou relance).
@@ -203,14 +204,16 @@ Analyse la requête de le client et les résultats générés par l'IA ITEM, pui
 3. Ne trie **pas** les articles : ils sont déjà classés par pertinence par l'IA ITEM.
 4. Pas besoin d'effectuer de salutations
 5. Dans le cas d'une clarification n'emet aucune recommandation
-6. Respecte cette mise en forme **exclusivement** pour chaque article en les listant tous et tiens compte de l'introduction:
-
+6. Si des articles sont trouvés, tu dois les mettre en avant dans ton message. Tu n'as donc pas besoin de faire de demande de clarification et de details.
+7. Ne liste pas de doublons ayant EXACTEMENT le meme nom seulement si le prix est EXACTEMENT le meme
+8. N'affiche que les articles disponibles
+8. Respecte cette mise en forme **exclusivement** pour chaque article en les listant tous et tiens compte de l'introduction:
 ---
 
 ## emoji representant le type de produit **Nom de l'article**
 
 
-![Image du produit](url de l'image)
+![Image du produit](url de l'image ou https://younzeeadmin.vercel.app/no-image.jpg si indisponible)
 
 - **Prix :** XX,XX €  
 - **Tailles :** XS à XL // ou tailles spécifiques  
@@ -222,24 +225,13 @@ Analyse la requête de le client et les résultats générés par l'IA ITEM, pui
 
 > ✨ _Phrase d'accroche ou usage recommandé, adaptée à la personnalité._
 
-**[Voir le produit](#)**
-
-
-7. Ne laisse **aucun saut de ligne ou espace inutile** dans \`content\`. La réponse doit être **esthétique, moderne, professionnelle, élégante, claire et épurée**.
-8. Retourne uniquement un **objet JSON valide** (parsable via \`JSON.parse()\`) au format suivant :
+9. Ne laisse **aucun saut de ligne ou espace inutile** dans \`content\`. La réponse doit être **esthétique, moderne, professionnelle, élégante, claire et épurée**.
+10. Retourne uniquement un **objet JSON valide** (parsable via \`JSON.parse()\`) au format suivant :
 
 RETOURNE UNIQUEMENT DU JSON VALIDE et Parseable par JSON.parse():
 {
-  "content": "Réponse complète en markdown générée dynamiquement à partir des articles et de la personnalité",
+  "content": "Réponse complète en markdown (correctement formatée pour eviter les erreurs de parsing modifie les \` quand tu en trouves) générée dynamiquement à partir des articles et de la personnalité",
   "request": "Contenu exact de la requête utilisateur",
-  "timestamp": "timestamp ISO de la requête",
-  "suggestions": [
-    "Suggestion 1 pertinente et dynamique",
-    "Suggestion 2 adaptée à la demande",
-    "Suggestion 3 contextuelle",
-    "Suggestion 4 personnalisée",
-    "Suggestion 5 basée sur les articles"
-  ]
 }
 
 
@@ -348,7 +340,7 @@ async function callMasterAI(message: string, chatbotId?: string, history?: any):
 
 async function callMasterAIToRAG(message: string, chatbotId?: string, history?: any): Promise<AIRoutingResult> {
   const response = await callRAG(message, chatbotId)
-  //console.log('responseRAG1', response)
+  console.log('responseRAG1', response)
   if (!response.success) {
     return response
   }
@@ -372,15 +364,13 @@ async function callMasterAIToRAG(message: string, chatbotId?: string, history?: 
     systemPrompt: PROMPT_RAG(message, JSON.stringify(response.data.results), JSON.stringify(config?.personality)),
     userMessage: message,
     context: {
-      conversationHistory: [],
+      conversationHistory: history.filter((item: any) => item.content) || [],
       userPreferences: {},
       userId: `test-${chatbotId}-${id}`
     }
   }, {
     content: z.string().describe('Contenu de la réponse'),
-    request: z.string().describe('Requête utilisateur'),
-    timestamp: z.string().describe('Timestamp ISO de la requête'),
-    suggestions: z.array(z.string()).describe('Suggestions')
+    request: z.string().describe('Requête utilisateur')
   })
   if (!responseRAG) {
     return {
@@ -435,7 +425,9 @@ function formatProductsFromRAG(ragResults: any[]): any[] {
       category: metadata.type_produit_classifié || metadata.category || 'Non classifié',
       description: metadata.description || '',
       availability: metadata.availableForSale !== false,
-      rating: metadata.rating || null
+      rating: metadata.rating || null,
+      slug: metadata.slug || '',
+      handle: metadata.handle || '',
     }
   })
 }
