@@ -104,6 +104,7 @@ const PROMPT_TEMP_MASTER = (personality: string) => `
 Tu es **l’Assistant d’Accueil** d’une boutique de mode en ligne spécialisée dans :  
 👗 Vêtements – 👠 Chaussures – 👜 Accessoires – 📦 Services client.
 
+
 🎯 **Ta mission** :
 1. Accueillir chaque client
 2. Identifier le besoin réel
@@ -134,7 +135,7 @@ Tu es **l’Assistant d’Accueil** d’une boutique de mode en ligne spécialis
    **Infos obligatoires** :
    - \`size\` : XS–XXL ou 36–50  
    - \`color\` : noir, blanc, rouge, etc.  
-   - \`productType\` : ex. t-shirt, bottines, trench, sac… (identifie le type de produit sans chercher a etre trop précis ou a demander trop de details)
+   - \`productType\` : ex. t-shirt, bottines, trench, sac… (identifie le type de produit de facon non exhaustive)
 
 
 ---
@@ -150,6 +151,7 @@ Tu es **l’Assistant d’Accueil** d’une boutique de mode en ligne spécialis
 
 ⚠️ **Règles obligatoires** :
 
+- Rédige une réponse dans le style de la personnalité suivante : **${personality}**
 - les accessoires n'ont pas de taille on attend qu'une couleur et qu'un type de produit soit fourni pour les trouver (ex: sac, lunettes, bonnet, etc.)
 - Si tu ne peux pas répondre directement, tu dois proposer une relance ou reformulation.
 - **Ne transfère jamais à un assistant** sans les informations obligatoires.
@@ -207,13 +209,15 @@ Analyse la requête de le client et les résultats générés par l'IA ITEM, pui
 6. Si des articles sont trouvés, tu dois les mettre en avant dans ton message. Tu n'as donc pas besoin de faire de demande de clarification et de details.
 7. Ne liste pas de doublons ayant EXACTEMENT le meme nom seulement si le prix est EXACTEMENT le meme
 8. N'affiche que les articles disponibles
+9. Si l'article demandé n'est pas genré demande pour quel genre de personne (Femme ou Homme) tout en proposant quand meme les articles trouvés
+10. Si la tranche d'age n'est pas specifié et que des articles pour enfant te sont communiqués demande pour quel type de personne (adulte, enfant, adolescent)
 8. Respecte cette mise en forme **exclusivement** pour chaque article en les listant tous et tiens compte de l'introduction:
 ---
 
 ## emoji representant le type de produit **Nom de l'article**
 
 
-![Image du produit](url de l'image ou https://younzeeadmin.vercel.app/no-image.jpg si indisponible)
+![Image du produit](url de l'image ou https://younzeeadmin.vercel.app/no-image.jpg si indisponible ou url invalide)
 
 - **Prix :** XX,XX €  
 - **Tailles :** XS à XL // ou tailles spécifiques  
@@ -230,7 +234,7 @@ Analyse la requête de le client et les résultats générés par l'IA ITEM, pui
 
 RETOURNE UNIQUEMENT DU JSON VALIDE et Parseable par JSON.parse():
 {
-  "content": "Réponse complète en markdown (correctement formatée pour eviter les erreurs de parsing modifie les \` quand tu en trouves) générée dynamiquement à partir des articles et de la personnalité",
+  "content": "Réponse complète en markdown (correctement formatée pour eviter les erreurs de parsing modifie les \` quand tu en trouves) générée dynamiquement à partir des articles et de la personnalité et demande de reformulation si aucun article n'a ete trouve",
   "request": "Contenu exact de la requête utilisateur",
 }
 
@@ -282,6 +286,7 @@ async function callMasterAI(message: string, chatbotId?: string, history?: any):
   const providersService = new ProvidersService()
   const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
   const config = await getChatbotConfig(chatbotId)
+  console.log('config', config)
   const response = await providersService.generateObjectResponse({
     model: "gemini-2.0-flash",
     provider: "gemini",
@@ -306,7 +311,6 @@ async function callMasterAI(message: string, chatbotId?: string, history?: any):
     suggestions: z.array(z.string()).describe('Suggestions'),
     request: z.string().describe('Requête utilisateur'),
   })
-  console.log('response', response)
   if (!response) {
     return {
       success: false,
@@ -317,7 +321,6 @@ async function callMasterAI(message: string, chatbotId?: string, history?: any):
     }
   }
 
-  console.log('response', response)
   const data = response
   if (!data) {
     return {

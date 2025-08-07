@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import type { Product, ProductStatus } from "@/lib/types"
-import { PlusCircle, Search, ListFilter, MoreHorizontal, Edit, Trash2, Eye, Upload, RefreshCw, Download, ExternalLink } from "lucide-react"
+import { PlusCircle, Search, ListFilter, MoreHorizontal, Edit, Trash2, Eye, Upload, RefreshCw, Download, ExternalLink, FileSpreadsheet, Zap, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { ProductService } from "@/lib/services/api.service"
 import { AdvancedCSVImporter } from "@/components/advanced-csv-importer"
@@ -75,6 +75,22 @@ export default function ProductsPage() {
   // État pour les données brutes (avant filtres/pagination)
   const [allProducts, setAllProducts] = useState<any[]>([])
   const [dataSource, setDataSource] = useState<'supabase'>('supabase')
+
+  // États pour l'enrichissement CSV
+  const [s3Files, setS3Files] = useState<Array<{
+    key: string
+    filename: string
+    lastModified: string
+    size: number
+    sizeFormatted: string
+  }>>([])
+  const [loadingS3Files, setLoadingS3Files] = useState(false)
+  const [showEnrichmentPanel, setShowEnrichmentPanel] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<string>('')
+  const [enrichmentApiUrl, setEnrichmentApiUrl] = useState('')
+  const [batchSize, setBatchSize] = useState(100)
+  const [isEnriching, setIsEnriching] = useState(false)
+  const [enrichmentProgress, setEnrichmentProgress] = useState('')
 
  
   // Charger les options de filtres (fallback)
@@ -326,6 +342,95 @@ export default function ProductsPage() {
     return products.slice(startIndex, endIndex)
   }
 
+  // Charger les fichiers CSV depuis S3
+  const loadS3Files = async () => {
+    try {
+      setLoadingS3Files(true)
+      const response = await fetch('/api/s3-files')
+      const result = await response.json()
+      
+      if (result.success) {
+        setS3Files(result.data)
+        toast.success(`${result.data.length} fichier(s) CSV trouvé(s) sur S3`)
+      } else {
+        toast.error('Erreur lors du chargement des fichiers S3', {
+          description: result.error
+        })
+      }
+    } catch (error: any) {
+      toast.error('Erreur réseau', {
+        description: 'Impossible de charger les fichiers S3'
+      })
+      console.error('Erreur chargement S3:', error)
+    } finally {
+      setLoadingS3Files(false)
+    }
+  }
+
+  // Fonction d'enrichissement CSV
+  const enrichCSV = async () => {
+    if (!selectedFile) {
+      toast.error('Veuillez sélectionner un fichier CSV')
+      return
+    }
+
+    if (!enrichmentApiUrl) {
+      toast.error('Veuillez saisir l\'URL de l\'API d\'enrichissement')
+      return
+    }
+
+    try {
+      setIsEnriching(true)
+      setEnrichmentProgress('Démarrage de l\'enrichissement...')
+
+      const formData = new FormData()
+      formData.append('s3FileKey', selectedFile)
+      formData.append('enrichmentApiUrl', enrichmentApiUrl)
+      formData.append('batchSize', batchSize.toString())
+
+      const response = await fetch('/api/enrich-csv', {
+        method: 'POST',
+        body: formData
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast.success('Enrichissement terminé !', {
+          description: `${result.data.originalLines} lignes traitées en ${result.data.batchesProcessed} batch(s)`
+        })
+
+        // Proposer le téléchargement
+        const downloadLink = document.createElement('a')
+        downloadLink.href = result.data.downloadUrl
+        downloadLink.download = result.data.filename
+        downloadLink.click()
+
+        // Rafraîchir la liste des fichiers S3
+        loadS3Files()
+        
+        // Fermer le panel
+        setShowEnrichmentPanel(false)
+        setSelectedFile('')
+        setEnrichmentApiUrl('')
+        setBatchSize(100)
+        
+      } else {
+        toast.error('Erreur lors de l\'enrichissement', {
+          description: result.error
+        })
+      }
+    } catch (error: any) {
+      toast.error('Erreur réseau', {
+        description: 'Erreur lors de l\'enrichissement du fichier'
+      })
+      console.error('Erreur enrichissement:', error)
+    } finally {
+      setIsEnriching(false)
+      setEnrichmentProgress('')
+    }
+  }
+
   // Fonction unifiée pour mettre à jour la liste des produits affichés
   const updateDisplayedProducts = () => {
       loadProducts() 
@@ -363,6 +468,19 @@ export default function ProductsPage() {
             <Upload className="h-4 w-4" />
             Importer CSV
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowEnrichmentPanel(!showEnrichmentPanel)
+              if (!showEnrichmentPanel && s3Files.length === 0) {
+                loadS3Files()
+              }
+            }}
+            className="bg-green-600 text-white hover:bg-green-700"
+          >
+            <Zap className="h-4 w-4" />
+            Enrichir CSV
+          </Button>
         </div>
       </div>      
 
@@ -372,6 +490,141 @@ export default function ProductsPage() {
           availableTypes={['products']}
           onImportComplete={handleImportComplete}
         />
+      )}
+
+      {/* Panel d'enrichissement CSV */}
+      {showEnrichmentPanel && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5" />
+              Enrichissement de fichier CSV
+            </CardTitle>
+            <CardDescription>
+              Sélectionnez un fichier CSV depuis S3 pour l'enrichir via une API externe
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Sélection du fichier */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Fichier CSV à enrichir</label>
+              {loadingS3Files ? (
+                <div className="flex items-center gap-2 p-4 border rounded-lg">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Chargement des fichiers S3...</span>
+                </div>
+              ) : s3Files.length === 0 ? (
+                <div className="p-4 border rounded-lg text-center text-muted-foreground">
+                  <FileSpreadsheet className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>Aucun fichier CSV trouvé sur S3</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={loadS3Files}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Actualiser
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-2">
+                  {s3Files.map((file) => (
+                    <div
+                      key={file.key}
+                      className={`p-3 border rounded cursor-pointer transition-colors ${
+                        selectedFile === file.key
+                          ? 'border-green-500 bg-green-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => setSelectedFile(file.key)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-sm">{file.filename}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(file.lastModified).toLocaleDateString('fr-FR')} • {file.sizeFormatted}
+                          </p>
+                        </div>
+                        {selectedFile === file.key && (
+                          <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Configuration de l'enrichissement */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">URL de l'API d'enrichissement *</label>
+                <Input
+                  placeholder="https://api.example.com/enrich"
+                  value={enrichmentApiUrl}
+                  onChange={(e) => setEnrichmentApiUrl(e.target.value)}
+                  disabled={isEnriching}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Taille du batch</label>
+                <Input
+                  type="number"
+                  min="10"
+                  max="1000"
+                  value={batchSize}
+                  onChange={(e) => setBatchSize(parseInt(e.target.value) || 100)}
+                  disabled={isEnriching}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Nombre de lignes par batch (recommandé: 100-500)
+                </p>
+              </div>
+            </div>
+
+            {/* Indicateur de progression */}
+            {isEnriching && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                  <span className="text-blue-800 font-medium">Enrichissement en cours...</span>
+                </div>
+                {enrichmentProgress && (
+                  <p className="text-sm text-blue-600 mt-1">{enrichmentProgress}</p>
+                )}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex justify-between">
+              <Button
+                variant="outline"
+                onClick={() => setShowEnrichmentPanel(false)}
+                disabled={isEnriching}
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={enrichCSV}
+                disabled={!selectedFile || !enrichmentApiUrl || isEnriching}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isEnriching ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Enrichissement...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-4 w-4 mr-2" />
+                    Démarrer l'enrichissement
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Liste des produits */}
@@ -745,6 +998,7 @@ export default function ProductsPage() {
                     setCurrentPage(1)
                   }}
                   className="px-3 py-1 border rounded text-sm"
+                  title="Nombre d'éléments par page"
                 >
                   <option value={10}>10</option>
                   <option value={25}>25</option>

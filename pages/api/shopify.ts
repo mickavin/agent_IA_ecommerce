@@ -14,8 +14,10 @@ if (!process.env.SHOPIFY_API_KEY || !process.env.SHOPIFY_API_SECRET || !process.
   console.error('- SHOPIFY_SHOP_NAME:', !!process.env.SHOPIFY_SHOP_NAME)
 }
 
+const shopName = 'younzee-prod';
+
 const shopify = new Shopify({
-    shopName: 'younzee-prod',
+    shopName,
     accessToken: process.env.SHOPIFY_ACCESS_TOKEN!
 });
 
@@ -187,6 +189,7 @@ function convertProductsToCSV(products: FormattedProduct[]): string {
     //'description',
     'availableForSale',
     'variant_count',
+    'url'
     //'variants_details'
   ]
 
@@ -215,6 +218,7 @@ function convertProductsToCSV(products: FormattedProduct[]): string {
       product.availableForSale.toString(),
       product.variants.length.toString(),
       //`"${JSON.stringify(product.variants).replace(/"/g, '""')}"` // Variants en JSON échappé
+      `https://${shopName}.myshopify.com/products/${product.handle}`
     ].join(','))
   ]
 
@@ -252,7 +256,7 @@ function convertProductsToCSVFormattedS3(products: FormattedProductS3[]): string
       `"${product.taille}"`,
       `"${product.prix}"`,
       `"${product.stock}"`,
-      `"${product.url}"`,
+      `https://[yourstore].myshopify.com/products/`,
       `"${product.image}"`,
       `"${product.description}"`,
       `"${product.genre}"`,

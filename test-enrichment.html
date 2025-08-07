@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API d'enrichissement CSV</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .loading {
+            background: #cce7ff;
+            border: 1px solid #b3d9ff;
+            color: #004085;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test API d'enrichissement CSV</h1>
+        <p>Cette page permet de tester l'API d'enrichissement CSV qui traite les fichiers par batch pour éviter les erreurs 413.</p>
+        
+        <form id="testForm">
+            <div class="form-group">
+                <label>Mode de test:</label>
+                <select id="testMode">
+                    <option value="s3">Fichier depuis S3</option>
+                    <option value="upload">Upload fichier local</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="s3FileGroup">
+                <label>Clé du fichier S3:</label>
+                <input type="text" id="s3FileKey" placeholder="exemple: shopify-products-2024-01-01T10-00-00.csv">
+            </div>
+
+            <div class="form-group" id="uploadFileGroup" style="display: none;">
+                <label>Fichier CSV à uploader:</label>
+                <input type="file" id="csvFile" accept=".csv">
+            </div>
+
+            <div class="form-group">
+                <label>URL de l'API d'enrichissement: *</label>
+                <input type="url" id="enrichmentApiUrl" 
+                       placeholder="https://api.example.com/enrich" 
+                       value="https://httpbin.org/post"
+                       required>
+                <small>💡 Pour les tests, utilisez https://httpbin.org/post</small>
+            </div>
+
+            <div class="form-group">
+                <label>Taille du batch:</label>
+                <input type="number" id="batchSize" value="10" min="1" max="1000">
+                <small>Nombre de lignes par batch (recommandé: 10 pour les tests)</small>
+            </div>
+
+            <button type="submit" id="submitBtn">🚀 Démarrer l'enrichissement</button>
+        </form>
+
+        <div id="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('testForm');
+        const testMode = document.getElementById('testMode');
+        const s3FileGroup = document.getElementById('s3FileGroup');
+        const uploadFileGroup = document.getElementById('uploadFileGroup');
+        const result = document.getElementById('result');
+        const submitBtn = document.getElementById('submitBtn');
+
+        // Basculer entre les modes
+        testMode.addEventListener('change', () => {
+            if (testMode.value === 's3') {
+                s3FileGroup.style.display = 'block';
+                uploadFileGroup.style.display = 'none';
+            } else {
+                s3FileGroup.style.display = 'none';
+                uploadFileGroup.style.display = 'block';
+            }
+        });
+
+        // Gérer la soumission du formulaire
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const mode = testMode.value;
+            const enrichmentApiUrl = document.getElementById('enrichmentApiUrl').value;
+            const batchSize = document.getElementById('batchSize').value;
+
+            if (!enrichmentApiUrl) {
+                showResult('Erreur: URL de l\'API d\'enrichissement requise', 'error');
+                return;
+            }
+
+            // Préparer FormData
+            const formData = new FormData();
+            
+            if (mode === 's3') {
+                const s3FileKey = document.getElementById('s3FileKey').value;
+                if (!s3FileKey) {
+                    showResult('Erreur: Clé du fichier S3 requise', 'error');
+                    return;
+                }
+                formData.append('s3FileKey', s3FileKey);
+            } else {
+                const csvFile = document.getElementById('csvFile').files[0];
+                if (!csvFile) {
+                    showResult('Erreur: Fichier CSV requis', 'error');
+                    return;
+                }
+                formData.append('csvFile', csvFile);
+            }
+
+            formData.append('enrichmentApiUrl', enrichmentApiUrl);
+            formData.append('batchSize', batchSize);
+
+            // Afficher le loading
+            showResult('⏳ Enrichissement en cours...', 'loading');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Traitement...';
+
+            try {
+                const response = await fetch('/api/enrich-csv', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showResult(`✅ Enrichissement réussi !
+
+📊 Résultats:
+- Fichier généré: ${result.data.filename}
+- Lignes traitées: ${result.data.originalLines}
+- Batches processés: ${result.data.batchesProcessed}
+- Taille du fichier: ${result.data.fileSizeFormatted}
+
+🔗 Lien de téléchargement:
+${result.data.downloadUrl}
+
+💾 Le fichier a été automatiquement téléchargé.`, 'success');
+
+                    // Télécharger automatiquement le fichier
+                    const link = document.createElement('a');
+                    link.href = result.data.downloadUrl;
+                    link.download = result.data.filename;
+                    link.click();
+
+                } else {
+                    throw new Error(result.error || result.details || 'Erreur inconnue');
+                }
+
+            } catch (error) {
+                showResult(`❌ Erreur lors de l'enrichissement:
+
+${error.message}
+
+💡 Conseils de dépannage:
+- Vérifiez que l'URL de l'API est correcte
+- Assurez-vous que le fichier CSV existe
+- Réduisez la taille du batch si erreur 413
+- Vérifiez la configuration AWS S3`, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚀 Démarrer l\'enrichissement';
+            }
+        });
+
+        function showResult(message, type) {
+            result.textContent = message;
+            result.className = `result ${type}`;
+            result.style.display = 'block';
+        }
+
+        // Générer un exemple de CSV pour les tests
+        function generateSampleCSV() {
+            const csv = `nom,prix,categorie
+T-shirt Blanc,25.99,Vêtements
+Jeans Bleu,59.99,Vêtements
+Sneakers Rouge,89.99,Chaussures
+Casquette Noire,19.99,Accessoires
+Robe Été,45.99,Vêtements`;
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'exemple-test.csv';
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Ajouter un bouton pour générer un CSV de test
+        const generateBtn = document.createElement('button');
+        generateBtn.textContent = '📁 Générer CSV de test';
+        generateBtn.type = 'button';
+        generateBtn.style.marginLeft = '10px';
+        generateBtn.onclick = generateSampleCSV;
+        submitBtn.parentNode.insertBefore(generateBtn, submitBtn.nextSibling);
+    </script>
+</body>
+</html>

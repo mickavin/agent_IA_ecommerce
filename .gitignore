@@ -26,3 +26,25 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .vercel
+
+
+# files
+/files
+/data
+
+# lib
+/lib
+
+# pages
+/pages
+
+
+# markdown
+*.md
+
+# logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

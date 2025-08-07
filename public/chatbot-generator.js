@@ -1,142 +1,222 @@
-/**
- * Younzee Chatbot Widget - Générateur JavaScript
- * Version 2.0 - Nouvelle architecture IA Master
- */
-
 (function() {
   'use strict';
 
-  // Configuration par défaut
+  // Configuration par défaut avec améliorations
   const DEFAULT_CONFIG = {
-    chatbotId: 'younzee-default',
+    chatbotId: 'younzee-premium',
     title: 'Assistant Younzee',
-    subtitle: 'Comment puis-je vous aider ?',
-    apiEndpoint: window.location.origin + '/api/ai/master',
+    subtitle: 'Votre styliste personnel, toujours à vos côtés',
+    apiEndpoint: 'https://younzeeadmin.vercel.app/api/ai/master',
     position: 'bottom-right',
     primaryColor: '#ffdd5b',
-    secondaryColor: '#ffdd5b',
+    secondaryColor: '#ffd700',
+    accentColor: '#ff6f61', // Nouvelle couleur d'accent pour dynamisme
     textColor: '#1F2937',
-    backgroundColor: '#FFFFFF',
-    borderRadius: '12px',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: '24px',
     size: 'standard',
     showTypingIndicator: true,
-    enableSound: false,
+    enableSound: true, // Activé par défaut pour micro-interactions
     autoOpen: false,
-    autoOpenDelay: 3000,
-    welcomeMessage: '🤖 Bonjour, Je suis votre Styliste Personnel. Comment je peux vous aider aujourd\'hui ? Donnez moi une catégorie de produit, une couleur et votre taille pour que je puisse vous proposer des articles adaptés à vous.',
-    placeholder: 'Tapez votre message...',
+    autoOpenDelay: 2000,
+    welcomeMessage: '✨ Bonjour ! Je suis Younzee, votre styliste personnel. Prêt à trouver le look parfait ? Essayez "robes", "chaussures" ou "nouveau style" !',
+    placeholder: 'Ex: Robe rouge, taille M...',
     personality: {
       tone: 'Amical',
       formality: 'Tutoiement',
       verbosity: 'Détaillé',
       empathy: 'Élevée',
       proactivity: 'Proactif'
-    }
+    },
+    fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    buttonSize: 72, // Légèrement plus grand pour attirer l'attention
+    shadowEffect: 'neumorphic',
+    animationStyle: 'gradient-pulse',
+    customIcon: null,
+    attentionText: {
+      enabled: false, // Sera activé automatiquement si autoOpen est false
+      messages: [
+        'Trouvez votre style !',
+        'Besoin d\'aide ? 💬',
+        'Découvrez nos tendances ✨',
+        'Parlons mode ! 👗',
+        'Une question ? 🤔'
+      ],
+      color: '#FFFFFF',
+      backgroundColor: 'linear-gradient(135deg, #ffdd5b 0%, #ff6f61 100%)',
+      animation: 'bounce',
+      duration: 3000,
+      delay: 3000,
+      repeatInterval: 8000,
+      particleEffect: true,
+      trailEffect: false,
+      orbitRadius: 60,
+      orbitSpeed: 5,
+      orbitDirection: 'clockwise',
+      curveIntensity: 0
+    },
+    theme: 'dark', // Support du mode clair/sombre
+    quickReplies: ["Je voudrais une robe blanche d'été en L", 'Propose moi des bottines marrons en 44'] // Suggestions rapides
   };
 
-  // Classes CSS intégrées
+  // Classes CSS avec design premium
   const CSS_STYLES = `
+    :root {
+      --primary-color: ${DEFAULT_CONFIG.primaryColor};
+      --secondary-color: ${DEFAULT_CONFIG.secondaryColor};
+      --accent-color: ${DEFAULT_CONFIG.accentColor};
+      --text-color: ${DEFAULT_CONFIG.textColor};
+      --background-color: ${DEFAULT_CONFIG.backgroundColor};
+      --font-family: ${DEFAULT_CONFIG.fontFamily};
+      --button-size: ${DEFAULT_CONFIG.buttonSize}px;
+      --border-radius: ${DEFAULT_CONFIG.borderRadius};
+      --orbit-radius: ${DEFAULT_CONFIG.attentionText.orbitRadius}px;
+      --orbit-speed: ${DEFAULT_CONFIG.attentionText.orbitSpeed}s;
+    }
+
     .younzee-chatbot-message-content div:empty {
       display: block !important;
     }
 
     .younzee-chatbot-message-content hr {
-      margin: 34px 0 !important;
+      margin: 20px 0 !important;
+      border: 0;
+      border-top: 1px solid rgba(0, 0, 0, 0.1);
     }
+
     .younzee-chatbot-messages p img {
       height: 180px;
       max-width: 100%;
       border-radius: 12px;
       object-fit: cover;
-      margin-bottom: 10px;
+      margin: 10px 0;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
+
+    .younzee-chatbot-messages p img:hover {
+      transform: scale(1.03);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
     .younzee-chatbot-messages ul {
-      list-style: circle !important;
+      list-style: disc !important;
+      padding-left: 24px;
+      margin: 8px 0;
     }
     
     .younzee-chatbot-message-content p {
-      margin-top: 0;
-      margin-bottom: 0;
-    }
-
-    .younzee-chatbot-message-content p {
       margin: 0;
+      line-height: 1.7;
+      font-size: 15px;
     }
 
     .younzee-chatbot-container {
       position: fixed;
-      z-index: 999999;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      z-index: 1000000;
+      font-family: var(--font-family);
       user-select: none;
+      transition: filter 0.3s ease;
     }
     
     .younzee-chatbot-container.bottom-right {
-      bottom: 20px;
-      right: 20px;
+      bottom: 28px;
+      right: 28px;
     }
     
     .younzee-chatbot-container.bottom-left {
-      bottom: 20px;
-      left: 20px;
+      bottom: 28px;
+      left: 28px;
     }
     
     .younzee-chatbot-container.top-right {
-      top: 20px;
-      right: 20px;
+      top: 28px;
+      right: 28px;
+    }
+
+    .younzee-chatbot-input-wrapper {
+      display: flex;
     }
     
     .younzee-chatbot-container.top-left {
-      top: 20px;
-      left: 20px;
+      top: 28px;
+      left: 28px;
     }
     
     .younzee-chatbot-button {
-      width: 60px;
-      height: 60px;
-          border-radius: 50%;
-        border: none;
+      width: var(--button-size);
+      height: var(--button-size);
+      border-radius: 50%;
+      border: none;
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       color: white;
-      font-size: 24px;
+      font-size: calc(var(--button-size) * 0.5);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .younzee-chatbot-button.neumorphic {
+      background: linear-gradient(145deg, #f0f0f0, #ffffff);
+      box-shadow: 8px 8px 16px rgba(0, 0, 0, 0.1), -8px -8px 16px rgba(255, 255, 255, 0.7);
+    }
+    
+    .younzee-chatbot-button.gradient-pulse {
+      background: linear-gradient(45deg, var(--primary-color), var(--accent-color), var(--secondary-color));
+      background-size: 200% 200%;
+      animation: gradientPulse 8s ease infinite;
     }
     
     .younzee-chatbot-button:hover {
-      transform: scale(1.1);
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+      transform: scale(1.12) rotate(8deg);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    }
+    
+    .younzee-chatbot-button:active::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      animation: ripple 0.6s ease-out;
+    }
+    
+    @keyframes gradientPulse {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    
+    @keyframes ripple {
+      0% { width: 0; height: 0; opacity: 1; transform: translate(-50%, -50%); }
+      100% { width: 200px; height: 200px; opacity: 0; transform: translate(-50%, -50%); }
     }
     
     .younzee-chatbot-window {
       position: absolute;
-      bottom: 80px;
+      bottom: calc(var(--button-size) + 28px);
       right: 0;
-      width: 380px;
-      height: 500px;
-      max-height: 100vh !important;
-      max-width: 100vw !important;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-      border: 1px solid #e5e7eb;
-        display: none;
-        flex-direction: column;
-        overflow: hidden;
-      animation: slideUp 0.3s ease-out;
+      width: var(--window-width, 420px);
+      height: var(--window-height, 565px);
+      background: var(--background-color);
+      backdrop-filter: blur(16px);
+      border-radius: var(--border-radius);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), 0 0 10px rgba(255, 255, 255, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      animation: popIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+    @keyframes popIn {
+      0% { opacity: 0; transform: scale(0.8) translateY(40px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
     }
     
     .younzee-chatbot-window.open {
@@ -144,72 +224,97 @@
     }
     
     .younzee-chatbot-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid #e5e7eb;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
+      padding: 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
     }
     
     .younzee-chatbot-header-content {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 14px;
     }
     
     .younzee-chatbot-avatar {
-      width: 40px;
-      height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-      font-size: 18px;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
       color: white;
+      background: rgba(255, 255, 255, 0.3);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .younzee-chatbot-avatar:hover {
+      transform: scale(1.08);
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
     }
     
     .younzee-chatbot-header-text h3 {
       margin: 0;
-      font-size: 16px;
-      font-weight: 600;
-      color: #1f2937;
-      font-family: sans-serif;
+      font-size: 19px;
+      font-weight: 700;
+      color: white;
     }
     
     .younzee-chatbot-header-text p {
       margin: 0;
-      font-size: 12px;
-      color: #6b7280;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.9);
     }
     
     .younzee-chatbot-close {
-      background: none;
-            border: none;
-      font-size: 20px;
-            cursor: pointer;
-      color: #6b7280;
-            padding: 4px;
-            border-radius: 4px;
-      transition: background-color 0.2s;
+      background: rgba(255, 255, 255, 0.25);
+      border: none;
+      font-size: 19px;
+      cursor: pointer;
+      color: white;
+      padding: 8px;
+      border-radius: 50%;
+      transition: all 0.3s ease;
     }
     
     .younzee-chatbot-close:hover {
-      background-color: #f3f4f6;
+      background: rgba(255, 255, 255, 0.4);
+      transform: rotate(180deg);
     }
     
     .younzee-chatbot-messages {
-        flex: 1;
-        padding: 16px;
-        overflow-y: auto;
-      background: #f3e6b4;
+      flex: 1;
+      padding: 18px;
+      overflow-y: auto;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(245, 245, 245, 0.95) 100%);
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent-color) transparent;
+    }
+    
+    .younzee-chatbot-messages::-webkit-scrollbar {
+      width: 5px;
+    }
+    
+    .younzee-chatbot-messages::-webkit-scrollbar-thumb {
+      background: var(--accent-color);
+      border-radius: 2.5px;
     }
     
     .younzee-chatbot-message {
-      margin-bottom: 16px;
+      margin-bottom: 18px;
       display: flex;
       align-items: flex-start;
-      gap: 8px;
+      gap: 10px;
       flex-direction: column;
+      animation: messageIn 0.3s ease;
+    }
+    
+    @keyframes messageIn {
+      0% { opacity: 0; transform: translateY(10px); }
+      100% { opacity: 1; transform: translateY(0); }
     }
     
     .younzee-chatbot-message.user {
@@ -221,196 +326,470 @@
     }
     
     .younzee-chatbot-message-content {
-      max-width: 70%;
+      max-width: 80%;
       padding: 12px 24px;
       border-radius: 18px;
-      font-size: 14px;
-      line-height: 1.4;
+      font-size: 15px;
+      line-height: 1.6;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .younzee-chatbot-message-content:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
     }
 
     .younzee-chatbot-message-content h2 {
-      font-size: 13px !important;
-      font-weight: bold !important;
-      margin-top: 7px !important;
+      font-size: 15px !important;
+      font-weight: 700 !important;
+      margin: 6px 0 !important;
     }
 
-    .younzee-chatbot-message.user p {
-      color: white !important;
-    } 
-    
-    .younzee-chatbot-message.bot .younzee-chatbot-message-content {
-      background: white;
-      color: #1f2937;
-      border-bottom-left-radius: 6px;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-    }
-    
     .younzee-chatbot-message.user .younzee-chatbot-message-content {
+      background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
       color: white;
       border-bottom-right-radius: 6px;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+    }
+    
+    .younzee-chatbot-message.bot .younzee-chatbot-message-content {
+      background: rgba(255, 255, 255, 0.95);
+      color: var(--text-color);
+      border-bottom-left-radius: 6px;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+      backdrop-filter: blur(6px);
     }
     
     .younzee-chatbot-input-container {
-        padding: 16px;
-      border-top: 1px solid #e5e7eb;
-        display: flex;
-        gap: 8px;
-      align-items: flex-end;
+      padding: 18px;
+      border-top: 1px solid rgba(255, 255, 255, 0.25);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(16px);
+    }
+
+    .younzee-chatbot-quick-replies {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .younzee-chatbot-quick-reply {
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid var(--accent-color);
+      border-radius: 20px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-color);
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .younzee-chatbot-quick-reply:hover {
+      background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+      color: white;
+      transform: scale(1.05);
     }
 
     .younzee-chatbot-input {
-        flex: 1;
-      border: 1px solid #d1d5db;
+      flex: 1;
+      border: 1px solid rgba(0, 0, 0, 0.15);
       border-radius: 20px;
-      padding: 10px 16px;
-        font-size: 14px;
-        outline: none;
+      padding: 10px 18px;
+      font-size: 15px;
+      outline: none;
       resize: none;
       max-height: 100px;
-      min-height: 40px;
+      min-height: 44px;
+      background: rgba(255, 255, 255, 0.85);
+      transition: all 0.3s ease;
     }
     
     .younzee-chatbot-input:focus {
-      border-color: var(--primary-color, #ffdd5b);
-      box-shadow: 0 0 0 3px rgb(255, 221, 91);
+      border-color: var(--accent-color);
+      box-shadow: 0 0 0 3px rgba(255, 111, 97, 0.3);
+      background: white;
     }
     
     .younzee-chatbot-send {
-      width: 40px;
-      height: 40px;
-        border: none;
+      width: 44px;
+      height: 44px;
+      border: none;
       border-radius: 50%;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
       color: white;
-      transition: all 0.2s;
+      background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+      transition: all 0.3s ease;
     }
     
     .younzee-chatbot-send:hover {
-      transform: scale(1.05);
+      transform: scale(1.12) rotate(12deg);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
     }
     
     .younzee-chatbot-send:disabled {
-        opacity: 0.5;
+      opacity: 0.5;
       cursor: not-allowed;
       transform: none;
     }
     
     .younzee-chatbot-typing {
-            display: flex !important;
-            align-items: center !important;
-      gap: 4px !important;
-      padding: 12px 16px !important;
-      background: white !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 5px !important;
+      padding: 12px 18px !important;
+      background: rgba(255, 255, 255, 0.95) !important;
       border-radius: 18px !important;
       border-bottom-left-radius: 6px !important;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
-      max-width: 20% !important;
-      min-width: 20% !important;
-      min-height: 45px !important;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15) !important;
+      max-width: 25% !important;
+      min-width: 25% !important;
+      min-height: 44px !important;
       margin-bottom: 0 !important;
       margin-top: 0 !important;
+      backdrop-filter: blur(6px);
     }
     
     .younzee-chatbot-typing-dot {
-      width: 6px !important;
-      height: 6px !important;
-      background: #9ca3af !important;
-            border-radius: 50% !important;
-      animation: typing 1.4s infinite;
+      width: 7px !important;
+      height: 7px !important;
+      background: linear-gradient(135deg, var(--primary-color), var(--accent-color)) !important;
+      border-radius: 50% !important;
+      animation: typing 1s ease-in-out infinite;
       display: block !important;
     }
-          
+    
     .younzee-chatbot-typing-dot:nth-child(2) {
-            animation-delay: 0.2s;
-          }
-          
+      animation-delay: 0.2s;
+    }
+    
     .younzee-chatbot-typing-dot:nth-child(3) {
-            animation-delay: 0.4s;
-          }
+      animation-delay: 0.4s;
+    }
     
     @keyframes typing {
-      0%, 60%, 100% {
-        transform: translateY(0);
-        opacity: 0.5;
-      }
-      30% {
-        transform: translateY(-10px);
-        opacity: 1;
-      }
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.7; }
+      30% { transform: translateY(-10px); opacity: 1; }
     }
     
     .younzee-chatbot-powered {
       text-align: center;
-      padding: 8px;
+      padding: 10px;
       font-size: 11px;
-      color: #9ca3af;
-      border-top: 1px solid #e5e7eb;
+      color: #6b7280;
+      border-top: 1px solid rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(16px);
     }
     
     .younzee-chatbot-powered a {
-      color: var(--primary-color, #3B82F6);
+      color: var(--accent-color);
       text-decoration: none;
+      font-weight: 600;
+      transition: color 0.2s ease;
+    }
+    
+    .younzee-chatbot-powered a:hover {
+      color: var(--secondary-color);
+    }
+    
+    .younzee-attention-text-container {
+      position: absolute;
+      width: calc(var(--button-size) + var(--orbit-radius) * 2);
+      height: calc(var(--button-size) + var(--orbit-radius) * 2);
+      top: calc(var(--orbit-radius) * -1);
+      left: calc(var(--orbit-radius) * -1);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      pointer-events: none;
+      perspective: 800px; /* Ajouté pour effet 3D */
+    }
+    
+    .younzee-attention-text {
+      position: absolute;
+      display: inline-flex;
+      background:  linear-gradient(135deg, #ffdd5b 0%, #ff6f61 100%);
+      color: var(--attention-color, #FFFFFF);
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      opacity: 0;
+      white-space: nowrap;
+      padding: 6px 14px;
+      transition: opacity 0.4s ease;
+    }
+    
+    .younzee-attention-text span {
+      display: inline-block;
+      transform-origin: center calc(var(--button-size) / 2 + var(--orbit-radius));
+      margin: 0 0.6px;
+      font-size: 12px;
+      transition: transform 0.3s ease;
+    }
+    
+    .younzee-attention-text.trail::after {
+      content: '';
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      right: -10px;
+      bottom: -10px;
+      background: linear-gradient(135deg, rgba(255, 221, 91, 0.4), rgba(255, 111, 97, 0.2));
+      filter: blur(8px);
+      opacity: 0.6;
+      animation: trail 5s ease-in-out infinite;
+      z-index: -1;
+    }
+    
+    .younzee-attention-text.particle::after {
+      content: '';
+      position: absolute;
+      top: -8px;
+      left: -8px;
+      right: -8px;
+      bottom: -8px;
+      background: radial-gradient(circle, rgba(255, 221, 91, 0.4) 0%, transparent 60%);
+      animation: particle 3s ease-in-out infinite;
+      z-index: -1;
+    }
+    
+    .younzee-attention-text.fade {
+      animation: fadeAttention 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .younzee-attention-text.slide {
+      animation: slideAttention 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .younzee-attention-text.bounce {
+      animation: bounceAttention 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+      top: 20px;
+      right: 40px;
+    }
+    
+    .younzee-attention-text.glow {
+      animation: glowAttention 1.5s ease-in-out;
+    }
+    
+    .younzee-attention-text.pop {
+      animation: popAttention 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .younzee-attention-text.wave {
+      animation: waveAttention 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .younzee-attention-text.orbit-3d {
+      animation: orbitAttention3D var(--orbit-speed, 5s) linear infinite;
+      transform-origin: center center;
+    }
+    
+    @keyframes fadeAttention {
+      0% { opacity: 0; }
+      20% { opacity: 1; }
+      80% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    
+    @keyframes slideAttention {
+      0% { opacity: 0; transform: translateX(40px); }
+      20% { opacity: 1; transform: translateX(0); }
+      80% { opacity: 1; transform: translateX(0); }
+      100% { opacity: 0; transform: translateX(40px); }
+    }
+    
+    @keyframes bounceAttention {
+      0% { opacity: 0; transform: translateY(30px); }
+      20% { opacity: 1; transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+      80% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(30px); }
+    }
+    
+    @keyframes glowAttention {
+      0% { opacity: 0; box-shadow: 0 0 0 rgba(255, 111, 97, 0); }
+      20% { opacity: 1; box-shadow: 0 0 20px rgba(255, 111, 97, 0.6); }
+      80% { opacity: 1; box-shadow: 0 0 20px rgba(255, 111, 97, 0.6); }
+      100% { opacity: 0; box-shadow: 0 0 0 rgba(255, 111, 97, 0); }
+    }
+    
+    @keyframes popAttention {
+      0% { opacity: 0; transform: scale(0.7); }
+      20% { opacity: 1; transform: scale(1.1); }
+      40% { transform: scale(0.95); }
+      80% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0.7); }
+    }
+    
+    @keyframes waveAttention {
+      0% { opacity: 0; transform: translateY(20px) rotate(-6deg); }
+      20% { opacity: 1; transform: translateY(0) rotate(0deg); }
+      40% { transform: rotate(4deg); }
+      60% { transform: rotate(-4deg); }
+      80% { opacity: 1; transform: rotate(0deg); }
+      100% { opacity: 0; transform: translateY(20px) rotate(6deg); }
+    }
+    
+    @keyframes orbitAttention3D {
+      0% { 
+        transform: rotateY(30deg) rotateX(10deg) translateX(var(--orbit-radius)) rotateZ(0deg);
+        opacity: 0;
+      }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { 
+        transform: rotateY(30deg) rotateX(10deg) translateX(var(--orbit-radius)) rotateZ(-360deg);
+        opacity: 0;
+      }
+    }
+    
+    @keyframes orbitAttentionCounter3D {
+      0% { 
+        transform: rotateY(30deg) rotateX(10deg) translateX(var(--orbit-radius)) rotateZ(0deg);
+        opacity: 0;
+      }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { 
+        transform: rotateY(30deg) rotateX(10deg) translateX(var(--orbit-radius)) rotateZ(360deg);
+        opacity: 0;
+      }
+    }
+    
+    @keyframes particle {
+      0% { transform: scale(1); opacity: 0.4; }
+      50% { transform: scale(1.3); opacity: 0.6; }
+      100% { transform: scale(1); opacity: 0.4; }
+    }
+    
+    @keyframes trail {
+      0% { opacity: 0.3; transform: translateX(-10px) scale(0.8); }
+      50% { opacity: 0.6; transform: translateX(10px) scale(1.2); }
+      100% { opacity: 0.3; transform: translateX(-10px) scale(0.8); }
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      .younzee-chatbot-container[data-theme="auto"] {
+        --background-color: rgba(30, 30, 30, 0.9);
+        --text-color: #E5E7EB;
+      }
+      
+      .younzee-chatbot-container[data-theme="auto"] .younzee-chatbot-messages {
+        background: linear-gradient(180deg, rgba(40, 40, 40, 0.95) 0%, rgba(20, 20, 20, 0.95) 100%);
+      }
+      
+      .younzee-chatbot-container[data-theme="auto"] .younzee-chatbot-message.bot .younzee-chatbot-message-content {
+        background: rgba(50, 50, 50, 0.95);
+        color: #E5E7EB;
+      }
+      
+      .younzee-chatbot-container[data-theme="auto"] .younzee-chatbot-input-container {
+        background: rgba(30, 30, 30, 0.9);
+      }
+      
+      .younzee-chatbot-container[data-theme="auto"] .younzee-chatbot-powered {
+        background: rgba(30, 30, 30, 0.9);
+        color: #9CA3AF;
+      }
     }
     
     @media (max-width: 480px) {
       .younzee-chatbot-window {
         width: calc(100vw - 40px);
         height: calc(100vh - 100px);
-        bottom: 80px;
+        bottom: calc(var(--button-size) + 20px);
+        right: 20px;
+        left: 20px;
+      }
+      
+      .younzee-attention-text-container {
+        --orbit-radius: 34px;
+        width: calc(var(--button-size) + var(--orbit-radius) * 2);
+        height: calc(var(--button-size) + var(--orbit-radius) * 2);
+        top: calc(var(--orbit-radius) * -1);
+        left: calc(var(--orbit-radius) * -1);
+      }
+      
+      .younzee-attention-text {
+        font-size: 11px;
+        padding: 5px 10px;
+      }
+      
+      .younzee-attention-text span {
+        font-size: 10px;
+        margin: 0 0.4px;
+        transform-origin: center calc(var(--button-size) / 2 + var(--orbit-radius));
+      }
+      
+      .younzee-chatbot-quick-reply {
+        font-size: 12px;
+        padding: 6px 12px;
       }
     }
   `;
 
-  // Ajout du CSS pour le mini-carousel
+  // CSS du carousel (amélioré pour plus de dynamisme)
   const CAROUSEL_CSS = `
-      .younzee-chatbot-message-content p {
-      margin: 0;
-    }
-
     .younzee-carousel-container {
-      margin-top: 12px;
+      margin-top: 14px;
       width: 100%;
-      max-width: 340px;
+      max-width: 360px;
       overflow: hidden;
       position: relative;
-      background: #fffbe6;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-      padding: 12px 0 8px 0;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 14px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      padding: 14px 0 10px 0;
+      backdrop-filter: blur(10px);
     }
     .younzee-carousel-track {
       display: flex;
-      transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .younzee-carousel-item {
       min-width: 150px;
       max-width: 150px;
       max-height: 280px;
       margin: 0 8px;
-      background: #fff;
+      background: white;
       border-radius: 10px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 10px 8px 12px 8px;
       position: relative;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .younzee-carousel-item:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
     }
     .younzee-carousel-img {
-      width: 120px;
-      height: 120px;
+      width: 130px;
+      height: 130px;
       object-fit: cover;
       border-radius: 8px;
       background: #f3f4f6;
       margin-bottom: 8px;
+      transition: transform 0.3s ease;
+    }
+    .younzee-carousel-img:hover {
+      transform: scale(1.03);
     }
     .younzee-carousel-title {
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 600;
       color: #1f2937;
       text-align: center;
       min-height: 2.2em;
@@ -422,42 +801,42 @@
       -webkit-box-orient: vertical;
     }
     .younzee-carousel-price {
-        font-size: 9px;
-        font-weight: bold;
-        color: #121212;
-        margin-bottom: 8px;
-        position: absolute;
-        background-color: #ffdd5b;
-        padding: 2px 8px;
-        border-radius: 8px;
-        margin-top: 4px;
-        top: 103px;
-        right: 12px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #1f2937;
+      margin-bottom: 8px;
+      position: absolute;
+      background: linear-gradient(135deg, #ffdd5b, #ff6f61);
+      padding: 3px 8px;
+      border-radius: 10px;
+      top: 110px;
+      right: 10px;
     }
     .younzee-carousel-btn {
-      background: #ffdd5b;
+      background: linear-gradient(135deg, #ffdd5b, #ff6f61);
       color: #1f2937;
       border: none;
-      border-radius: 30px;
-      padding: 3px 14px;
+      border-radius: 20px;
+      padding: 5px 14px;
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 600;
       cursor: pointer;
       margin-top: auto;
-      transition: background 0.2s;
+      transition: all 0.3s ease;
     }
     .younzee-carousel-btn:hover {
-      background: #ffe88a;
+      background: linear-gradient(135deg, #ffe88a, #ff8a80);
+      transform: scale(1.06);
     }
     .younzee-carousel-arrow {
       position: absolute;
       top: 50%;
       transform: translateY(-50%);
-      background: #fff;
-      border: 1px solid #eee;
+      background: rgba(255, 255, 255, 0.95);
+      border: none;
       border-radius: 50%;
-      width: 28px;
-      height: 28px;
+      width: 30px;
+      height: 30px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -465,27 +844,28 @@
       color: #1f2937;
       cursor: pointer;
       z-index: 2;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-      transition: all 0.2s ease;
-      user-select: none;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+      transition: all 0.3s ease;
+      backdrop-filter: blur(6px);
     }
     .younzee-carousel-arrow:hover {
-      background: #ffdd5b;
-      transform: translateY(-50%) scale(1.05);
+      background: linear-gradient(135deg, #ffdd5b, #ff6f61);
+      transform: translateY(-50%) scale(1.12);
+      color: white;
     }
     .younzee-carousel-arrow:active {
       transform: translateY(-50%) scale(0.95);
     }
     .younzee-carousel-arrow.disabled {
-      opacity: 0.3;
+      opacity: 0.4;
       cursor: default;
       pointer-events: none;
     }
-    .younzee-carousel-arrow.left { left: 4px; }
-    .younzee-carousel-arrow.right { right: 4px; }
+    .younzee-carousel-arrow.left { left: 5px; }
+    .younzee-carousel-arrow.right { right: 5px; }
   `;
 
-  // Ajoute le CSS du carousel au head si pas déjà fait
+  // Ajoute le CSS du carousel
   function injectCarouselStyles() {
     if (!document.getElementById('younzee-carousel-styles')) {
       const style = document.createElement('style');
@@ -495,7 +875,7 @@
     }
   }
 
-  // Génère le HTML du mini-carousel
+  // Génère le HTML du carousel
   function createCarousel(products) {
     injectCarouselStyles();
     const container = document.createElement('div');
@@ -515,8 +895,7 @@
       title.textContent = product.title || product.name || 'Produit';
       const price = document.createElement('div');
       price.className = 'younzee-carousel-price';
-      price.textContent = (product.price ? product.price + '€' : '');
-      // Ajout couleur si présente
+      price.textContent = product.price ? `${product.price}€` : '';
       let colorDiv = null;
       if (product.colors && Array.isArray(product.colors) && product.colors.length > 0) {
         colorDiv = document.createElement('div');
@@ -524,7 +903,6 @@
         colorDiv.style.color = '#666';
         colorDiv.textContent = 'Couleur : ' + product.colors[0];
       }
-      // Ajout taille si présente
       let sizeDiv = null;
       if (product.sizes && Array.isArray(product.sizes) && product.sizes.length > 0) {
         sizeDiv = document.createElement('div');
@@ -535,7 +913,7 @@
       }
       const btn = document.createElement('button');
       btn.className = 'younzee-carousel-btn';
-      btn.textContent = 'Voir le produit';
+      btn.textContent = 'Découvrir';
       btn.onclick = () => { if (product.handle) window.open('https://store.younzee.com/products/' + product.handle, '_blank'); };
       item.appendChild(img);
       item.appendChild(title);
@@ -547,90 +925,79 @@
     });
     container.appendChild(track);
     
-    // Flèches si plus d'articles que d'items visibles
     if (products.length > 1) {
-      // Configuration du carousel
-      const containerWidth = 150; // Largeur max du container
-      const itemWidth = 150; // Largeur d'un item
-      const itemMargin = 16; // Margin totale (8px de chaque côté)
-      const totalItemWidth = itemWidth + itemMargin; // 166px
-      const visibleItems = Math.floor(containerWidth / totalItemWidth) + 1; // ~2 items visibles
+      const containerWidth = 360;
+      const itemWidth = 150;
+      const itemMargin = 16;
+      const totalItemWidth = itemWidth + itemMargin;
+      const visibleItems = Math.floor(containerWidth / totalItemWidth);
       
-      // Ne montrer les flèches que si nécessaire
       if (products.length > visibleItems) {
         let currentIndex = 0;
         const maxIndex = Math.max(0, products.length - visibleItems);
-      
-      // Fonction pour calculer la position
-      const getTransformPosition = (index) => {
-        if (products.length <= visibleItems) {
-          // Si tous les items sont visibles, centrer
-          const totalWidth = products.length * totalItemWidth;
-          const centering = (containerWidth - totalWidth) / 2;
-          return centering;
-        }
         
-        // Calculer la position pour l'index donné
-        const position = -index * totalItemWidth;
+        const getTransformPosition = (index) => {
+          if (products.length <= visibleItems) {
+            const totalWidth = products.length * totalItemWidth;
+            const centering = (containerWidth - totalWidth) / 2;
+            return centering;
+          }
+          const position = -index * totalItemWidth;
+          const centeringOffset = (containerWidth - totalItemWidth - 140) / 2;
+          return position + centeringOffset;
+        };
         
-        // Ajuster pour centrer le premier item visible
-        const centeringOffset = (containerWidth - totalItemWidth) / 2;
+        const updateCarousel = () => {
+          const position = getTransformPosition(currentIndex);
+          track.style.transform = `translateX(${position}px)`;
+          left.classList.toggle('disabled', currentIndex <= 0);
+          right.classList.toggle('disabled', currentIndex >= maxIndex);
+        };
         
-        return position + centeringOffset;
-      };
-      
-      // Fonction pour mettre à jour l'affichage
-      const updateCarousel = () => {
-        const position = getTransformPosition(currentIndex);
-        track.style.transform = `translateX(${position}px)`;
+        const left = document.createElement('div');
+        left.className = 'younzee-carousel-arrow left';
+        left.innerHTML = '&#8592;';
+        left.onclick = (e) => {
+          e.stopPropagation();
+          if (currentIndex > 0) {
+            currentIndex--;
+            updateCarousel();
+            playSound('click');
+          }
+        };
         
-        // Mettre à jour la visibilité des flèches avec les classes CSS
-        if (currentIndex <= 0) {
-          left.classList.add('disabled');
-        } else {
-          left.classList.remove('disabled');
-        }
+        const right = document.createElement('div');
+        right.className = 'younzee-carousel-arrow right';
+        right.innerHTML = '&#8594;';
+        right.onclick = (e) => {
+          e.stopPropagation();
+          if (currentIndex < maxIndex) {
+            currentIndex++;
+            updateCarousel();
+            playSound('click');
+          }
+        };
         
-        if (currentIndex >= maxIndex) {
-          right.classList.add('disabled');
-        } else {
-          right.classList.remove('disabled');
-        }
-      };
-      
-      // Flèche gauche
-      const left = document.createElement('div');
-      left.className = 'younzee-carousel-arrow left';
-      left.innerHTML = '&#8592;';
-      left.onclick = (e) => {
-        e.stopPropagation();
-        if (currentIndex > 0) {
-          currentIndex--;
-          updateCarousel();
-        }
-      };
-      
-      // Flèche droite
-      const right = document.createElement('div');
-      right.className = 'younzee-carousel-arrow right';
-      right.innerHTML = '&#8594;';
-      right.onclick = (e) => {
-        e.stopPropagation();
-        if (currentIndex < maxIndex) {
-          currentIndex++;
-          updateCarousel();
-        }
-      };
-      
-      container.appendChild(left);
-      container.appendChild(right);
-      
-      // Position initiale
-      updateCarousel();
-      } // Fermeture du if (products.length > visibleItems)
+        container.appendChild(left);
+        container.appendChild(right);
+        updateCarousel();
+      }
     }
     
     return container;
+  }
+
+  // Fonction pour jouer des sons
+  function playSound(type) {
+    if (!window.YounzeeChatbotInstance || !window.YounzeeChatbotInstance.config.enableSound) return;
+    const sounds = {
+      click: 'https://assets.mixkit.co/sfx/preview/mixkit-click-soft-1110.mp3',
+      send: 'https://assets.mixkit.co/sfx/preview/mixkit-message-pop-alert-2354.mp3',
+      open: 'https://assets.mixkit.co/sfx/preview/mixkit-pop-alert-2353.mp3'
+    };
+    const audio = new Audio(sounds[type]);
+    audio.volume = 0.3;
+    audio.play().catch(() => {});
   }
 
   class YounzeeChatbot {
@@ -642,23 +1009,52 @@
       this.messagesContainer = null;
       this.inputElement = null;
       this.sendButton = null;
+      this.attentionInterval = null;
+      this.currentMessageIndex = 0; // Pour alterner entre les messages flottants
+      window.YounzeeChatbotInstance = this; // Pour accès global aux sons
       
       this.init();
     }
 
     init() {
+      this.detectTheme();
       this.injectStyles();
       this.createChatbot();
       this.bindEvents();
       
-      if (this.config.autoOpen) {
-        setTimeout(() => this.open(), this.config.autoOpenDelay);
+      // Activer les messages flottants si l'ouverture automatique n'est pas activée
+      if (!this.config.autoOpen) {
+        this.config.attentionText.enabled = true;
       }
       
-      // Message de bienvenue
+      if (this.config.autoOpen) {
+        setTimeout(() => {
+          this.open();
+          playSound('open');
+        }, this.config.autoOpenDelay);
+      }
+      
       if (this.config.welcomeMessage) {
         this.addMessage(this.config.welcomeMessage, 'bot');
       }
+      
+      // Démarrer les messages flottants seulement si le chatbot ne s'ouvre pas automatiquement
+      if (this.config.attentionText.enabled && !this.config.autoOpen) {
+        this.startAttentionAnimation();
+      }
+    }
+
+    detectTheme() {
+      if (this.config.theme === 'auto') {
+        this.config.theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.addEventListener('DOMContentLoaded', () => {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+          if (this.config.theme === 'auto') {
+            this.updateConfig({ theme: e.matches ? 'dark' : 'light' });
+          }
+        });
+      });
     }
 
     injectStyles() {
@@ -666,28 +1062,80 @@
       
       const style = document.createElement('style');
       style.id = 'younzee-chatbot-styles';
-      style.textContent = CSS_STYLES.replace(/var\(--primary-color, ([^)]+)\)/g, this.config.primaryColor);
+      let css = CSS_STYLES;
+      
+      css = css.replace(/var\(--primary-color\)/g, this.config.primaryColor);
+      css = css.replace(/var\(--secondary-color\)/g, this.config.secondaryColor);
+      css = css.replace(/var\(--accent-color\)/g, this.config.accentColor);
+      css = css.replace(/var\(--text-color\)/g, this.config.textColor);
+      css = css.replace(/var\(--font-family\)/g, this.config.fontFamily);
+      css = css.replace(/var\(--button-size\)/g, this.config.buttonSize + 'px');
+      css = css.replace(/var\(--background-color\)/g, this.config.backgroundColor);
+      css = css.replace(/var\(--border-radius\)/g, this.config.borderRadius);
+      css = css.replace(/var\(--attention-bg, ([^)]+)\)/g, this.config.attentionText.backgroundColor);
+      css = css.replace(/var\(--attention-color, ([^)]+)\)/g, this.config.attentionText.color);
+      css = css.replace(/var\(--orbit-radius\)/g, this.config.attentionText.orbitRadius + 'px');
+      css = css.replace(/var\(--orbit-speed\)/g, this.config.attentionText.orbitSpeed + 's');
+      
+      const sizes = {
+        compact: { width: '360px', height: '460px' },
+        standard: { width: '420px', height: '570px' },
+        large: { width: '500px', height: '640px' }
+      };
+      css = css.replace(/var\(--window-width, ([^)]+)\)/g, sizes[this.config.size].width);
+      css = css.replace(/var\(--window-height, ([^)]+)\)/g, sizes[this.config.size].height);
+      
+      const shadows = {
+        none: 'none',
+        light: '0 2px 10px rgba(0, 0, 0, 0.1)',
+        medium: '0 5px 20px rgba(0, 0, 0, 0.15)',
+        strong: '0 10px 30px rgba(0, 0, 0, 0.2)',
+        neumorphic: '8px 8px 16px rgba(0, 0, 0, 0.1), -8px -8px 16px rgba(255, 255, 255, 0.7)'
+      };
+      css = css.replace(/var\(--shadow-effect, ([^)]+)\)/g, shadows[this.config.shadowEffect]);
+      css = css.replace(/var\(--shadow-hover, ([^)]+)\)/g, shadows[this.config.shadowEffect === 'strong' || this.config.shadowEffect === 'neumorphic' ? 'strong' : 'medium']);
+      
+      style.textContent = css;
       document.head.appendChild(style);
     }
 
     createChatbot() {
       this.container = document.createElement('div');
       this.container.className = `younzee-chatbot-container ${this.config.position}`;
+      this.container.dataset.theme = this.config.theme;
+      
+      const firstMessage = this.config.attentionText.messages ? this.config.attentionText.messages[0] : 'Trouvez votre style !';
+      const textLength = firstMessage.length;
+      const anglePerChar = 360 / textLength * this.config.attentionText.curveIntensity;
+      let attentionTextHTML = firstMessage;
+    //  if (this.config.attentionText.animation === 'orbit-3d') {
+    //    attentionTextHTML = firstMessage
+    //      .split('')
+    //      .map((char, index) => {
+    //        const angle = index * anglePerChar - (textLength - 1) * anglePerChar / 2;
+    //        return `<span style="transform: rotate(${angle}deg);">${char}</span>`;
+    //      })
+    //      .join('');
+    //  }
       
       this.container.innerHTML = `
-        <button class="younzee-chatbot-button" style="background-color: ${this.config.primaryColor}">
-          💬
+        <button class="younzee-chatbot-button ${this.config.shadowEffect} ${this.config.animationStyle}" style="padding-top: 68px;">
+          ${this.config.customIcon ? this.config.customIcon : '<img src="http://localhost:3000/styli.png" alt="Styli" style="width: 130px; height: 130px;">'}
         </button>
-        
+        <div class="younzee-attention-text-container" style="display: none;">
+          <div class="younzee-attention-text ${this.config.attentionText.animation}${this.config.attentionText.particleEffect ? ' particle' : ''}${this.config.attentionText.trailEffect ? ' trail' : ''}">
+            ${this.config.attentionText.messages ? this.config.attentionText.messages[0] : 'Trouvez votre style !'}
+          </div>
+        </div>
         <div class="younzee-chatbot-window">
-          <div class="younzee-chatbot-header" style="background-color: ${this.config.primaryColor}; color: white;">
+          <div class="younzee-chatbot-header">
             <div class="younzee-chatbot-header-content">
-              <div class="younzee-chatbot-avatar" style="background-color: rgba(255,255,255,0.2);">
-                🤖
+              <div class="younzee-chatbot-avatar">
+                ${this.config.customIcon ? this.config.customIcon : '<img src="http://localhost:3000/styli.png" alt="Styli" style="width: 50px; height: 50px;">'}
               </div>
               <div class="younzee-chatbot-header-text">
-                <h3>${this.config.title}</h3>
-                <p style="color: rgba(255,255,255,0.8);">${this.config.subtitle}</p>
+                <h3 style="font-family: sans-serif;">${this.config.title}</h3>
+                <p>${this.config.subtitle}</p>
               </div>
             </div>
             <button class="younzee-chatbot-close">✕</button>
@@ -696,14 +1144,16 @@
           <div class="younzee-chatbot-messages"></div>
           
           <div class="younzee-chatbot-input-container">
-            <textarea 
-              class="younzee-chatbot-input" 
-              placeholder="${this.config.placeholder}"
-              rows="1"
-            ></textarea>
-            <button class="younzee-chatbot-send" style="background-color: ${this.config.primaryColor}">
-              ➤
-            </button>
+            <div class="younzee-chatbot-quick-replies"></div>
+            <div class="younzee-chatbot-input-wrapper">
+              <textarea 
+                class="younzee-chatbot-input" 
+                placeholder="${this.config.placeholder}"
+                rows="1"
+                style="margin-right: 10px;"
+              ></textarea>
+              <button class="younzee-chatbot-send">➤</button>
+            </div>
           </div>
           
           <div class="younzee-chatbot-powered">
@@ -717,14 +1167,44 @@
       this.messagesContainer = this.container.querySelector('.younzee-chatbot-messages');
       this.inputElement = this.container.querySelector('.younzee-chatbot-input');
       this.sendButton = this.container.querySelector('.younzee-chatbot-send');
+      
+      if (this.config.attentionText.animation === 'orbit-3d') {
+        const attentionText = this.container.querySelector('.younzee-attention-text');
+        attentionText.style.animationName = this.config.attentionText.orbitDirection === 'clockwise' ? 'orbitAttention3D' : 'orbitAttentionCounter3D';
+        attentionText.style.transformOrigin = `center center`;
+      }
+      
+      this.renderQuickReplies();
+    }
+
+    renderQuickReplies() {
+      const quickRepliesContainer = this.container.querySelector('.younzee-chatbot-quick-replies');
+      quickRepliesContainer.innerHTML = '';
+      this.config.quickReplies.forEach(reply => {
+        const button = document.createElement('button');
+        button.className = 'younzee-chatbot-quick-reply';
+        button.textContent = reply;
+        button.onclick = () => {
+          this.inputElement.value = reply;
+          this.sendMessage();
+          playSound('click');
+        };
+        quickRepliesContainer.appendChild(button);
+      });
     }
 
     bindEvents() {
       const button = this.container.querySelector('.younzee-chatbot-button');
       const closeButton = this.container.querySelector('.younzee-chatbot-close');
       
-      button.addEventListener('click', () => this.toggle());
-      closeButton.addEventListener('click', () => this.close());
+      button.addEventListener('click', () => {
+        this.toggle();
+        playSound('click');
+      });
+      closeButton.addEventListener('click', () => {
+        this.close();
+        playSound('click');
+      });
       
       this.inputElement.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -737,7 +1217,66 @@
         this.autoResize();
       });
       
-      this.sendButton.addEventListener('click', () => this.sendMessage());
+      this.sendButton.addEventListener('click', () => {
+        this.sendMessage();
+        playSound('send');
+      });
+    }
+
+    startAttentionAnimation() {
+      const attentionTextContainer = this.container.querySelector('.younzee-attention-text-container');
+      const attentionText = this.container.querySelector('.younzee-attention-text');
+      
+      if (!attentionText || !attentionTextContainer) return;
+      
+      // Afficher le conteneur
+      attentionTextContainer.style.display = 'flex';
+      
+      const showAttention = () => {
+        // Sélectionner le message suivant
+        const messages = this.config.attentionText.messages || ['Trouvez votre style !'];
+        const currentMessage = messages[this.currentMessageIndex];
+        this.currentMessageIndex = (this.currentMessageIndex + 1) % messages.length;
+        
+        // Mettre à jour le texte
+        attentionText.textContent = currentMessage;
+        
+        // Afficher avec animation
+        attentionText.style.opacity = '1';
+        setTimeout(() => {
+          attentionText.style.opacity = '0';
+        }, this.config.attentionText.duration);
+      };
+      
+      if (this.config.attentionText.animation !== 'orbit-3d') {
+        // Première animation après un délai
+        setTimeout(showAttention, this.config.attentionText.delay);
+        // Répéter l'animation
+        this.attentionInterval = setInterval(showAttention, this.config.attentionText.repeatInterval);
+      } else {
+        // Pour l'animation orbit-3d, afficher le premier message et garder visible
+        const messages = this.config.attentionText.messages || ['Trouvez votre style !'];
+        attentionText.textContent = messages[0];
+        setTimeout(() => {
+          attentionText.style.opacity = '1';
+        }, this.config.attentionText.delay);
+      }
+    }
+
+    stopAttentionAnimation() {
+      if (this.attentionInterval) {
+        clearInterval(this.attentionInterval);
+        this.attentionInterval = null;
+      }
+      const attentionTextContainer = this.container.querySelector('.younzee-attention-text-container');
+      const attentionText = this.container.querySelector('.younzee-attention-text');
+      
+      if (attentionText) {
+        attentionText.style.opacity = '0';
+      }
+      if (attentionTextContainer) {
+        attentionTextContainer.style.display = 'none';
+      }
     }
 
     autoResize() {
@@ -753,11 +1292,16 @@
       this.isOpen = true;
       this.container.querySelector('.younzee-chatbot-window').classList.add('open');
       this.inputElement.focus();
+      this.stopAttentionAnimation();
     }
 
     close() {
       this.isOpen = false;
       this.container.querySelector('.younzee-chatbot-window').classList.remove('open');
+      // Redémarrer les messages flottants seulement si l'ouverture automatique n'est pas activée
+      if (this.config.attentionText.enabled && !this.config.autoOpen) {
+        this.startAttentionAnimation();
+      }
     }
 
     addMessage(content, type = 'bot', showTyping = false, products = null) {
@@ -766,7 +1310,7 @@
         setTimeout(() => {
           this.hideTypingIndicator();
           this.addMessage(content, type, false, products);
-        }, 1000 + Math.random() * 1000);
+        }, 800 + Math.random() * 800);
         return;
       }
 
@@ -777,20 +1321,17 @@
       contentDiv.className = 'younzee-chatbot-message-content';
       
       if (type === 'user') {
-        contentDiv.style.backgroundColor = this.config.primaryColor;
+        contentDiv.style.background = `linear-gradient(135deg, ${this.config.primaryColor}, ${this.config.accentColor})`;
       }
       
-      // Support complet du markdown avec marked si disponible
       if (window.marked) {
         contentDiv.innerHTML = window.marked.parse(content);
       } else {
-        // Fallback markdown amélioré
         content = this.convertMarkdownToHtml(content);
         contentDiv.innerHTML = content;
       }
       
       messageDiv.appendChild(contentDiv);
-      // Ajout du carousel si products fourni et non vide
       if (type === 'bot' && products && Array.isArray(products) && products.length > 0) {
         const carousel = createCarousel(products);
         messageDiv.appendChild(carousel);
@@ -843,7 +1384,7 @@
       }
       
       try {
-        const response = await fetch('https://younzeeadmin.vercel.app/api/ai/master', {
+        const response = await fetch(this.config.apiEndpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -877,15 +1418,13 @@
           this.hideTypingIndicator();
         }
         
-        // Ajout du carousel si data.response.products existe
         if (data.success && data.response) {
           this.addMessage(data.response.content, 'bot', false, data.response.products);
         } else {
-          console.log(data);
           if (data.primaryType === 'FALLBACK') {
             this.addMessage(data.message, 'bot');
           } else {
-            this.addMessage('Désolé, une erreur s\'est produite. Veuillez réessayer.', 'bot');
+            this.addMessage('Oups, quelque chose s\'est mal passé. Réessayez !', 'bot');
           }
         }
       } catch (error) {
@@ -895,13 +1434,14 @@
           this.hideTypingIndicator();
         }
         
-        this.addMessage('Désolé, je ne peux pas répondre pour le moment. Veuillez réessayer plus tard.', 'bot');
+        this.addMessage('Désolé, je suis momentanément indisponible. Réessayez bientôt !', 'bot');
       } finally {
         this.sendButton.disabled = false;
       }
     }
 
     destroy() {
+      this.stopAttentionAnimation();
       if (this.container) {
         this.container.remove();
       }
@@ -912,9 +1452,10 @@
       }
     }
 
-    // API publique
     updateConfig(newConfig) {
       this.config = { ...this.config, ...newConfig };
+      this.destroy();
+      this.init();
     }
     
     clearMessages() {
@@ -929,45 +1470,27 @@
       return [...this.messages];
     }
 
-    // Nouvelle méthode pour convertir le markdown en HTML
     convertMarkdownToHtml(text) {
-      // Échapper les caractères HTML d'abord
       text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      
-      // Titres (# ## ###)
       text = text.replace(/^### (.*$)/gm, '<h3>$1</h3>');
       text = text.replace(/^## (.*$)/gm, '<h2>$1</h2>');
       text = text.replace(/^# (.*$)/gm, '<h1>$1</h1>');
-      
-      // Images
       text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width: 100%; height: auto; border-radius: 8px; margin: 8px 0;">');
-      
-      // Gras et italique
       text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
       text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
-      
-      // Liens
-      text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color: #ffdd5b; text-decoration: underline;">$1</a>');
-      
-      // Retours à la ligne
+      text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color: #ff6f61; text-decoration: underline;">$1</a>');
       text = text.replace(/\n\n/g, '</p><p>');
       text = text.replace(/\n/g, '<br>');
-      
-      // Entourer dans un paragraphe
       if (!text.includes('<h1>') && !text.includes('<h2>') && !text.includes('<h3>')) {
         text = '<p>' + text + '</p>';
       }
-      
       return text;
     }
   }
 
-  // Exposition globale
   window.YounzeeChatbot = YounzeeChatbot;
 
-  // Auto-initialisation si configuré
   if (window.younzeeChatbotConfig) {
     new YounzeeChatbot(window.younzeeChatbotConfig);
   }
-
 })();
