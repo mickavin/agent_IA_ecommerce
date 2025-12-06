@@ -1,5 +1,5 @@
 // Configuration de test pour vérifier toutes les fonctionnalités
-window.younzeeChatbotConfig = {
+window.wikzyChatbotConfig = {
   attentionGrabber: {
     enabled: true,
     messages: [
@@ -34,7 +34,7 @@ window.younzeeChatbotConfig = {
   secondaryColor: '#764ba2',
   textColor: '#2d3748',
   backgroundColor: 'rgba(255, 255, 255, 0.95)',
-  title: 'Assistant Younzee',
+  title: 'Assistant Wikzy',
   subtitle: 'Comment puis-je vous aider ?',
   welcomeMessage: '🤖 Bonjour ! Je suis votre styliste personnel. Comment puis-je vous aider aujourd\'hui ?',
   placeholder: 'Tapez votre message...',
@@ -82,9 +82,9 @@ function testDifferentConfigs() {
     const config = configs[currentIndex];
     console.log(`Test de la configuration: ${config.name}`);
     
-    if (window.younzeeChatbot) {
-      window.younzeeChatbot.updateDesign(config.config);
-      window.younzeeChatbot.customizeAppearance({
+    if (window.wikzyChatbot) {
+      window.wikzyChatbot.updateDesign(config.config);
+      window.wikzyChatbot.customizeAppearance({
         primaryColor: config.config.primaryColor
       });
     }
@@ -99,15 +99,15 @@ function testAttentionAnimations() {
   let currentAnimation = 0;
   
   setInterval(() => {
-    if (window.younzeeChatbot) {
-      const config = window.younzeeChatbot.config;
+    if (window.wikzyChatbot) {
+      const config = window.wikzyChatbot.config;
       config.attentionGrabber.animation = animations[currentAnimation];
       console.log(`Test de l'animation: ${animations[currentAnimation]}`);
       
       // Redémarrer l'attention avec la nouvelle animation
-      window.younzeeChatbot.stopAttention();
+      window.wikzyChatbot.stopAttention();
       setTimeout(() => {
-        window.younzeeChatbot.startAttention();
+        window.wikzyChatbot.startAttention();
       }, 1000);
     }
     

@@ -83,7 +83,7 @@ function ChatbotConfigurationContent() {
       // Données simulées pour la démonstration
       const mockConfig: ChatbotConfig = {
         id: botId || '1',
-        name: 'Assistant Younzee',
+        name: 'Assistant Wikzy',
         description: 'Assistant IA spécialisé dans la mode et les conseils vestimentaires',
         status: 'Actif',
         personality: {
@@ -169,7 +169,7 @@ function ChatbotConfigurationContent() {
     if (!config) return ''
     
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-    return `<!-- Younzee Chatbot - ${config.name} -->
+    return `<!-- Wikzy Chatbot - ${config.name} -->
 <script src="${baseUrl}/chatbot-generator.js" 
   data-bot-id="${config.id}"
   data-color="${config.visualConfig.primaryColor}"
@@ -197,7 +197,7 @@ function ChatbotConfigurationContent() {
     const element = document.createElement('a')
     const file = new Blob([generateEmbedCode()], { type: 'text/html' })
     element.href = URL.createObjectURL(file)
-    element.download = `younzee-chatbot-${config?.id}.html`
+    element.download = `wikzy-chatbot-${config?.id}.html`
     document.body.appendChild(element)
     element.click()
     document.body.removeChild(element)
@@ -316,7 +316,7 @@ function ChatbotConfigurationContent() {
                         id="name"
                         value={config.name}
                         onChange={(e) => setConfig({...config, name: e.target.value})}
-                        placeholder="Assistant Younzee"
+                        placeholder="Assistant Wikzy"
                         className="font-medium"
                       />
                     </div>

@@ -153,7 +153,7 @@ export default function EditBotPage() {
   // États pour la configuration du chatbot
   const [botConfig, setBotConfig] = useState<Chatbot>({
     id: botId,
-    name: "Assistant Younzee",
+    name: "Assistant Wikzy",
     description: "Chatbot principal pour l'assistance clientèle",
     status: "En test",
     isDefault: false,

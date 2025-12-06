@@ -111,7 +111,7 @@ export default function WidgetCustomization({
       offlineMessage: 'Nous sommes actuellement hors ligne.',
       errorMessage: 'Une erreur est survenue. Veuillez réessayer.',
       typingIndicator: 'En train d\'écrire...',
-      poweredByText: 'Propulsé par Younzee'
+      poweredByText: 'Propulsé par Wikzy'
     },
     advancedConfig: {
       allowFileUpload: false,

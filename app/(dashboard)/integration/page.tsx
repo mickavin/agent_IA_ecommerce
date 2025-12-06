@@ -78,7 +78,7 @@ export default function IntegrationPage() {
     navigator.clipboard.writeText(text)
   }
 
-  const exampleCode = `<!-- Code d'exemple d'intégration Younzee -->
+  const exampleCode = `<!-- Code d'exemple d'intégration Wikzy -->
 <iframe 
   src="https://yoursite.com/widget/1?primaryColor=%233B82F6&position=bottom-right"
   width="350"
@@ -86,7 +86,7 @@ export default function IntegrationPage() {
   frameborder="0"
   allow="microphone"
   style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.12);"
-  title="Assistant Younzee"
+  title="Assistant Wikzy"
 ></iframe>`
 
   return (
@@ -303,7 +303,7 @@ export default function IntegrationPage() {
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-green-500" />
-                      Branding Younzee optionnel
+                      Branding Wikzy optionnel
                     </li>
                   </ul>
                 </div>

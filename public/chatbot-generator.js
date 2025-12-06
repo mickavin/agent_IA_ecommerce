@@ -3,10 +3,10 @@
 
   // Configuration par défaut avec améliorations
   const DEFAULT_CONFIG = {
-    chatbotId: 'younzee-premium',
-    title: 'Assistant Younzee',
+    chatbotId: 'wikzy-premium',
+    title: 'Assistant Wikzy',
     subtitle: 'Votre styliste personnel, toujours à vos côtés',
-    apiEndpoint: 'https://younzeeadmin.vercel.app/api/ai/master',
+    apiEndpoint: 'http://localhost:3000/api/ai/master',
     position: 'bottom-right',
     primaryColor: '#ffdd5b',
     secondaryColor: '#ffd700',
@@ -19,7 +19,7 @@
     enableSound: true, // Activé par défaut pour micro-interactions
     autoOpen: false,
     autoOpenDelay: 2000,
-    welcomeMessage: '✨ Bonjour ! Je suis Younzee, votre styliste personnel. Prêt à trouver le look parfait ? Essayez "robes", "chaussures" ou "nouveau style" !',
+    welcomeMessage: '✨ Bonjour ! Je suis Wikzy, votre styliste personnel. Prêt à trouver le look parfait ? Essayez "robes", "chaussures" ou "nouveau style" !',
     placeholder: 'Ex: Robe rouge, taille M...',
     personality: {
       tone: 'Amical',
@@ -74,17 +74,17 @@
       --orbit-speed: ${DEFAULT_CONFIG.attentionText.orbitSpeed}s;
     }
 
-    .younzee-chatbot-message-content div:empty {
+    .wikzy-chatbot-message-content div:empty {
       display: block !important;
     }
 
-    .younzee-chatbot-message-content hr {
+    .wikzy-chatbot-message-content hr {
       margin: 20px 0 !important;
       border: 0;
       border-top: 1px solid rgba(0, 0, 0, 0.1);
     }
 
-    .younzee-chatbot-messages p img {
+    .wikzy-chatbot-messages p img {
       height: 180px;
       max-width: 100%;
       border-radius: 12px;
@@ -93,24 +93,24 @@
       transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
 
-    .younzee-chatbot-messages p img:hover {
+    .wikzy-chatbot-messages p img:hover {
       transform: scale(1.03);
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 
-    .younzee-chatbot-messages ul {
+    .wikzy-chatbot-messages ul {
       list-style: disc !important;
       padding-left: 24px;
       margin: 8px 0;
     }
     
-    .younzee-chatbot-message-content p {
+    .wikzy-chatbot-message-content p {
       margin: 0;
       line-height: 1.7;
       font-size: 15px;
     }
 
-    .younzee-chatbot-container {
+    .wikzy-chatbot-container {
       position: fixed;
       z-index: 1000000;
       font-family: var(--font-family);
@@ -118,31 +118,31 @@
       transition: filter 0.3s ease;
     }
     
-    .younzee-chatbot-container.bottom-right {
+    .wikzy-chatbot-container.bottom-right {
       bottom: 28px;
       right: 28px;
     }
     
-    .younzee-chatbot-container.bottom-left {
+    .wikzy-chatbot-container.bottom-left {
       bottom: 28px;
       left: 28px;
     }
     
-    .younzee-chatbot-container.top-right {
+    .wikzy-chatbot-container.top-right {
       top: 28px;
       right: 28px;
     }
 
-    .younzee-chatbot-input-wrapper {
+    .wikzy-chatbot-input-wrapper {
       display: flex;
     }
     
-    .younzee-chatbot-container.top-left {
+    .wikzy-chatbot-container.top-left {
       top: 28px;
       left: 28px;
     }
     
-    .younzee-chatbot-button {
+    .wikzy-chatbot-button {
       width: var(--button-size);
       height: var(--button-size);
       border-radius: 50%;
@@ -158,23 +158,23 @@
       overflow: hidden;
     }
     
-    .younzee-chatbot-button.neumorphic {
+    .wikzy-chatbot-button.neumorphic {
       background: linear-gradient(145deg, #f0f0f0, #ffffff);
       box-shadow: 8px 8px 16px rgba(0, 0, 0, 0.1), -8px -8px 16px rgba(255, 255, 255, 0.7);
     }
     
-    .younzee-chatbot-button.gradient-pulse {
+    .wikzy-chatbot-button.gradient-pulse {
       background: linear-gradient(45deg, var(--primary-color), var(--accent-color), var(--secondary-color));
       background-size: 200% 200%;
       animation: gradientPulse 8s ease infinite;
     }
     
-    .younzee-chatbot-button:hover {
+    .wikzy-chatbot-button:hover {
       transform: scale(1.12) rotate(8deg);
       box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
     }
     
-    .younzee-chatbot-button:active::after {
+    .wikzy-chatbot-button:active::after {
       content: '';
       position: absolute;
       top: 50%;
@@ -197,7 +197,7 @@
       100% { width: 200px; height: 200px; opacity: 0; transform: translate(-50%, -50%); }
     }
     
-    .younzee-chatbot-window {
+    .wikzy-chatbot-window {
       position: absolute;
       bottom: calc(var(--button-size) + 28px);
       right: 0;
@@ -219,11 +219,11 @@
       100% { opacity: 1; transform: scale(1) translateY(0); }
     }
     
-    .younzee-chatbot-window.open {
+    .wikzy-chatbot-window.open {
       display: flex;
     }
     
-    .younzee-chatbot-header {
+    .wikzy-chatbot-header {
       padding: 18px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.25);
       display: flex;
@@ -232,13 +232,13 @@
       background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
     }
     
-    .younzee-chatbot-header-content {
+    .wikzy-chatbot-header-content {
       display: flex;
       align-items: center;
       gap: 14px;
     }
     
-    .younzee-chatbot-avatar {
+    .wikzy-chatbot-avatar {
       width: 50px;
       height: 50px;
       border-radius: 50%;
@@ -251,25 +251,25 @@
       transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
     
-    .younzee-chatbot-avatar:hover {
+    .wikzy-chatbot-avatar:hover {
       transform: scale(1.08);
       box-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
     }
     
-    .younzee-chatbot-header-text h3 {
+    .wikzy-chatbot-header-text h3 {
       margin: 0;
       font-size: 19px;
       font-weight: 700;
       color: white;
     }
     
-    .younzee-chatbot-header-text p {
+    .wikzy-chatbot-header-text p {
       margin: 0;
       font-size: 13px;
       color: rgba(255, 255, 255, 0.9);
     }
     
-    .younzee-chatbot-close {
+    .wikzy-chatbot-close {
       background: rgba(255, 255, 255, 0.25);
       border: none;
       font-size: 19px;
@@ -280,12 +280,12 @@
       transition: all 0.3s ease;
     }
     
-    .younzee-chatbot-close:hover {
+    .wikzy-chatbot-close:hover {
       background: rgba(255, 255, 255, 0.4);
       transform: rotate(180deg);
     }
     
-    .younzee-chatbot-messages {
+    .wikzy-chatbot-messages {
       flex: 1;
       padding: 18px;
       overflow-y: auto;
@@ -294,16 +294,16 @@
       scrollbar-color: var(--accent-color) transparent;
     }
     
-    .younzee-chatbot-messages::-webkit-scrollbar {
+    .wikzy-chatbot-messages::-webkit-scrollbar {
       width: 5px;
     }
     
-    .younzee-chatbot-messages::-webkit-scrollbar-thumb {
+    .wikzy-chatbot-messages::-webkit-scrollbar-thumb {
       background: var(--accent-color);
       border-radius: 2.5px;
     }
     
-    .younzee-chatbot-message {
+    .wikzy-chatbot-message {
       margin-bottom: 18px;
       display: flex;
       align-items: flex-start;
@@ -317,15 +317,15 @@
       100% { opacity: 1; transform: translateY(0); }
     }
     
-    .younzee-chatbot-message.user {
+    .wikzy-chatbot-message.user {
       flex-direction: row-reverse;
     }
 
-    .younzee-chatbot-message.bot {
+    .wikzy-chatbot-message.bot {
       flex-direction: column;
     }
     
-    .younzee-chatbot-message-content {
+    .wikzy-chatbot-message-content {
       max-width: 80%;
       padding: 12px 24px;
       border-radius: 18px;
@@ -334,25 +334,25 @@
       transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
 
-    .younzee-chatbot-message-content:hover {
+    .wikzy-chatbot-message-content:hover {
       transform: translateY(-3px);
       box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
     }
 
-    .younzee-chatbot-message-content h2 {
+    .wikzy-chatbot-message-content h2 {
       font-size: 15px !important;
       font-weight: 700 !important;
       margin: 6px 0 !important;
     }
 
-    .younzee-chatbot-message.user .younzee-chatbot-message-content {
+    .wikzy-chatbot-message.user .wikzy-chatbot-message-content {
       background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
       color: white;
       border-bottom-right-radius: 6px;
       box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
     }
     
-    .younzee-chatbot-message.bot .younzee-chatbot-message-content {
+    .wikzy-chatbot-message.bot .wikzy-chatbot-message-content {
       background: rgba(255, 255, 255, 0.95);
       color: var(--text-color);
       border-bottom-left-radius: 6px;
@@ -360,7 +360,7 @@
       backdrop-filter: blur(6px);
     }
     
-    .younzee-chatbot-input-container {
+    .wikzy-chatbot-input-container {
       padding: 18px;
       border-top: 1px solid rgba(255, 255, 255, 0.25);
       display: flex;
@@ -370,14 +370,14 @@
       backdrop-filter: blur(16px);
     }
 
-    .younzee-chatbot-quick-replies {
+    .wikzy-chatbot-quick-replies {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       margin-bottom: 8px;
     }
 
-    .younzee-chatbot-quick-reply {
+    .wikzy-chatbot-quick-reply {
       background: rgba(255, 255, 255, 0.95);
       border: 1px solid var(--accent-color);
       border-radius: 20px;
@@ -389,13 +389,13 @@
       transition: all 0.3s ease;
     }
 
-    .younzee-chatbot-quick-reply:hover {
+    .wikzy-chatbot-quick-reply:hover {
       background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
       color: white;
       transform: scale(1.05);
     }
 
-    .younzee-chatbot-input {
+    .wikzy-chatbot-input {
       flex: 1;
       border: 1px solid rgba(0, 0, 0, 0.15);
       border-radius: 20px;
@@ -409,13 +409,13 @@
       transition: all 0.3s ease;
     }
     
-    .younzee-chatbot-input:focus {
+    .wikzy-chatbot-input:focus {
       border-color: var(--accent-color);
       box-shadow: 0 0 0 3px rgba(255, 111, 97, 0.3);
       background: white;
     }
     
-    .younzee-chatbot-send {
+    .wikzy-chatbot-send {
       width: 44px;
       height: 44px;
       border: none;
@@ -430,18 +430,18 @@
       transition: all 0.3s ease;
     }
     
-    .younzee-chatbot-send:hover {
+    .wikzy-chatbot-send:hover {
       transform: scale(1.12) rotate(12deg);
       box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
     }
     
-    .younzee-chatbot-send:disabled {
+    .wikzy-chatbot-send:disabled {
       opacity: 0.5;
       cursor: not-allowed;
       transform: none;
     }
     
-    .younzee-chatbot-typing {
+    .wikzy-chatbot-typing {
       display: flex !important;
       align-items: center !important;
       gap: 5px !important;
@@ -458,7 +458,7 @@
       backdrop-filter: blur(6px);
     }
     
-    .younzee-chatbot-typing-dot {
+    .wikzy-chatbot-typing-dot {
       width: 7px !important;
       height: 7px !important;
       background: linear-gradient(135deg, var(--primary-color), var(--accent-color)) !important;
@@ -467,11 +467,11 @@
       display: block !important;
     }
     
-    .younzee-chatbot-typing-dot:nth-child(2) {
+    .wikzy-chatbot-typing-dot:nth-child(2) {
       animation-delay: 0.2s;
     }
     
-    .younzee-chatbot-typing-dot:nth-child(3) {
+    .wikzy-chatbot-typing-dot:nth-child(3) {
       animation-delay: 0.4s;
     }
     
@@ -480,7 +480,7 @@
       30% { transform: translateY(-10px); opacity: 1; }
     }
     
-    .younzee-chatbot-powered {
+    .wikzy-chatbot-powered {
       text-align: center;
       padding: 10px;
       font-size: 11px;
@@ -490,18 +490,18 @@
       backdrop-filter: blur(16px);
     }
     
-    .younzee-chatbot-powered a {
+    .wikzy-chatbot-powered a {
       color: var(--accent-color);
       text-decoration: none;
       font-weight: 600;
       transition: color 0.2s ease;
     }
     
-    .younzee-chatbot-powered a:hover {
+    .wikzy-chatbot-powered a:hover {
       color: var(--secondary-color);
     }
     
-    .younzee-attention-text-container {
+    .wikzy-attention-text-container {
       position: absolute;
       width: calc(var(--button-size) + var(--orbit-radius) * 2);
       height: calc(var(--button-size) + var(--orbit-radius) * 2);
@@ -514,7 +514,7 @@
       perspective: 800px; /* Ajouté pour effet 3D */
     }
     
-    .younzee-attention-text {
+    .wikzy-attention-text {
       position: absolute;
       display: inline-flex;
       background:  linear-gradient(135deg, #ffdd5b 0%, #ff6f61 100%);
@@ -529,7 +529,7 @@
       transition: opacity 0.4s ease;
     }
     
-    .younzee-attention-text span {
+    .wikzy-attention-text span {
       display: inline-block;
       transform-origin: center calc(var(--button-size) / 2 + var(--orbit-radius));
       margin: 0 0.6px;
@@ -537,7 +537,7 @@
       transition: transform 0.3s ease;
     }
     
-    .younzee-attention-text.trail::after {
+    .wikzy-attention-text.trail::after {
       content: '';
       position: absolute;
       top: -10px;
@@ -551,7 +551,7 @@
       z-index: -1;
     }
     
-    .younzee-attention-text.particle::after {
+    .wikzy-attention-text.particle::after {
       content: '';
       position: absolute;
       top: -8px;
@@ -563,33 +563,33 @@
       z-index: -1;
     }
     
-    .younzee-attention-text.fade {
+    .wikzy-attention-text.fade {
       animation: fadeAttention 1.5s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
-    .younzee-attention-text.slide {
+    .wikzy-attention-text.slide {
       animation: slideAttention 1.5s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
-    .younzee-attention-text.bounce {
+    .wikzy-attention-text.bounce {
       animation: bounceAttention 1.5s cubic-bezier(0.4, 0, 0.2, 1);
       top: 20px;
       right: 40px;
     }
     
-    .younzee-attention-text.glow {
+    .wikzy-attention-text.glow {
       animation: glowAttention 1.5s ease-in-out;
     }
     
-    .younzee-attention-text.pop {
+    .wikzy-attention-text.pop {
       animation: popAttention 1.5s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
-    .younzee-attention-text.wave {
+    .wikzy-attention-text.wave {
       animation: waveAttention 1.5s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
-    .younzee-attention-text.orbit-3d {
+    .wikzy-attention-text.orbit-3d {
       animation: orbitAttention3D var(--orbit-speed, 5s) linear infinite;
       transform-origin: center center;
     }
@@ -679,32 +679,32 @@
     }
     
     @media (prefers-color-scheme: dark) {
-      .younzee-chatbot-container[data-theme="auto"] {
+      .wikzy-chatbot-container[data-theme="auto"] {
         --background-color: rgba(30, 30, 30, 0.9);
         --text-color: #E5E7EB;
       }
       
-      .younzee-chatbot-container[data-theme="auto"] .younzee-chatbot-messages {
+      .wikzy-chatbot-container[data-theme="auto"] .wikzy-chatbot-messages {
         background: linear-gradient(180deg, rgba(40, 40, 40, 0.95) 0%, rgba(20, 20, 20, 0.95) 100%);
       }
       
-      .younzee-chatbot-container[data-theme="auto"] .younzee-chatbot-message.bot .younzee-chatbot-message-content {
+      .wikzy-chatbot-container[data-theme="auto"] .wikzy-chatbot-message.bot .wikzy-chatbot-message-content {
         background: rgba(50, 50, 50, 0.95);
         color: #E5E7EB;
       }
       
-      .younzee-chatbot-container[data-theme="auto"] .younzee-chatbot-input-container {
+      .wikzy-chatbot-container[data-theme="auto"] .wikzy-chatbot-input-container {
         background: rgba(30, 30, 30, 0.9);
       }
       
-      .younzee-chatbot-container[data-theme="auto"] .younzee-chatbot-powered {
+      .wikzy-chatbot-container[data-theme="auto"] .wikzy-chatbot-powered {
         background: rgba(30, 30, 30, 0.9);
         color: #9CA3AF;
       }
     }
     
     @media (max-width: 480px) {
-      .younzee-chatbot-window {
+      .wikzy-chatbot-window {
         width: calc(100vw - 40px);
         height: calc(100vh - 100px);
         bottom: calc(var(--button-size) + 20px);
@@ -712,7 +712,7 @@
         left: 20px;
       }
       
-      .younzee-attention-text-container {
+      .wikzy-attention-text-container {
         --orbit-radius: 34px;
         width: calc(var(--button-size) + var(--orbit-radius) * 2);
         height: calc(var(--button-size) + var(--orbit-radius) * 2);
@@ -720,18 +720,18 @@
         left: calc(var(--orbit-radius) * -1);
       }
       
-      .younzee-attention-text {
+      .wikzy-attention-text {
         font-size: 11px;
         padding: 5px 10px;
       }
       
-      .younzee-attention-text span {
+      .wikzy-attention-text span {
         font-size: 10px;
         margin: 0 0.4px;
         transform-origin: center calc(var(--button-size) / 2 + var(--orbit-radius));
       }
       
-      .younzee-chatbot-quick-reply {
+      .wikzy-chatbot-quick-reply {
         font-size: 12px;
         padding: 6px 12px;
       }
@@ -740,7 +740,7 @@
 
   // CSS du carousel (amélioré pour plus de dynamisme)
   const CAROUSEL_CSS = `
-    .younzee-carousel-container {
+    .wikzy-carousel-container {
       margin-top: 14px;
       width: 100%;
       max-width: 360px;
@@ -752,11 +752,11 @@
       padding: 14px 0 10px 0;
       backdrop-filter: blur(10px);
     }
-    .younzee-carousel-track {
+    .wikzy-carousel-track {
       display: flex;
       transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .younzee-carousel-item {
+    .wikzy-carousel-item {
       min-width: 150px;
       max-width: 150px;
       max-height: 280px;
@@ -771,11 +771,11 @@
       position: relative;
       transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
-    .younzee-carousel-item:hover {
+    .wikzy-carousel-item:hover {
       transform: translateY(-5px);
       box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
     }
-    .younzee-carousel-img {
+    .wikzy-carousel-img {
       width: 130px;
       height: 130px;
       object-fit: cover;
@@ -784,10 +784,10 @@
       margin-bottom: 8px;
       transition: transform 0.3s ease;
     }
-    .younzee-carousel-img:hover {
+    .wikzy-carousel-img:hover {
       transform: scale(1.03);
     }
-    .younzee-carousel-title {
+    .wikzy-carousel-title {
       font-size: 11px;
       font-weight: 600;
       color: #1f2937;
@@ -800,7 +800,7 @@
       line-clamp: 2;
       -webkit-box-orient: vertical;
     }
-    .younzee-carousel-price {
+    .wikzy-carousel-price {
       font-size: 10px;
       font-weight: 700;
       color: #1f2937;
@@ -812,7 +812,7 @@
       top: 110px;
       right: 10px;
     }
-    .younzee-carousel-btn {
+    .wikzy-carousel-btn {
       background: linear-gradient(135deg, #ffdd5b, #ff6f61);
       color: #1f2937;
       border: none;
@@ -824,11 +824,11 @@
       margin-top: auto;
       transition: all 0.3s ease;
     }
-    .younzee-carousel-btn:hover {
+    .wikzy-carousel-btn:hover {
       background: linear-gradient(135deg, #ffe88a, #ff8a80);
       transform: scale(1.06);
     }
-    .younzee-carousel-arrow {
+    .wikzy-carousel-arrow {
       position: absolute;
       top: 50%;
       transform: translateY(-50%);
@@ -848,28 +848,28 @@
       transition: all 0.3s ease;
       backdrop-filter: blur(6px);
     }
-    .younzee-carousel-arrow:hover {
+    .wikzy-carousel-arrow:hover {
       background: linear-gradient(135deg, #ffdd5b, #ff6f61);
       transform: translateY(-50%) scale(1.12);
       color: white;
     }
-    .younzee-carousel-arrow:active {
+    .wikzy-carousel-arrow:active {
       transform: translateY(-50%) scale(0.95);
     }
-    .younzee-carousel-arrow.disabled {
+    .wikzy-carousel-arrow.disabled {
       opacity: 0.4;
       cursor: default;
       pointer-events: none;
     }
-    .younzee-carousel-arrow.left { left: 5px; }
-    .younzee-carousel-arrow.right { right: 5px; }
+    .wikzy-carousel-arrow.left { left: 5px; }
+    .wikzy-carousel-arrow.right { right: 5px; }
   `;
 
   // Ajoute le CSS du carousel
   function injectCarouselStyles() {
-    if (!document.getElementById('younzee-carousel-styles')) {
+    if (!document.getElementById('wikzy-carousel-styles')) {
       const style = document.createElement('style');
-      style.id = 'younzee-carousel-styles';
+      style.id = 'wikzy-carousel-styles';
       style.textContent = CAROUSEL_CSS;
       document.head.appendChild(style);
     }
@@ -879,22 +879,22 @@
   function createCarousel(products) {
     injectCarouselStyles();
     const container = document.createElement('div');
-    container.className = 'younzee-carousel-container';
+    container.className = 'wikzy-carousel-container';
     const track = document.createElement('div');
-    track.className = 'younzee-carousel-track';
+    track.className = 'wikzy-carousel-track';
     products.forEach((product) => {
       const item = document.createElement('div');
-      item.className = 'younzee-carousel-item';
+      item.className = 'wikzy-carousel-item';
       const img = document.createElement('img');
-      img.className = 'younzee-carousel-img';
+      img.className = 'wikzy-carousel-img';
       img.src = product.images && product.images.length > 0 ? product.images[0] : (product.thumbnailUrl || '/no-image.jpg');
       img.alt = product.title || product.name || 'Produit';
-      img.onerror = () => { img.src = 'https://younzeeadmin.vercel.app/no-image.jpg'; };
+      img.onerror = () => { img.src = 'https://wikzyadmin.vercel.app/no-image.jpg'; };
       const title = document.createElement('div');
-      title.className = 'younzee-carousel-title';
+      title.className = 'wikzy-carousel-title';
       title.textContent = product.title || product.name || 'Produit';
       const price = document.createElement('div');
-      price.className = 'younzee-carousel-price';
+      price.className = 'wikzy-carousel-price';
       price.textContent = product.price ? `${product.price}€` : '';
       let colorDiv = null;
       if (product.colors && Array.isArray(product.colors) && product.colors.length > 0) {
@@ -912,9 +912,9 @@
         sizeDiv.textContent = 'Taille : ' + product.sizes[0];
       }
       const btn = document.createElement('button');
-      btn.className = 'younzee-carousel-btn';
+      btn.className = 'wikzy-carousel-btn';
       btn.textContent = 'Découvrir';
-      btn.onclick = () => { if (product.handle) window.open('https://store.younzee.com/products/' + product.handle, '_blank'); };
+      btn.onclick = () => { if (product.handle) window.open('https://store.wikzy.com/products/' + product.handle, '_blank'); };
       item.appendChild(img);
       item.appendChild(title);
       item.appendChild(price);
@@ -955,7 +955,7 @@
         };
         
         const left = document.createElement('div');
-        left.className = 'younzee-carousel-arrow left';
+        left.className = 'wikzy-carousel-arrow left';
         left.innerHTML = '&#8592;';
         left.onclick = (e) => {
           e.stopPropagation();
@@ -967,7 +967,7 @@
         };
         
         const right = document.createElement('div');
-        right.className = 'younzee-carousel-arrow right';
+        right.className = 'wikzy-carousel-arrow right';
         right.innerHTML = '&#8594;';
         right.onclick = (e) => {
           e.stopPropagation();
@@ -989,7 +989,7 @@
 
   // Fonction pour jouer des sons
   function playSound(type) {
-    if (!window.YounzeeChatbotInstance || !window.YounzeeChatbotInstance.config.enableSound) return;
+    if (!window.WikzyChatbotInstance || !window.WikzyChatbotInstance.config.enableSound) return;
     const sounds = {
       click: 'https://assets.mixkit.co/sfx/preview/mixkit-click-soft-1110.mp3',
       send: 'https://assets.mixkit.co/sfx/preview/mixkit-message-pop-alert-2354.mp3',
@@ -1000,7 +1000,7 @@
     audio.play().catch(() => {});
   }
 
-  class YounzeeChatbot {
+  class WikzyChatbot {
     constructor(config = {}) {
       this.config = { ...DEFAULT_CONFIG, ...config };
       this.isOpen = false;
@@ -1011,7 +1011,7 @@
       this.sendButton = null;
       this.attentionInterval = null;
       this.currentMessageIndex = 0; // Pour alterner entre les messages flottants
-      window.YounzeeChatbotInstance = this; // Pour accès global aux sons
+      window.WikzyChatbotInstance = this; // Pour accès global aux sons
       
       this.init();
     }
@@ -1058,10 +1058,10 @@
     }
 
     injectStyles() {
-      if (document.getElementById('younzee-chatbot-styles')) return;
+      if (document.getElementById('wikzy-chatbot-styles')) return;
       
       const style = document.createElement('style');
-      style.id = 'younzee-chatbot-styles';
+      style.id = 'wikzy-chatbot-styles';
       let css = CSS_STYLES;
       
       css = css.replace(/var\(--primary-color\)/g, this.config.primaryColor);
@@ -1101,7 +1101,7 @@
 
     createChatbot() {
       this.container = document.createElement('div');
-      this.container.className = `younzee-chatbot-container ${this.config.position}`;
+      this.container.className = `wikzy-chatbot-container ${this.config.position}`;
       this.container.dataset.theme = this.config.theme;
       
       const firstMessage = this.config.attentionText.messages ? this.config.attentionText.messages[0] : 'Trouvez votre style !';
@@ -1119,57 +1119,57 @@
     //  }
       
       this.container.innerHTML = `
-        <button class="younzee-chatbot-button ${this.config.shadowEffect} ${this.config.animationStyle}" style="padding-top: 68px;">
+        <button class="wikzy-chatbot-button ${this.config.shadowEffect} ${this.config.animationStyle}" style="padding-top: 68px;">
           ${this.config.customIcon ? this.config.customIcon : '<img src="http://localhost:3000/styli.png" alt="Styli" style="width: 130px; height: 130px;">'}
         </button>
-        <div class="younzee-attention-text-container" style="display: none;">
-          <div class="younzee-attention-text ${this.config.attentionText.animation}${this.config.attentionText.particleEffect ? ' particle' : ''}${this.config.attentionText.trailEffect ? ' trail' : ''}">
+        <div class="wikzy-attention-text-container" style="display: none;">
+          <div class="wikzy-attention-text ${this.config.attentionText.animation}${this.config.attentionText.particleEffect ? ' particle' : ''}${this.config.attentionText.trailEffect ? ' trail' : ''}">
             ${this.config.attentionText.messages ? this.config.attentionText.messages[0] : 'Trouvez votre style !'}
           </div>
         </div>
-        <div class="younzee-chatbot-window">
-          <div class="younzee-chatbot-header">
-            <div class="younzee-chatbot-header-content">
-              <div class="younzee-chatbot-avatar">
+        <div class="wikzy-chatbot-window">
+          <div class="wikzy-chatbot-header">
+            <div class="wikzy-chatbot-header-content">
+              <div class="wikzy-chatbot-avatar">
                 ${this.config.customIcon ? this.config.customIcon : '<img src="http://localhost:3000/styli.png" alt="Styli" style="width: 50px; height: 50px;">'}
               </div>
-              <div class="younzee-chatbot-header-text">
+              <div class="wikzy-chatbot-header-text">
                 <h3 style="font-family: sans-serif;">${this.config.title}</h3>
                 <p>${this.config.subtitle}</p>
               </div>
             </div>
-            <button class="younzee-chatbot-close">✕</button>
+            <button class="wikzy-chatbot-close">✕</button>
           </div>
           
-          <div class="younzee-chatbot-messages"></div>
+          <div class="wikzy-chatbot-messages"></div>
           
-          <div class="younzee-chatbot-input-container">
-            <div class="younzee-chatbot-quick-replies"></div>
-            <div class="younzee-chatbot-input-wrapper">
+          <div class="wikzy-chatbot-input-container">
+            <div class="wikzy-chatbot-quick-replies"></div>
+            <div class="wikzy-chatbot-input-wrapper">
               <textarea 
-                class="younzee-chatbot-input" 
+                class="wikzy-chatbot-input" 
                 placeholder="${this.config.placeholder}"
                 rows="1"
                 style="margin-right: 10px;"
               ></textarea>
-              <button class="younzee-chatbot-send">➤</button>
+              <button class="wikzy-chatbot-send">➤</button>
             </div>
           </div>
           
-          <div class="younzee-chatbot-powered">
-            Propulsé par <a href="https://younzee.com" target="_blank">Younzee</a>
+          <div class="wikzy-chatbot-powered">
+            Propulsé par <a href="https://wikzy.com" target="_blank">Wikzy</a>
           </div>
         </div>
       `;
       
       document.body.appendChild(this.container);
       
-      this.messagesContainer = this.container.querySelector('.younzee-chatbot-messages');
-      this.inputElement = this.container.querySelector('.younzee-chatbot-input');
-      this.sendButton = this.container.querySelector('.younzee-chatbot-send');
+      this.messagesContainer = this.container.querySelector('.wikzy-chatbot-messages');
+      this.inputElement = this.container.querySelector('.wikzy-chatbot-input');
+      this.sendButton = this.container.querySelector('.wikzy-chatbot-send');
       
       if (this.config.attentionText.animation === 'orbit-3d') {
-        const attentionText = this.container.querySelector('.younzee-attention-text');
+        const attentionText = this.container.querySelector('.wikzy-attention-text');
         attentionText.style.animationName = this.config.attentionText.orbitDirection === 'clockwise' ? 'orbitAttention3D' : 'orbitAttentionCounter3D';
         attentionText.style.transformOrigin = `center center`;
       }
@@ -1178,11 +1178,11 @@
     }
 
     renderQuickReplies() {
-      const quickRepliesContainer = this.container.querySelector('.younzee-chatbot-quick-replies');
+      const quickRepliesContainer = this.container.querySelector('.wikzy-chatbot-quick-replies');
       quickRepliesContainer.innerHTML = '';
       this.config.quickReplies.forEach(reply => {
         const button = document.createElement('button');
-        button.className = 'younzee-chatbot-quick-reply';
+        button.className = 'wikzy-chatbot-quick-reply';
         button.textContent = reply;
         button.onclick = () => {
           this.inputElement.value = reply;
@@ -1194,8 +1194,8 @@
     }
 
     bindEvents() {
-      const button = this.container.querySelector('.younzee-chatbot-button');
-      const closeButton = this.container.querySelector('.younzee-chatbot-close');
+      const button = this.container.querySelector('.wikzy-chatbot-button');
+      const closeButton = this.container.querySelector('.wikzy-chatbot-close');
       
       button.addEventListener('click', () => {
         this.toggle();
@@ -1224,8 +1224,8 @@
     }
 
     startAttentionAnimation() {
-      const attentionTextContainer = this.container.querySelector('.younzee-attention-text-container');
-      const attentionText = this.container.querySelector('.younzee-attention-text');
+      const attentionTextContainer = this.container.querySelector('.wikzy-attention-text-container');
+      const attentionText = this.container.querySelector('.wikzy-attention-text');
       
       if (!attentionText || !attentionTextContainer) return;
       
@@ -1268,8 +1268,8 @@
         clearInterval(this.attentionInterval);
         this.attentionInterval = null;
       }
-      const attentionTextContainer = this.container.querySelector('.younzee-attention-text-container');
-      const attentionText = this.container.querySelector('.younzee-attention-text');
+      const attentionTextContainer = this.container.querySelector('.wikzy-attention-text-container');
+      const attentionText = this.container.querySelector('.wikzy-attention-text');
       
       if (attentionText) {
         attentionText.style.opacity = '0';
@@ -1290,14 +1290,14 @@
 
     open() {
       this.isOpen = true;
-      this.container.querySelector('.younzee-chatbot-window').classList.add('open');
+      this.container.querySelector('.wikzy-chatbot-window').classList.add('open');
       this.inputElement.focus();
       this.stopAttentionAnimation();
     }
 
     close() {
       this.isOpen = false;
-      this.container.querySelector('.younzee-chatbot-window').classList.remove('open');
+      this.container.querySelector('.wikzy-chatbot-window').classList.remove('open');
       // Redémarrer les messages flottants seulement si l'ouverture automatique n'est pas activée
       if (this.config.attentionText.enabled && !this.config.autoOpen) {
         this.startAttentionAnimation();
@@ -1315,10 +1315,10 @@
       }
 
       const messageDiv = document.createElement('div');
-      messageDiv.className = `younzee-chatbot-message ${type}`;
+      messageDiv.className = `wikzy-chatbot-message ${type}`;
       
       const contentDiv = document.createElement('div');
-      contentDiv.className = 'younzee-chatbot-message-content';
+      contentDiv.className = 'wikzy-chatbot-message-content';
       
       if (type === 'user') {
         contentDiv.style.background = `linear-gradient(135deg, ${this.config.primaryColor}, ${this.config.accentColor})`;
@@ -1344,14 +1344,14 @@
     }
 
     showTypingIndicator() {
-      if (this.container.querySelector('.younzee-chatbot-typing')) return;
+      if (this.container.querySelector('.wikzy-chatbot-typing')) return;
       
       const typingDiv = document.createElement('div');
-      typingDiv.className = 'younzee-chatbot-typing';
+      typingDiv.className = 'wikzy-chatbot-typing';
       typingDiv.innerHTML = `
-        <div class="younzee-chatbot-typing-dot"></div>
-        <div class="younzee-chatbot-typing-dot"></div>
-        <div class="younzee-chatbot-typing-dot"></div>
+        <div class="wikzy-chatbot-typing-dot"></div>
+        <div class="wikzy-chatbot-typing-dot"></div>
+        <div class="wikzy-chatbot-typing-dot"></div>
       `;
       
       this.messagesContainer.appendChild(typingDiv);
@@ -1359,7 +1359,7 @@
     }
 
     hideTypingIndicator() {
-      const typing = this.container.querySelector('.younzee-chatbot-typing');
+      const typing = this.container.querySelector('.wikzy-chatbot-typing');
       if (typing) {
         typing.remove();
       }
@@ -1446,7 +1446,7 @@
         this.container.remove();
       }
       
-      const styles = document.getElementById('younzee-chatbot-styles');
+      const styles = document.getElementById('wikzy-chatbot-styles');
       if (styles) {
         styles.remove();
       }
@@ -1488,9 +1488,9 @@
     }
   }
 
-  window.YounzeeChatbot = YounzeeChatbot;
+  window.WikzyChatbot = WikzyChatbot;
 
-  if (window.younzeeChatbotConfig) {
-    new YounzeeChatbot(window.younzeeChatbotConfig);
+  if (window.wikzyChatbotConfig) {
+    new WikzyChatbot(window.wikzyChatbotConfig);
   }
 })();

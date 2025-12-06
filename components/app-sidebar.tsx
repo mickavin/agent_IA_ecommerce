@@ -79,7 +79,7 @@ const mainNavItems = [
 
 const secondaryNavItems = [
   { href: "/settings", label: "Paramètres", icon: Settings }, 
-  { href: "/support", label: "Support Younzee", icon: Headset }
+  { href: "/support", label: "Support Wikzy", icon: Headset }
 ]
 
 export function AppSidebar() {
@@ -132,8 +132,42 @@ export function AppSidebar() {
       {" "}
       {/* Ensure bg for sidebar */}
       <SidebarHeader className="p-4 flex items-center justify-center group-data-[collapsible=icon]:justify-center">
-        <Link href="/products" className="flex items-center gap-2.5 text-primary">
-          <img src="/Logo-Younz.webp" alt="logo" className="h-10" />
+        <Link 
+          href="/products" 
+          className="flex items-center gap-2.5 group-data-[collapsible=icon]:justify-center group relative"
+        >
+          <div className="relative inline-block">
+            {/* Effet de glow en arrière-plan */}
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-primary/30 to-primary/20 blur-lg rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10" />
+            
+            {/* Badge décoratif */}
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full opacity-80 group-data-[collapsible=icon]:hidden animate-pulse" />
+            
+            {/* Texte principal avec gradient animé */}
+            <span 
+              className="relative text-3xl font-extrabold tracking-tight bg-gradient-to-r from-primary via-primary/90 to-primary bg-clip-text text-transparent group-data-[collapsible=icon]:text-xl group-hover:from-primary group-hover:via-primary group-hover:to-primary/80 transition-all duration-300"
+              style={{ 
+                fontFamily: 'var(--font-inter), system-ui, -apple-system, sans-serif',
+                letterSpacing: '-0.03em',
+                fontWeight: 800,
+                //textShadow: '0 0 20px hsl(var(--primary) / 0.3)',
+                //filter: 'drop-shadow(0 2px 4px hsl(var(--primary) / 0.2))'
+              }}
+            >
+              <span className="text-white">Wik</span>zy
+            </span>
+            
+            {/* Ligne décorative animée */}
+            <div className="absolute -bottom-1 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent rounded-full opacity-70 group-data-[collapsible=icon]:hidden group-hover:opacity-100 transition-opacity duration-300" 
+              style={{
+                //boxShadow: '0 0 8px hsl(var(--primary) / 0.5)'
+              }}
+            />
+            
+            {/* Effet de brillance au hover 
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-10000 group-data-[collapsible=icon]:hidden" />
+          */}
+          </div>
         </Link>
       </SidebarHeader>
       <SidebarContent className="flex-grow p-2">

@@ -332,7 +332,7 @@ export default function ConversationsPage() {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Bot className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">Assistant Younzee</span>
+                      <span className="text-sm">Assistant Wikzy</span>
                     </div>
                   </TableCell>
                   <TableCell>

@@ -76,7 +76,7 @@ const colorPalettes = [
     background: "#FAFAFA"
   },
   {
-    name: "Younzee (Défaut)",
+    name: "Wikzy (Défaut)",
     primary: "#3B82F6",
     secondary: "#EFF6FF",
     accent: "#1E40AF",
@@ -327,7 +327,7 @@ export default function NewBotPage() {
                 <label className="text-sm font-medium">Nom du bot</label>
                 <input 
                   type="text" 
-                  placeholder="Ex: Assistant Younzee"
+                  placeholder="Ex: Assistant Wikzy"
                   className="w-full mt-1 px-3 py-2 border rounded-md"
                             />
                           </div>
@@ -364,11 +364,11 @@ export default function NewBotPage() {
                 <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                   <Bot className="h-4 w-4 text-white" />
                 </div>
-                <span className="font-medium">Assistant Younzee</span>
+                <span className="font-medium">Assistant Wikzy</span>
               </div>
               <div className="space-y-2 text-sm">
                 <div className="bg-blue-100 p-2 rounded">
-                  Bonjour ! Je suis votre assistant Younzee. Comment puis-je vous aider aujourd'hui ?
+                  Bonjour ! Je suis votre assistant Wikzy. Comment puis-je vous aider aujourd'hui ?
                 </div>
                 <div className="text-muted-foreground text-right">
                   Tapez votre message...

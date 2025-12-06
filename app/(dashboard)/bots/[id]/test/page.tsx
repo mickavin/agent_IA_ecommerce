@@ -35,7 +35,7 @@ import { ProductCarousel } from "@/components/product-carousel"
 // Simulation de données du chatbot
 const mockChatbot: Chatbot = {
   id: "1",
-  name: "Assistant Younzee",
+  name: "Assistant Wikzy",
   description: "Chatbot intelligent avec recommandations produits",
   status: "En test",
   createdAt: "2024-01-15",
@@ -100,11 +100,25 @@ export default function TestBotPage() {
     const fetchChatbot = async () => {
       if (!botId) return
       if (supabase) {
-      const { data, error } = await supabase?.from('chatbots')
-      .select('*')
-      .eq('id', botId)
-      .single()
-      
+        const { data, error } = await supabase?.from('chatbots')
+          .select('*')
+          .eq('id', botId)
+          .single()
+        
+        if (error) {
+          // Si la table n'existe pas, ignorer silencieusement
+          if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
+            console.warn('⚠️ Table chatbots non trouvée.')
+            return
+          }
+          console.error('Erreur lors de la récupération du chatbot:', error)
+          return
+        }
+        
+        if (data) {
+          // Traiter les données du chatbot si nécessaire
+          // setChatbot(data)
+        }
       }
     }
     fetchChatbot()
@@ -235,7 +249,7 @@ export default function TestBotPage() {
                       {chatbot.name}
                       <Sparkles className="h-4 w-4 text-purple-500" />
                     </CardTitle>
-                    <CardDescription>Propulsé par Younzee - Agent IA expert en mode</CardDescription>
+                    <CardDescription>Propulsé par Wikzy - Agent IA expert en mode</CardDescription>
                   </div>
                 </div>
                 <div className="flex gap-2">

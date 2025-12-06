@@ -4,7 +4,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { Header } from "@/components/header"
 
 export const metadata: Metadata = {
-  title: "Dashboard - Younzee",
+  title: "Dashboard - Wikzy",
   description: "Tableau de bord e-commerce",
 }
 

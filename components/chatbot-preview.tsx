@@ -32,7 +32,7 @@ interface ChatbotPreviewProps {
 export function ChatbotPreview({ 
   visualConfig, 
   personality, 
-  chatbotName = "Assistant Younzee",
+  chatbotName = "Assistant Wikzy",
   interactive = false,
   className = ""
 }: ChatbotPreviewProps) {

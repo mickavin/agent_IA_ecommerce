@@ -52,7 +52,7 @@ const defaultConfig = {
 // Simulation de données du chatbot
 const mockChatbot: Chatbot = {
   id: "1",
-  name: "Assistant Younzee",
+  name: "Assistant Wikzy",
   description: "Chatbot intelligent avec recommandations produits",
   status: "Actif",
   createdAt: "2024-01-15",
@@ -109,7 +109,7 @@ export default function ChatbotEmbedPage() {
     const url = generateWidgetUrl()
     const sizeProps = getSizeProperties()
     
-    return `<!-- Younzee Chatbot Widget -->
+    return `<!-- Wikzy Chatbot Widget -->
 <iframe 
   src="${url}"
   width="${sizeProps.width}"
@@ -117,7 +117,7 @@ export default function ChatbotEmbedPage() {
   frameborder="0"
   allow="microphone"
   style="position: fixed; ${getPositionStyles()}; z-index: 9999; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.12);"
-  title="Assistant Younzee"
+  title="Assistant Wikzy"
 ></iframe>`
   }
 
@@ -125,12 +125,12 @@ export default function ChatbotEmbedPage() {
   const generateJavaScriptCode = () => {
     const url = generateWidgetUrl()
     
-    return `<!-- Younzee Chatbot Widget - JavaScript Integration -->
+    return `<!-- Wikzy Chatbot Widget - JavaScript Integration -->
 <script>
 (function() {
   var chatbotConfig = ${JSON.stringify(config, null, 2)};
   
-  function loadYounzeeChatbot() {
+  function loadWikzyChatbot() {
     var iframe = document.createElement('iframe');
     iframe.src = '${url}';
     iframe.width = '${getSizeProperties().width}';
@@ -138,7 +138,7 @@ export default function ChatbotEmbedPage() {
     iframe.frameBorder = '0';
     iframe.allow = 'microphone';
     iframe.style.cssText = 'position: fixed; ${getPositionStyles()}; z-index: 9999; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.12);';
-    iframe.title = 'Assistant Younzee';
+    iframe.title = 'Assistant Wikzy';
     
     document.body.appendChild(iframe);
     
@@ -149,13 +149,13 @@ export default function ChatbotEmbedPage() {
       // Gérer les événements du chatbot
       switch(event.data.type) {
         case 'chatbot-ready':
-          console.log('Younzee Chatbot: Widget prêt');
+          console.log('Wikzy Chatbot: Widget prêt');
           break;
         case 'chatbot-message-sent':
-          console.log('Younzee Chatbot: Message envoyé', event.data.message);
+          console.log('Wikzy Chatbot: Message envoyé', event.data.message);
           break;
         case 'chatbot-conversation-started':
-          console.log('Younzee Chatbot: Conversation démarrée');
+          console.log('Wikzy Chatbot: Conversation démarrée');
           break;
       }
     });
@@ -163,9 +163,9 @@ export default function ChatbotEmbedPage() {
   
   // Charger le chatbot quand le DOM est prêt
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadYounzeeChatbot);
+    document.addEventListener('DOMContentLoaded', loadWikzyChatbot);
   } else {
-    loadYounzeeChatbot();
+    loadWikzyChatbot();
   }
 })();
 </script>`
@@ -182,13 +182,13 @@ ${generateIframeCode()}
 <!-- Ajoutez ce code dans functions.php de votre thème : -->
 
 <?php
-function younzee_chatbot_shortcode() {
+function wikzy_chatbot_shortcode() {
     return '${generateIframeCode().replace(/'/g, "\\'")}';
 }
-add_shortcode('younzee_chatbot', 'younzee_chatbot_shortcode');
+add_shortcode('wikzy_chatbot', 'wikzy_chatbot_shortcode');
 ?>
 
-<!-- Puis utilisez [younzee_chatbot] dans vos pages/articles -->`
+<!-- Puis utilisez [wikzy_chatbot] dans vos pages/articles -->`
   }
 
   const getSizeProperties = () => {
@@ -468,7 +468,7 @@ add_shortcode('younzee_chatbot', 'younzee_chatbot_shortcode');
                     <div className="space-y-0.5">
                       <Label>Afficher le branding</Label>
                       <p className="text-xs text-muted-foreground">
-                        Affiche "Propulsé par Younzee"
+                        Affiche "Propulsé par Wikzy"
                       </p>
                     </div>
                     <Switch
@@ -572,7 +572,7 @@ add_shortcode('younzee_chatbot', 'younzee_chatbot_shortcode');
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => downloadFile(generateIframeCode(), 'younzee-chatbot.html')}
+                      onClick={() => downloadFile(generateIframeCode(), 'wikzy-chatbot.html')}
                     >
                       <Download className="h-4 w-4 mr-2" />
                       Télécharger HTML
@@ -649,7 +649,7 @@ add_shortcode('younzee_chatbot', 'younzee_chatbot_shortcode');
                   </div>
                   <div className="bg-purple-50 p-3 rounded border border-purple-200">
                     <p className="text-sm text-purple-800">
-                      <strong>Instructions :</strong> Utilisez le shortcode [younzee_chatbot] ou ajoutez le code directement dans votre thème
+                      <strong>Instructions :</strong> Utilisez le shortcode [wikzy_chatbot] ou ajoutez le code directement dans votre thème
                     </p>
                   </div>
                 </div>

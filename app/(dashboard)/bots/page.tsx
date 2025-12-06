@@ -66,7 +66,7 @@ import { supabase } from "@/lib/supabase"
 const mockChatbots: Chatbot[] = [
   {
     id: "1",
-    name: "Assistant Younzee",
+    name: "Assistant Wikzy",
     description: "Chatbot principal pour l'assistance clientèle",
     status: "Actif",
     createdAt: "2024-01-15",
@@ -153,9 +153,15 @@ export default function BotsPage() {
     }
     const { data: chatbots, error } = await supabase.from('chatbots').select('*')
     if (error) {
+      // Si la table n'existe pas, retourner un tableau vide au lieu d'une erreur
+      if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
+        console.warn('⚠️ Table chatbots non trouvée. Retour d\'un tableau vide.')
+        return []
+      }
       console.error('Erreur lors de la récupération des chatbots:', error)
+      return []
     }
-    return chatbots
+    return chatbots || []
 
   }
   useEffect(() => {
@@ -272,7 +278,7 @@ export default function BotsPage() {
       {/* Liste des chatbots */}
       <Card>
         <CardHeader>
-          <CardTitle>Vos Assistants IA Younzee</CardTitle>
+          <CardTitle>Vos Assistants IA Wikzy</CardTitle>
           <CardDescription>
             Gérez la configuration et les performances de vos assistants virtuels
           </CardDescription>

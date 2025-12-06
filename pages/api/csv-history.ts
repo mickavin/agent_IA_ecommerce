@@ -33,6 +33,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .limit(20) // Limiter à 20 derniers fichiers
 
     if (error) {
+      // Si la table n'existe pas, retourner un tableau vide au lieu d'une erreur
+      if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
+        console.warn('⚠️ Table importations non trouvée. Retour d\'un tableau vide.')
+        return res.status(200).json({
+          success: true,
+          data: [],
+          message: 'Aucun historique disponible (table non créée)'
+        })
+      }
+      
       console.error('Erreur Supabase:', error)
       return res.status(500).json({
         success: false,

@@ -9,8 +9,8 @@ import { Toaster } from "@/components/ui/sonner"
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 
 export const metadata: Metadata = {
-  title: "Younzee Admin",
-  description: "Back-office pour Younzee",
+  title: "Wikzy Admin",
+  description: "Back-office pour Wikzy",
     generator: 'v0.dev'
 }
 

@@ -63,7 +63,7 @@ export function IntelligentChatbot({
   className = "", 
   visualConfig = defaultVisualConfig,
   personality = defaultPersonality,
-  chatbotName = "Assistant Younzee",
+  chatbotName = "Assistant Wikzy",
   showSparkles = true
 }: IntelligentChatbotProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([

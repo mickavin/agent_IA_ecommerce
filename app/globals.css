@@ -11,7 +11,7 @@
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 47.56 100% 67.84%; 
+    --primary: 0 100% 78%; 
     --primary-foreground: 240 10% 3.9%;
     --secondary: 210 31% 17%; 
     --secondary-foreground: 0 0% 98%;
@@ -37,7 +37,7 @@
     --popover: 240 0% 10.2%;    
     --popover-foreground: 0 0% 97.3%;   
 
-    --primary: 47.56 100% 67.84%; 
+    --primary: 0 100% 78%; 
     --primary-foreground: 240 0% 7.1%;   
 
     --secondary: 210 31% 16.7%;   
@@ -93,3 +93,25 @@
   max-width: 100%;
 }
 
+.bg-green-600 {
+  background-color: hsl(142.02, 46.78%, 54.31%);
+}
+
+/* Animations pour le logo Wikzy */
+@keyframes logo-glow {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-200%) skewX(-12deg);
+  }
+  100% {
+    transform: translateX(200%) skewX(-12deg);
+  }
+}
