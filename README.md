@@ -199,4 +199,4 @@ TEST_MODE=true  # Utilise des réponses simulées sans OpenAI
 
 **🎉 Votre assistant IA mode est maintenant propulsé par OpenAI !**
 
-Pour toute question : [Créer une issue](https://github.com/votre-repo/issues) 
+Pour toute question : [Créer une issue](https://github.com/votre-repo/issues) # agent_IA_ecommerce
