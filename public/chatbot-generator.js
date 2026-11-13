@@ -8,15 +8,15 @@
     subtitle: 'Votre styliste personnel, toujours à vos côtés',
     apiEndpoint: 'http://localhost:3000/api/ai/master',
     position: 'bottom-right',
-    primaryColor: '#ffdd5b',
-    secondaryColor: '#ffd700',
-    accentColor: '#ff6f61', // Nouvelle couleur d'accent pour dynamisme
+    primaryColor: '#ff6f61',
+    secondaryColor: '#ffdd5b',
+    accentColor: '#ffdd5b',
     textColor: '#1F2937',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: '#FFFFFF',
     borderRadius: '24px',
     size: 'standard',
     showTypingIndicator: true,
-    enableSound: true, // Activé par défaut pour micro-interactions
+    enableSound: true,
     autoOpen: false,
     autoOpenDelay: 2000,
     welcomeMessage: '✨ Bonjour ! Je suis Wikzy, votre styliste personnel. Prêt à trouver le look parfait ? Essayez "robes", "chaussures" ou "nouveau style" !',
@@ -28,9 +28,21 @@
       empathy: 'Élevée',
       proactivity: 'Proactif'
     },
-    fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    buttonSize: 72, // Légèrement plus grand pour attirer l'attention
-    shadowEffect: 'neumorphic',
+    fontFamily: '"Poppins", sans-serif',
+    fontSize: 15,
+    buttonSize: 72,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    headerBackgroundColor: 'linear-gradient(135deg, #ffdd5b 0%, #ff6f61 100%)',
+    headerTextColor: '#FFFFFF',
+    headerPadding: 18,
+    headerTitleFontSize: 19,
+    avatarType: 'image', // 'image' ou 'none'
+    avatarValue: 'http://localhost:3000/styli.png',
+    buttonBackgroundColor: 'linear-gradient(135deg, #ffdd5b 0%, #ff6f61 100%)',
+    buttonIconColor: '#FFFFFF',
+    closeButtonColor: '#FFFFFF',
+    shadowEffect: 'medium',
     animationStyle: 'gradient-pulse',
     customIcon: null,
     attentionText: {
@@ -48,7 +60,7 @@
       duration: 3000,
       delay: 3000,
       repeatInterval: 8000,
-      particleEffect: true,
+      particleEffect: false,
       trailEffect: false,
       orbitRadius: 60,
       orbitSpeed: 5,
@@ -56,22 +68,69 @@
       curveIntensity: 0
     },
     theme: 'dark', // Support du mode clair/sombre
-    quickReplies: ["Je voudrais une robe blanche d'été en L", 'Propose moi des bottines marrons en 44'] // Suggestions rapides
-  };
+    quickReplies: ["Je voudrais une robe blanche d'été en L", 'Propose moi des bottines marrons en 44'], // Suggestions rapides
+    enableQuickReplies: true, // Activer/désactiver les réponses rapides
+    enableEmojis: true, // Autoriser l'utilisation d'emojis dans les messages
+    enableFileUpload: false, // Autoriser l'upload de fichiers
+    maxConversationLength: 50, // Nombre maximum de messages par conversation
+    responseDelay: 1000, // Délai de simulation de réponse (ms)
+    enableReadReceipts: false, // Afficher les accusés de lecture
+    workingHours: { // Heures d'ouverture
+      enabled: false,
+      start: '09:00',
+      end: '18:00',
+      timezone: 'Europe/Paris',
+      offlineMessage: 'Nous sommes actuellement fermés. Laissez-nous un message !'
+    },
+    customCSS: '', // CSS personnalisé à injecter
+    enableMarkdown: true, // Support du markdown dans les messages
+    showTimestamps: true, // Afficher les horodatages des messages
+    showAvatars: true, // Afficher les avatars
+      enableFeedback: true, // Système de feedback (like/dislike)
+      gdprCompliant: true, // Conformité RGPD
+      standalone: false // Mode autonome (plein écran sans bouton)
+    };
+
+  // Fonction pour générer les variables CSS dynamiques
+  const getRootStyles = (config) => `
+    :root {
+      --primary-color: ${config.primaryColor || DEFAULT_CONFIG.primaryColor};
+      --secondary-color: ${config.secondaryColor || DEFAULT_CONFIG.secondaryColor};
+      --accent-color: ${config.accentColor || DEFAULT_CONFIG.accentColor};
+      --text-color: ${config.textColor || DEFAULT_CONFIG.textColor};
+      --background-color: ${config.backgroundColor || DEFAULT_CONFIG.backgroundColor};
+      --font-family: ${config.fontFamily || DEFAULT_CONFIG.fontFamily};
+      --font-size: ${config.fontSize || DEFAULT_CONFIG.fontSize}px;
+      --button-size: ${config.buttonSize || DEFAULT_CONFIG.buttonSize}px;
+      --border-radius: ${config.borderRadius || DEFAULT_CONFIG.borderRadius};
+      --border-width: ${config.borderWidth !== undefined ? config.borderWidth : DEFAULT_CONFIG.borderWidth}px;
+      --border-color: ${config.borderColor || DEFAULT_CONFIG.borderColor};
+      --header-bg: ${config.headerBackgroundColor || config.primaryColor || DEFAULT_CONFIG.headerBackgroundColor};
+      --header-text: ${config.headerTextColor || DEFAULT_CONFIG.headerTextColor};
+      --header-padding: ${config.headerPadding || DEFAULT_CONFIG.headerPadding}px;
+      --header-title-size: ${config.headerTitleFontSize || DEFAULT_CONFIG.headerTitleFontSize}px;
+      --btn-bg: ${config.buttonBackgroundColor || config.primaryColor || DEFAULT_CONFIG.buttonBackgroundColor};
+      --btn-icon: ${config.buttonIconColor || '#FFFFFF'};
+      --close-btn: ${config.closeButtonColor || DEFAULT_CONFIG.closeButtonColor};
+      --attention-bg: ${(config.attentionText && config.attentionText.backgroundColor) || DEFAULT_CONFIG.attentionText.backgroundColor};
+      --attention-color: ${(config.attentionText && config.attentionText.color) || DEFAULT_CONFIG.attentionText.color};
+      --orbit-radius: ${(config.attentionText && config.attentionText.orbitRadius) || DEFAULT_CONFIG.attentionText.orbitRadius}px;
+      --orbit-speed: ${(config.attentionText && config.attentionText.orbitSpeed) || DEFAULT_CONFIG.attentionText.orbitSpeed}s;
+    }
+  `;
 
   // Classes CSS avec design premium
-  const CSS_STYLES = `
-    :root {
-      --primary-color: ${DEFAULT_CONFIG.primaryColor};
-      --secondary-color: ${DEFAULT_CONFIG.secondaryColor};
-      --accent-color: ${DEFAULT_CONFIG.accentColor};
-      --text-color: ${DEFAULT_CONFIG.textColor};
-      --background-color: ${DEFAULT_CONFIG.backgroundColor};
-      --font-family: ${DEFAULT_CONFIG.fontFamily};
-      --button-size: ${DEFAULT_CONFIG.buttonSize}px;
-      --border-radius: ${DEFAULT_CONFIG.borderRadius};
-      --orbit-radius: ${DEFAULT_CONFIG.attentionText.orbitRadius}px;
-      --orbit-speed: ${DEFAULT_CONFIG.attentionText.orbitSpeed}s;
+  const BASE_STYLES = `
+    .wikzy-chatbot-window {
+      border: var(--border-width) solid var(--border-color) !important;
+      border-radius: var(--border-radius) !important;
+      font-size: var(--font-size) !important;
+      background-color: var(--background-color) !important;
+      color: var(--text-color) !important;
+    }
+
+    .wikzy-chatbot-message-content {
+      font-size: var(--font-size) !important;
     }
 
     .wikzy-chatbot-message-content div:empty {
@@ -151,11 +210,29 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      color: white;
-      font-size: calc(var(--button-size) * 0.5);
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      color: var(--btn-icon);
+      background: var(--btn-bg);
+      font-size: calc(var(--button-size) * 0.45);
       position: relative;
       overflow: hidden;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+      padding: 0 !important; /* Reset padding to center icon */
+    }
+
+    .wikzy-chatbot-button img {
+      width: 150%;
+      max-width: 150%;
+      height: 150%;
+      object-fit: initial;
+      pointer-events: none;
+      margin-top: 50px;
+    }
+
+    .wikzy-chatbot-button svg {
+      width: 50%;
+      height: 50%;
+      pointer-events: none;
     }
     
     .wikzy-chatbot-button.neumorphic {
@@ -199,19 +276,41 @@
     
     .wikzy-chatbot-window {
       position: absolute;
-      bottom: calc(var(--button-size) + 28px);
+      bottom: calc(var(--button-size) + 20px);
       right: 0;
       width: var(--window-width, 420px);
       height: var(--window-height, 565px);
       background: var(--background-color);
-      backdrop-filter: blur(16px);
+      backdrop-filter: blur(20px);
       border-radius: var(--border-radius);
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), 0 0 10px rgba(255, 255, 255, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.25);
+      box-shadow: 0 15px 50px rgba(0, 0, 0, 0.2);
+      border: var(--border-width) solid var(--border-color);
       display: none;
       flex-direction: column;
       overflow: hidden;
       animation: popIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-origin: bottom right;
+    }
+
+    /* Ajustements selon la position */
+    .wikzy-chatbot-container.bottom-left .wikzy-chatbot-window {
+      right: auto;
+      left: 0;
+      transform-origin: bottom left;
+    }
+
+    .wikzy-chatbot-container.top-right .wikzy-chatbot-window {
+      bottom: auto;
+      top: calc(var(--button-size) + 20px);
+      transform-origin: top right;
+    }
+
+    .wikzy-chatbot-container.top-left .wikzy-chatbot-window {
+      bottom: auto;
+      right: auto;
+      left: 0;
+      top: calc(var(--button-size) + 20px);
+      transform-origin: top left;
     }
     
     @keyframes popIn {
@@ -224,12 +323,13 @@
     }
     
     .wikzy-chatbot-header {
-      padding: 18px;
+      padding: var(--header-padding);
       border-bottom: 1px solid rgba(255, 255, 255, 0.25);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+      background: var(--header-bg);
+      color: var(--header-text);
     }
     
     .wikzy-chatbot-header-content {
@@ -239,45 +339,55 @@
     }
     
     .wikzy-chatbot-avatar {
-      width: 50px;
-      height: 50px;
+      width: 44px;
+      height: 44px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 26px;
-      color: white;
-      background: rgba(255, 255, 255, 0.3);
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      font-size: 24px;
+      color: var(--header-text);
+      background: rgba(255, 255, 255, 0.2);
+      transition: transform 0.3s ease;
+      overflow: hidden;
+    }
+    
+    .wikzy-chatbot-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
     
     .wikzy-chatbot-avatar:hover {
       transform: scale(1.08);
-      box-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
     }
     
     .wikzy-chatbot-header-text h3 {
       margin: 0;
-      font-size: 19px;
+      font-size: var(--header-title-size);
       font-weight: 700;
-      color: white;
+      color: var(--header-text);
     }
     
     .wikzy-chatbot-header-text p {
       margin: 0;
       font-size: 13px;
-      color: rgba(255, 255, 255, 0.9);
+      color: var(--header-text);
+      opacity: 0.85;
     }
     
     .wikzy-chatbot-close {
-      background: rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.2);
       border: none;
       font-size: 19px;
       cursor: pointer;
-      color: white;
+      color: var(--close-btn);
       padding: 8px;
       border-radius: 50%;
       transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     
     .wikzy-chatbot-close:hover {
@@ -289,7 +399,7 @@
       flex: 1;
       padding: 18px;
       overflow-y: auto;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(245, 245, 245, 0.95) 100%);
+      background: var(--background-color); /* Utilise le fond du thème au lieu d'un fond blanc fixe */
       scrollbar-width: thin;
       scrollbar-color: var(--accent-color) transparent;
     }
@@ -354,19 +464,19 @@
     
     .wikzy-chatbot-message.bot .wikzy-chatbot-message-content {
       background: rgba(255, 255, 255, 0.95);
-      color: var(--text-color);
+      color: #1F2937; /* Texte toujours sombre sur bulle blanche */
       border-bottom-left-radius: 6px;
-      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
       backdrop-filter: blur(6px);
     }
     
     .wikzy-chatbot-input-container {
       padding: 18px;
-      border-top: 1px solid rgba(255, 255, 255, 0.25);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
       display: flex;
       flex-direction: column;
       gap: 12px;
-      background: rgba(255, 255, 255, 0.9);
+      background: var(--background-color); /* Dynamique */
       backdrop-filter: blur(16px);
     }
 
@@ -384,7 +494,7 @@
       padding: 8px 16px;
       font-size: 13px;
       font-weight: 500;
-      color: var(--text-color);
+      color: #1F2937; /* Toujours sombre sur fond clair */
       cursor: pointer;
       transition: all 0.3s ease;
     }
@@ -397,7 +507,7 @@
 
     .wikzy-chatbot-input {
       flex: 1;
-      border: 1px solid rgba(0, 0, 0, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 20px;
       padding: 10px 18px;
       font-size: 15px;
@@ -405,7 +515,8 @@
       resize: none;
       max-height: 100px;
       min-height: 44px;
-      background: rgba(255, 255, 255, 0.85);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-color);
       transition: all 0.3s ease;
     }
     
@@ -484,10 +595,10 @@
       text-align: center;
       padding: 10px;
       font-size: 11px;
-      color: #6b7280;
-      border-top: 1px solid rgba(255, 255, 255, 0.25);
-      background: rgba(255, 255, 255, 0.9);
-      backdrop-filter: blur(16px);
+      color: var(--text-color);
+      opacity: 0.5;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      background: transparent;
     }
     
     .wikzy-chatbot-powered a {
@@ -503,22 +614,35 @@
     
     .wikzy-attention-text-container {
       position: absolute;
-      width: calc(var(--button-size) + var(--orbit-radius) * 2);
-      height: calc(var(--button-size) + var(--orbit-radius) * 2);
-      top: calc(var(--orbit-radius) * -1);
-      left: calc(var(--orbit-radius) * -1);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: calc(var(--button-size) + 100px);
+      height: calc(var(--button-size) + 100px);
       display: flex;
       justify-content: center;
       align-items: center;
       pointer-events: none;
-      perspective: 800px; /* Ajouté pour effet 3D */
+      perspective: 800px;
+      z-index: 1001;
+    }
+    
+    .wikzy-chatbot-container.bottom-right,
+    .wikzy-chatbot-container.top-right {
+      --attention-x: -85%;
+    }
+
+    .wikzy-chatbot-container.bottom-left,
+    .wikzy-chatbot-container.top-left {
+      --attention-x: -15%;
     }
     
     .wikzy-attention-text {
       position: absolute;
+      left: 50%;
       display: inline-flex;
-      background:  linear-gradient(135deg, #ffdd5b 0%, #ff6f61 100%);
-      color: var(--attention-color, #FFFFFF);
+      background: var(--attention-bg);
+      color: var(--attention-color);
       border-radius: 20px;
       font-size: 13px;
       font-weight: 600;
@@ -526,15 +650,26 @@
       opacity: 0;
       white-space: nowrap;
       padding: 6px 14px;
-      transition: opacity 0.4s ease;
+      z-index: 1002;
+      transform: translateX(var(--attention-x, -50%));
+      pointer-events: none;
+    }
+
+    /* Positionnement par défaut */
+    .wikzy-chatbot-container.bottom-right .wikzy-attention-text,
+    .wikzy-chatbot-container.bottom-left .wikzy-attention-text {
+      bottom: calc(50% + (var(--button-size) / 2) + 12px);
+    }
+
+    .wikzy-chatbot-container.top-right .wikzy-attention-text,
+    .wikzy-chatbot-container.top-left .wikzy-attention-text {
+      top: calc(50% + (var(--button-size) / 2) + 12px);
     }
     
     .wikzy-attention-text span {
       display: inline-block;
-      transform-origin: center calc(var(--button-size) / 2 + var(--orbit-radius));
       margin: 0 0.6px;
       font-size: 12px;
-      transition: transform 0.3s ease;
     }
     
     .wikzy-attention-text.trail::after {
@@ -544,9 +679,9 @@
       left: -10px;
       right: -10px;
       bottom: -10px;
-      background: linear-gradient(135deg, rgba(255, 221, 91, 0.4), rgba(255, 111, 97, 0.2));
+      background: var(--attention-bg);
       filter: blur(8px);
-      opacity: 0.6;
+      opacity: 0.3;
       animation: trail 5s ease-in-out infinite;
       z-index: -1;
     }
@@ -558,7 +693,10 @@
       left: -8px;
       right: -8px;
       bottom: -8px;
-      background: radial-gradient(circle, rgba(255, 221, 91, 0.4) 0%, transparent 60%);
+      background: var(--attention-bg);
+      opacity: 0.4;
+      filter: blur(4px);
+      border-radius: 50%;
       animation: particle 3s ease-in-out infinite;
       z-index: -1;
     }
@@ -573,8 +711,6 @@
     
     .wikzy-attention-text.bounce {
       animation: bounceAttention 1.5s cubic-bezier(0.4, 0, 0.2, 1);
-      top: 20px;
-      right: 40px;
     }
     
     .wikzy-attention-text.glow {
@@ -595,75 +731,49 @@
     }
     
     @keyframes fadeAttention {
-      0% { opacity: 0; }
-      20% { opacity: 1; }
-      80% { opacity: 1; }
-      100% { opacity: 0; }
+      0% { opacity: 0; transform: translateX(var(--attention-x, -50%)); }
+      20% { opacity: 1; transform: translateX(var(--attention-x, -50%)); }
+      80% { opacity: 1; transform: translateX(var(--attention-x, -50%)); }
+      100% { opacity: 0; transform: translateX(var(--attention-x, -50%)); }
     }
     
     @keyframes slideAttention {
-      0% { opacity: 0; transform: translateX(40px); }
-      20% { opacity: 1; transform: translateX(0); }
-      80% { opacity: 1; transform: translateX(0); }
-      100% { opacity: 0; transform: translateX(40px); }
+      0% { opacity: 0; transform: translate(var(--attention-x, -50%), 10px) scale(0.9); }
+      20% { opacity: 1; transform: translate(var(--attention-x, -50%), 0) scale(1); }
+      80% { opacity: 1; transform: translate(var(--attention-x, -50%), 0) scale(1); }
+      100% { opacity: 0; transform: translate(var(--attention-x, -50%), 10px) scale(0.9); }
     }
     
     @keyframes bounceAttention {
-      0% { opacity: 0; transform: translateY(30px); }
-      20% { opacity: 1; transform: translateY(0); }
-      50% { transform: translateY(-10px); }
-      80% { opacity: 1; transform: translateY(0); }
-      100% { opacity: 0; transform: translateY(30px); }
+      0% { opacity: 0; transform: translate(var(--attention-x, -50%), 20px); }
+      20% { opacity: 1; transform: translate(var(--attention-x, -50%), 0); }
+      50% { transform: translate(var(--attention-x, -50%), -10px); }
+      80% { opacity: 1; transform: translate(var(--attention-x, -50%), 0); }
+      100% { opacity: 0; transform: translate(var(--attention-x, -50%), 20px); }
     }
     
     @keyframes glowAttention {
-      0% { opacity: 0; box-shadow: 0 0 0 rgba(255, 111, 97, 0); }
-      20% { opacity: 1; box-shadow: 0 0 20px rgba(255, 111, 97, 0.6); }
-      80% { opacity: 1; box-shadow: 0 0 20px rgba(255, 111, 97, 0.6); }
-      100% { opacity: 0; box-shadow: 0 0 0 rgba(255, 111, 97, 0); }
+      0% { opacity: 0; transform: translateX(var(--attention-x, -50%)); box-shadow: 0 0 0 rgba(255, 111, 97, 0); }
+      20% { opacity: 1; transform: translateX(var(--attention-x, -50%)); box-shadow: 0 0 20px rgba(255, 111, 97, 0.6); }
+      80% { opacity: 1; transform: translateX(var(--attention-x, -50%)); box-shadow: 0 0 20px rgba(255, 111, 97, 0.6); }
+      100% { opacity: 0; transform: translateX(var(--attention-x, -50%)); box-shadow: 0 0 0 rgba(255, 111, 97, 0); }
     }
     
     @keyframes popAttention {
-      0% { opacity: 0; transform: scale(0.7); }
-      20% { opacity: 1; transform: scale(1.1); }
-      40% { transform: scale(0.95); }
-      80% { opacity: 1; transform: scale(1); }
-      100% { opacity: 0; transform: scale(0.7); }
+      0% { opacity: 0; transform: translate(var(--attention-x, -50%), 10px) scale(0.7); }
+      20% { opacity: 1; transform: translate(var(--attention-x, -50%), 0) scale(1.1); }
+      40% { transform: translate(var(--attention-x, -50%), 0) scale(0.95); }
+      80% { opacity: 1; transform: translate(var(--attention-x, -50%), 0) scale(1); }
+      100% { opacity: 0; transform: translate(var(--attention-x, -50%), 10px) scale(0.7); }
     }
     
     @keyframes waveAttention {
-      0% { opacity: 0; transform: translateY(20px) rotate(-6deg); }
-      20% { opacity: 1; transform: translateY(0) rotate(0deg); }
-      40% { transform: rotate(4deg); }
-      60% { transform: rotate(-4deg); }
-      80% { opacity: 1; transform: rotate(0deg); }
-      100% { opacity: 0; transform: translateY(20px) rotate(6deg); }
-    }
-    
-    @keyframes orbitAttention3D {
-      0% { 
-        transform: rotateY(30deg) rotateX(10deg) translateX(var(--orbit-radius)) rotateZ(0deg);
-        opacity: 0;
-      }
-      10% { opacity: 1; }
-      90% { opacity: 1; }
-      100% { 
-        transform: rotateY(30deg) rotateX(10deg) translateX(var(--orbit-radius)) rotateZ(-360deg);
-        opacity: 0;
-      }
-    }
-    
-    @keyframes orbitAttentionCounter3D {
-      0% { 
-        transform: rotateY(30deg) rotateX(10deg) translateX(var(--orbit-radius)) rotateZ(0deg);
-        opacity: 0;
-      }
-      10% { opacity: 1; }
-      90% { opacity: 1; }
-      100% { 
-        transform: rotateY(30deg) rotateX(10deg) translateX(var(--orbit-radius)) rotateZ(360deg);
-        opacity: 0;
-      }
+      0% { opacity: 0; transform: translate(var(--attention-x, -50%), 15px) rotate(-6deg); }
+      20% { opacity: 1; transform: translate(var(--attention-x, -50%), 0) rotate(0deg); }
+      40% { transform: translate(var(--attention-x, -50%), 0) rotate(4deg); }
+      60% { transform: translate(var(--attention-x, -50%), 0) rotate(-4deg); }
+      80% { opacity: 1; transform: translate(var(--attention-x, -50%), 0) rotate(0deg); }
+      100% { opacity: 0; transform: translate(var(--attention-x, -50%), 15px) rotate(6deg); }
     }
     
     @keyframes particle {
@@ -703,6 +813,42 @@
       }
     }
     
+    /* Mode Standalone (Plein écran pour iframe) */
+    .wikzy-chatbot-container.standalone {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+      border-radius: 0;
+    }
+
+    .wikzy-chatbot-container.standalone .wikzy-chatbot-button,
+    .wikzy-chatbot-container.standalone .wikzy-attention-text-container {
+      display: none !important;
+    }
+
+    .wikzy-chatbot-container.standalone .wikzy-chatbot-window {
+      position: relative;
+      bottom: 0;
+      right: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+      box-shadow: none;
+      border: none;
+      display: flex !important;
+      animation: none;
+    }
+
+    .wikzy-chatbot-container.standalone .wikzy-chatbot-close {
+      display: none !important;
+    }
+
     @media (max-width: 480px) {
       .wikzy-chatbot-window {
         width: calc(100vw - 40px);
@@ -1001,8 +1147,9 @@
   }
 
   class WikzyChatbot {
-    constructor(config = {}) {
+    constructor(config = {}, targetContainer = null) {
       this.config = { ...DEFAULT_CONFIG, ...config };
+      this.targetContainer = targetContainer;
       this.isOpen = false;
       this.messages = [];
       this.container = null;
@@ -1021,6 +1168,13 @@
       this.injectStyles();
       this.createChatbot();
       this.bindEvents();
+      
+      // Gérer le mode standalone
+      if (this.config.standalone) {
+        this.open();
+        this.container.classList.add('standalone');
+        return;
+      }
       
       // Activer les messages flottants si l'ouverture automatique n'est pas activée
       if (!this.config.autoOpen) {
@@ -1058,32 +1212,32 @@
     }
 
     injectStyles() {
-      if (document.getElementById('wikzy-chatbot-styles')) return;
+      let style = document.getElementById('wikzy-chatbot-styles');
+      if (!style) {
+        // Injecter les polices Google Fonts
+        const fontLink = document.createElement('link');
+        fontLink.rel = 'stylesheet';
+        fontLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@400;600;700&family=Montserrat:wght@400;600;700&display=swap';
+        document.head.appendChild(fontLink);
+        
+        style = document.createElement('style');
+        style.id = 'wikzy-chatbot-styles';
+        document.head.appendChild(style);
+      }
       
-      const style = document.createElement('style');
-      style.id = 'wikzy-chatbot-styles';
-      let css = CSS_STYLES;
-      
-      css = css.replace(/var\(--primary-color\)/g, this.config.primaryColor);
-      css = css.replace(/var\(--secondary-color\)/g, this.config.secondaryColor);
-      css = css.replace(/var\(--accent-color\)/g, this.config.accentColor);
-      css = css.replace(/var\(--text-color\)/g, this.config.textColor);
-      css = css.replace(/var\(--font-family\)/g, this.config.fontFamily);
-      css = css.replace(/var\(--button-size\)/g, this.config.buttonSize + 'px');
-      css = css.replace(/var\(--background-color\)/g, this.config.backgroundColor);
-      css = css.replace(/var\(--border-radius\)/g, this.config.borderRadius);
-      css = css.replace(/var\(--attention-bg, ([^)]+)\)/g, this.config.attentionText.backgroundColor);
-      css = css.replace(/var\(--attention-color, ([^)]+)\)/g, this.config.attentionText.color);
-      css = css.replace(/var\(--orbit-radius\)/g, this.config.attentionText.orbitRadius + 'px');
-      css = css.replace(/var\(--orbit-speed\)/g, this.config.attentionText.orbitSpeed + 's');
+      let css = getRootStyles(this.config) + BASE_STYLES + CAROUSEL_CSS;
       
       const sizes = {
         compact: { width: '360px', height: '460px' },
         standard: { width: '420px', height: '570px' },
         large: { width: '500px', height: '640px' }
       };
-      css = css.replace(/var\(--window-width, ([^)]+)\)/g, sizes[this.config.size].width);
-      css = css.replace(/var\(--window-height, ([^)]+)\)/g, sizes[this.config.size].height);
+      
+      const currentSize = this.config.size || 'standard';
+      const sizeConfig = sizes[currentSize] || sizes.standard;
+      
+      css = css.replace(/var\(--window-width, ([^)]+)\)/g, sizeConfig.width);
+      css = css.replace(/var\(--window-height, ([^)]+)\)/g, sizeConfig.height);
       
       const shadows = {
         none: 'none',
@@ -1092,11 +1246,15 @@
         strong: '0 10px 30px rgba(0, 0, 0, 0.2)',
         neumorphic: '8px 8px 16px rgba(0, 0, 0, 0.1), -8px -8px 16px rgba(255, 255, 255, 0.7)'
       };
-      css = css.replace(/var\(--shadow-effect, ([^)]+)\)/g, shadows[this.config.shadowEffect]);
-      css = css.replace(/var\(--shadow-hover, ([^)]+)\)/g, shadows[this.config.shadowEffect === 'strong' || this.config.shadowEffect === 'neumorphic' ? 'strong' : 'medium']);
+      
+      const currentShadow = this.config.shadowEffect || 'medium';
+      const shadowValue = shadows[currentShadow] || shadows.medium;
+      const shadowHoverValue = shadows[currentShadow === 'strong' || currentShadow === 'neumorphic' ? 'strong' : 'medium'];
+      
+      css = css.replace(/var\(--shadow-effect, ([^)]+)\)/g, shadowValue);
+      css = css.replace(/var\(--shadow-hover, ([^)]+)\)/g, shadowHoverValue);
       
       style.textContent = css;
-      document.head.appendChild(style);
     }
 
     createChatbot() {
@@ -1105,22 +1263,36 @@
       this.container.dataset.theme = this.config.theme;
       
       const firstMessage = this.config.attentionText.messages ? this.config.attentionText.messages[0] : 'Trouvez votre style !';
-      const textLength = firstMessage.length;
-      const anglePerChar = 360 / textLength * this.config.attentionText.curveIntensity;
-      let attentionTextHTML = firstMessage;
-    //  if (this.config.attentionText.animation === 'orbit-3d') {
-    //    attentionTextHTML = firstMessage
-    //      .split('')
-    //      .map((char, index) => {
-    //        const angle = index * anglePerChar - (textLength - 1) * anglePerChar / 2;
-    //        return `<span style="transform: rotate(${angle}deg);">${char}</span>`;
-    //      })
-    //      .join('');
-    //  }
+      
+      // Générer le HTML de l'avatar du header
+      let avatarHTML = '';
+      if (this.config.avatarType === 'image' && this.config.avatarValue) {
+        avatarHTML = `
+          <div class="wikzy-chatbot-avatar">
+            <img src="${this.config.avatarValue}" alt="Avatar">
+          </div>
+        `;
+      }
+
+      // Déterminer l'icône du bouton
+      let buttonIconHTML = '';
+      const bubbleIcon = `
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M21 11.5C21 15.5868 17.1944 18.8889 12.5 18.8889C11.5815 18.8889 10.6939 18.7604 9.87477 18.5209L5.5 21V16.4111C3.94136 15.0566 3 13.3601 3 11.5C3 7.41319 6.80558 4.11111 11.5 4.11111C16.1944 4.11111 21 7.41319 21 11.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      `;
+
+      if (this.config.customIcon) {
+        buttonIconHTML = this.config.customIcon;
+      } else if (this.config.avatarType === 'image' && this.config.avatarValue) {
+        buttonIconHTML = `<img src="${this.config.avatarValue}" alt="Avatar">`;
+      } else {
+        buttonIconHTML = bubbleIcon;
+      }
       
       this.container.innerHTML = `
-        <button class="wikzy-chatbot-button ${this.config.shadowEffect} ${this.config.animationStyle}" style="padding-top: 68px;">
-          ${this.config.customIcon ? this.config.customIcon : '<img src="http://localhost:3000/styli.png" alt="Styli" style="width: 130px; height: 130px;">'}
+        <button class="wikzy-chatbot-button ${this.config.shadowEffect} ${this.config.animationStyle}">
+          ${buttonIconHTML}
         </button>
         <div class="wikzy-attention-text-container" style="display: none;">
           <div class="wikzy-attention-text ${this.config.attentionText.animation}${this.config.attentionText.particleEffect ? ' particle' : ''}${this.config.attentionText.trailEffect ? ' trail' : ''}">
@@ -1130,11 +1302,9 @@
         <div class="wikzy-chatbot-window">
           <div class="wikzy-chatbot-header">
             <div class="wikzy-chatbot-header-content">
-              <div class="wikzy-chatbot-avatar">
-                ${this.config.customIcon ? this.config.customIcon : '<img src="http://localhost:3000/styli.png" alt="Styli" style="width: 50px; height: 50px;">'}
-              </div>
+              ${avatarHTML}
               <div class="wikzy-chatbot-header-text">
-                <h3 style="font-family: sans-serif;">${this.config.title}</h3>
+                <h3 style="font-family: inherit;">${this.config.title}</h3>
                 <p>${this.config.subtitle}</p>
               </div>
             </div>
@@ -1162,17 +1332,15 @@
         </div>
       `;
       
-      document.body.appendChild(this.container);
+      if (this.targetContainer) {
+        this.targetContainer.appendChild(this.container);
+      } else {
+        document.body.appendChild(this.container);
+      }
       
       this.messagesContainer = this.container.querySelector('.wikzy-chatbot-messages');
       this.inputElement = this.container.querySelector('.wikzy-chatbot-input');
       this.sendButton = this.container.querySelector('.wikzy-chatbot-send');
-      
-      if (this.config.attentionText.animation === 'orbit-3d') {
-        const attentionText = this.container.querySelector('.wikzy-attention-text');
-        attentionText.style.animationName = this.config.attentionText.orbitDirection === 'clockwise' ? 'orbitAttention3D' : 'orbitAttentionCounter3D';
-        attentionText.style.transformOrigin = `center center`;
-      }
       
       this.renderQuickReplies();
     }
@@ -1241,26 +1409,22 @@
         // Mettre à jour le texte
         attentionText.textContent = currentMessage;
         
-        // Afficher avec animation
-        attentionText.style.opacity = '1';
+        // Retirer et remettre l'animation pour la redéclencher
+        const animClass = this.config.attentionText.animation;
+        attentionText.classList.remove(animClass);
+        void attentionText.offsetWidth; // Force reflow
+        attentionText.classList.add(animClass);
+        
+        // Afficher avec animation (l'opacité est gérée par les keyframes maintenant)
         setTimeout(() => {
-          attentionText.style.opacity = '0';
+          // On ne fait rien ici car l'animation keyframe gère la fin (opacity 0)
         }, this.config.attentionText.duration);
       };
       
-      if (this.config.attentionText.animation !== 'orbit-3d') {
-        // Première animation après un délai
-        setTimeout(showAttention, this.config.attentionText.delay);
-        // Répéter l'animation
-        this.attentionInterval = setInterval(showAttention, this.config.attentionText.repeatInterval);
-      } else {
-        // Pour l'animation orbit-3d, afficher le premier message et garder visible
-        const messages = this.config.attentionText.messages || ['Trouvez votre style !'];
-        attentionText.textContent = messages[0];
-        setTimeout(() => {
-          attentionText.style.opacity = '1';
-        }, this.config.attentionText.delay);
-      }
+      // Première animation après un délai
+      setTimeout(showAttention, this.config.attentionText.delay);
+      // Répéter l'animation
+      this.attentionInterval = setInterval(showAttention, this.config.attentionText.repeatInterval);
     }
 
     stopAttentionAnimation() {
@@ -1490,7 +1654,90 @@
 
   window.WikzyChatbot = WikzyChatbot;
 
-  if (window.wikzyChatbotConfig) {
-    new WikzyChatbot(window.wikzyChatbotConfig);
+  // Fonction pour charger la config depuis l'API par bot-id
+  async function loadConfigFromBotId(botId, token) {
+    try {
+      const baseUrl = window.location.origin || 'http://localhost:3000';
+      const url = `${baseUrl}/api/chatbot-config?botId=${encodeURIComponent(botId)}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.config) {
+        return data.config;
+      } else {
+        throw new Error(data.error || 'Failed to load config');
+      }
+    } catch (error) {
+      console.error('Error loading chatbot config from API:', error);
+      return null;
+    }
+  }
+
+  // Détecter le script tag avec data-bot-id
+  function getScriptTag() {
+    const scripts = document.getElementsByTagName('script');
+    for (let i = 0; i < scripts.length; i++) {
+      const script = scripts[i];
+      if (script.src && script.src.includes('chatbot-generator.js')) {
+        return script;
+      }
+    }
+    return null;
+  }
+
+  // Initialisation du chatbot
+  async function initChatbot() {
+    const scriptTag = getScriptTag();
+    let config = null;
+    const overrides = window.wikzyChatbotConfig || {};
+
+    // Si data-bot-id est présent, on charge la config depuis l'API
+    if (scriptTag && scriptTag.getAttribute('data-bot-id')) {
+      const botId = scriptTag.getAttribute('data-bot-id');
+      const token = scriptTag.getAttribute('data-token');
+      
+      console.log('Loading chatbot config for bot-id:', botId);
+      config = await loadConfigFromBotId(botId, token);
+      
+      if (!config) {
+        console.warn('Failed to load config from API, using default config');
+        config = { ...DEFAULT_CONFIG };
+      }
+      
+      // Fusionner la config chargée avec les overrides globaux (ex: standalone)
+      config = { ...config, ...overrides };
+    }
+    // Sinon, on utilise la config globale si elle existe
+    else if (window.wikzyChatbotConfig && Object.keys(window.wikzyChatbotConfig).length > 1) {
+      config = window.wikzyChatbotConfig;
+    }
+    // Sinon, config par défaut
+    else {
+      config = { ...DEFAULT_CONFIG, ...overrides };
+    }
+
+    // Créer l'instance du chatbot avec la config
+    if (config) {
+      new WikzyChatbot(config);
+    }
+  }
+
+  // Initialiser quand le DOM est prêt
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initChatbot);
+  } else {
+    initChatbot();
   }
 })();

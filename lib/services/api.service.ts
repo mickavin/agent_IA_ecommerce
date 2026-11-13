@@ -1201,6 +1201,361 @@ export class WidgetPreviewService {
   }
 }
 
+// Service pour les FAQ
+export class FAQService {
+  static async getAll(page = 1, limit = 10, search?: string, filters?: { category?: string[], status?: string[] }) {
+    let query = supabase
+      .from('faq')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+
+    if (search) {
+      query = query.or(`question.ilike.%${search}%,answer.ilike.%${search}%`)
+    }
+
+    if (filters) {
+      if (filters.category && filters.category.length > 0) {
+        query = query.in('category', filters.category)
+      }
+      if (filters.status && filters.status.length > 0) {
+        query = query.in('status', filters.status)
+      }
+    }
+
+    const from = (page - 1) * limit
+    const to = from + limit - 1
+
+    const { data, error, count } = await query.range(from, to)
+
+    if (error) throw error
+
+    return {
+      data: data || [],
+      total: count || 0,
+      page,
+      limit,
+      totalPages: Math.ceil((count || 0) / limit)
+    }
+  }
+
+  static async getById(id: string) {
+    const { data, error } = await supabase
+      .from('faq')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  static async create(faq: {
+    question: string
+    answer: string
+    category: string
+    status?: string
+    tags?: string[]
+    is_highlighted?: boolean
+    created_by?: string
+  }) {
+    const { data, error } = await supabase
+      .from('faq')
+      .insert({
+        question: faq.question,
+        answer: faq.answer,
+        category: faq.category,
+        status: faq.status || 'Brouillon',
+        tags: faq.tags || [],
+        is_highlighted: faq.is_highlighted || false,
+        created_by: faq.created_by || null,
+        popularity: 0
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  static async update(id: string, updates: {
+    question?: string
+    answer?: string
+    category?: string
+    status?: string
+    tags?: string[]
+    is_highlighted?: boolean
+    popularity?: number
+  }) {
+    const { data, error } = await supabase
+      .from('faq')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  static async delete(id: string) {
+    const { error } = await supabase
+      .from('faq')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  }
+
+  static async bulkInsert(faqs: Array<{
+    question: string
+    answer: string
+    category: string
+    status?: string
+    tags?: string[]
+    is_highlighted?: boolean
+    created_by?: string
+  }>) {
+    const { data, error } = await supabase
+      .from('faq')
+      .insert(faqs.map(faq => ({
+        question: faq.question,
+        answer: faq.answer,
+        category: faq.category,
+        status: faq.status || 'Brouillon',
+        tags: faq.tags || [],
+        is_highlighted: faq.is_highlighted || false,
+        created_by: faq.created_by,
+        popularity: 0
+      })))
+      .select()
+
+    if (error) throw error
+    return data
+  }
+
+  static async incrementPopularity(id: string) {
+    try {
+      const { data, error } = await supabase.rpc('increment_faq_popularity', { faq_id: id })
+      if (error) {
+        // Si la fonction RPC n'existe pas, faire manuellement
+        const current = await this.getById(id)
+        return this.update(id, { popularity: (current.popularity || 0) + 1 })
+      }
+      return data
+    } catch (error) {
+      // Fallback manuel
+      const current = await this.getById(id)
+      return this.update(id, { popularity: (current.popularity || 0) + 1 })
+    }
+  }
+}
+
+// Service pour les conversations
+export class ConversationService {
+  static async getAll(page = 1, limit = 10, search?: string, filters?: { 
+    status?: string[], 
+    sentiment?: string[],
+    chatbotId?: string 
+  }) {
+    let query = supabase
+      .from('conversations')
+      .select('*', { count: 'exact' })
+      .order('started_at', { ascending: false })
+
+    if (search) {
+      // Recherche dans user_id, session_id, tags, et client_info (anonymousId, ipAddress)
+      query = query.or(`
+        user_id.ilike.%${search}%,
+        session_id.ilike.%${search}%,
+        tags.cs.{${search}}
+      `)
+      // Recherche dans client_info JSONB
+      query = query.or(`client_info->>anonymousId.ilike.%${search}%,client_info->>ipAddress.ilike.%${search}%`)
+    }
+
+    if (filters) {
+      if (filters.status && filters.status.length > 0) {
+        query = query.in('status', filters.status)
+      }
+      if (filters.sentiment && filters.sentiment.length > 0) {
+        query = query.in('sentiment', filters.sentiment)
+      }
+      if (filters.chatbotId) {
+        query = query.eq('chatbot_id', filters.chatbotId)
+      }
+    }
+
+    const from = (page - 1) * limit
+    const to = from + limit - 1
+
+    const { data, error, count } = await query.range(from, to)
+
+    if (error) throw error
+
+    return {
+      data: data || [],
+      total: count || 0,
+      page,
+      limit,
+      totalPages: Math.ceil((count || 0) / limit)
+    }
+  }
+
+  static async getById(id: string) {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  static async getBySessionId(sessionId: string) {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows returned
+    return data
+  }
+
+  static async create(conversation: {
+    chatbot_id: string
+    user_id?: string
+    session_id: string
+    status?: string
+    sentiment?: string
+    resolved_issue?: boolean
+    tags?: string[]
+    client_info?: {
+      anonymousId?: string
+      ipAddress?: string
+      device?: string
+      browser?: string
+    }
+    messages?: any[]
+    metadata?: any
+  }) {
+    const { data, error } = await supabase
+      .from('conversations')
+      .insert({
+        chatbot_id: conversation.chatbot_id,
+        user_id: conversation.user_id || null,
+        session_id: conversation.session_id,
+        status: conversation.status || 'Active',
+        sentiment: conversation.sentiment || 'Neutre',
+        resolved_issue: conversation.resolved_issue || false,
+        tags: conversation.tags || [],
+        client_info: conversation.client_info || {},
+        messages: conversation.messages || [],
+        metadata: conversation.metadata || {}
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  static async update(id: string, updates: {
+    status?: string
+    ended_at?: string
+    satisfaction?: number
+    sentiment?: string
+    resolved_issue?: boolean
+    tags?: string[]
+    messages?: any[]
+    client_info?: any
+    metadata?: any
+  }) {
+    const updateData: any = {}
+    
+    if (updates.status !== undefined) updateData.status = updates.status
+    if (updates.ended_at !== undefined) updateData.ended_at = updates.ended_at
+    if (updates.satisfaction !== undefined) updateData.satisfaction = updates.satisfaction
+    if (updates.sentiment !== undefined) updateData.sentiment = updates.sentiment
+    if (updates.resolved_issue !== undefined) updateData.resolved_issue = updates.resolved_issue
+    if (updates.tags !== undefined) updateData.tags = updates.tags
+    if (updates.messages !== undefined) updateData.messages = updates.messages
+    if (updates.client_info !== undefined) updateData.client_info = updates.client_info
+    if (updates.metadata !== undefined) updateData.metadata = updates.metadata
+
+    const { data, error } = await supabase
+      .from('conversations')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  }
+
+  static async addMessage(id: string, message: {
+    id: string
+    content: string
+    type: string
+    timestamp: string
+    metadata?: any
+  }) {
+    // Récupérer la conversation actuelle
+    const conversation = await this.getById(id)
+    const currentMessages = (conversation.messages || []) as any[]
+    
+    // Ajouter le nouveau message
+    const updatedMessages = [...currentMessages, message]
+    
+    // Mettre à jour la conversation
+    return this.update(id, { messages: updatedMessages })
+  }
+
+  static async delete(id: string) {
+    const { error } = await supabase
+      .from('conversations')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  }
+
+  static async getStats(chatbotId?: string) {
+    let query = supabase
+      .from('conversations')
+      .select('*', { count: 'exact' })
+
+    if (chatbotId) {
+      query = query.eq('chatbot_id', chatbotId)
+    }
+
+    const { data, error, count } = await query
+
+    if (error) throw error
+
+    const conversations = data || []
+    const active = conversations.filter(c => c.status === 'Active').length
+    const withSatisfaction = conversations.filter(c => c.satisfaction).map(c => c.satisfaction)
+    const avgSatisfaction = withSatisfaction.length > 0
+      ? withSatisfaction.reduce((sum, s) => sum + s, 0) / withSatisfaction.length
+      : 0
+    const resolvedRate = conversations.length > 0
+      ? (conversations.filter(c => c.resolved_issue).length / conversations.length) * 100
+      : 0
+
+    return {
+      total: count || 0,
+      active,
+      averageSatisfaction: avgSatisfaction,
+      resolvedRate
+    }
+  }
+}
+
 // Service pour les métriques et performances des widgets
 export class WidgetPerformanceService {
   static async getMetrics(configId: string, period: string) {

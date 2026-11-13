@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { ChatbotConfig, ChatbotConfigService } from '../../../lib/services/chatbot-config.service'
 import { ProvidersService } from '../../../lib/services/providers.service' // Migré vers le AI SDK de Vercel
+import { ConversationService } from '../../../lib/services/api.service'
 import { z } from 'zod';
 
 //- Output possible un seul a la fois:
@@ -458,6 +459,131 @@ async function callRAG(query: string, chatbotId?: string): Promise<any> {
   }
 }
 
+/**
+ * Récupère les informations client depuis les headers de la requête
+ */
+function getClientInfo(req: NextApiRequest): {
+  anonymousId?: string
+  ipAddress: string
+  device: string
+  browser: string
+} {
+  // Récupérer l'IP (gérer les proxies)
+  const forwarded = req.headers['x-forwarded-for']
+  const ip = forwarded 
+    ? (Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0].trim())
+    : req.headers['x-real-ip'] 
+    ? (Array.isArray(req.headers['x-real-ip']) ? req.headers['x-real-ip'][0] : req.headers['x-real-ip'])
+    : req.socket.remoteAddress || 'unknown'
+
+  // Récupérer le User-Agent pour device et browser
+  const userAgent = req.headers['user-agent'] || 'unknown'
+  
+  // Détecter le device
+  let device = 'Desktop'
+  if (/mobile|android|iphone|ipad/i.test(userAgent)) {
+    device = 'Mobile'
+  } else if (/tablet|ipad/i.test(userAgent)) {
+    device = 'Tablet'
+  }
+
+  // Détecter le browser
+  let browser = 'Unknown'
+  if (userAgent.includes('Chrome') && !userAgent.includes('Edg')) {
+    browser = 'Chrome'
+  } else if (userAgent.includes('Firefox')) {
+    browser = 'Firefox'
+  } else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
+    browser = 'Safari'
+  } else if (userAgent.includes('Edg')) {
+    browser = 'Edge'
+  }
+
+  // Générer un ID anonyme si non fourni dans le contexte
+  const anonymousId = req.body?.context?.userId || `ANON_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+  return {
+    anonymousId,
+    ipAddress: ip,
+    device,
+    browser
+  }
+}
+
+/**
+ * Enregistre ou met à jour une conversation
+ */
+async function saveConversation(
+  chatbotId: string | undefined,
+  sessionId: string,
+  userId: string | undefined,
+  userMessage: string,
+  botResponse: any,
+  clientInfo: ReturnType<typeof getClientInfo>,
+  req: NextApiRequest
+): Promise<void> {
+  try {
+    if (!chatbotId) {
+      // Si pas de chatbotId, on ne peut pas enregistrer
+      return
+    }
+
+    // Convertir chatbotId en string si c'est un UUID
+    const chatbotIdStr = typeof chatbotId === 'string' ? chatbotId : chatbotId.toString()
+
+    // Récupérer ou créer la conversation
+    let conversation = await ConversationService.getBySessionId(sessionId)
+
+    const userMsg = {
+      id: `user-${Date.now()}`,
+      content: userMessage,
+      type: 'user',
+      timestamp: new Date().toISOString()
+    }
+
+    const botMsg = {
+      id: botResponse?.id || `bot-${Date.now()}`,
+      content: botResponse?.content || botResponse?.message || '',
+      type: 'bot',
+      timestamp: new Date().toISOString(),
+      metadata: botResponse?.metadata || {}
+    }
+
+    if (conversation) {
+      // Mettre à jour la conversation existante
+      const currentMessages = (conversation.messages || []) as any[]
+      const updatedMessages = [...currentMessages, userMsg, botMsg]
+
+      await ConversationService.update(conversation.id, {
+        messages: updatedMessages,
+        status: 'Active' // Garder la conversation active
+      })
+    } else {
+      // Créer une nouvelle conversation
+      await ConversationService.create({
+        chatbot_id: chatbotIdStr,
+        user_id: userId || clientInfo.anonymousId,
+        session_id: sessionId,
+        status: 'Active',
+        sentiment: 'Neutre',
+        resolved_issue: false,
+        tags: [],
+        client_info: {
+          anonymousId: clientInfo.anonymousId,
+          ipAddress: clientInfo.ipAddress,
+          device: clientInfo.device,
+          browser: clientInfo.browser
+        },
+        messages: [userMsg, botMsg],
+        metadata: {}
+      })
+    }
+  } catch (error) {
+    // Ne pas bloquer la réponse si l'enregistrement échoue
+    console.error('❌ Erreur enregistrement conversation:', error)
+  }
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -484,6 +610,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const userMessage = message.trim()
     const history = context.conversationHistory || []
+    
+    // Récupérer les informations client
+    const clientInfo = getClientInfo(req)
+    const sessionId = context.userId || context.sessionId || `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const userId = context.userId || clientInfo.anonymousId
+
     // Récupération de la configuration depuis Supabase (priorité sur chatbotId)
     const configResult = await ChatbotConfigService.resolveConfig(chatbotId, chatbotConfig)
     console.log('configResult', configResult, chatbotId, message)
@@ -503,6 +635,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let routingResult = await callMasterAI(userMessage, chatbotId, history)
     console.log('routingResult', routingResult)
+    
+    let finalResponse: any = null
+
     if (routingResult.success) {
       const response = routingResult.response
       //const personalizedContent = applyPersonalization(response.message, personality)
@@ -511,26 +646,77 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const ragResult = await callMasterAIToRAG(response.request + ' : ' + response.message, chatbotId, history)
         console.log('ragResult', ragResult)
         console.log('ragResult.response', ragResult.response)
-        return res.status(200).json(ragResult)
-      }
-      routingResult = {
-        ...routingResult,
-        response: routingResult
-      }
-      console.log('routingResult', routingResult)
-      if (routingResult.response.response.primaryType === 'DEMANDE_INAPPROPRIEE') {
-        return res.status(200).json({
+        finalResponse = ragResult
+      } else {
+        routingResult = {
           ...routingResult,
-          response: {
-            ...routingResult.response,
+          response: routingResult
+        }
+        console.log('routingResult', routingResult)
+        if (routingResult.response.response.primaryType === 'DEMANDE_INAPPROPRIEE') {
+          finalResponse = {
+            ...routingResult,
             response: {
-              ...routingResult.response.response,
-              message: routingResult.response.response.message + ' ' + routingResult.response.response.reasoning + ' Cependant, je peux vous aider pour toutes autres questions relatives à notre boutique.'
-            },
+              ...routingResult.response,
+              response: {
+                ...routingResult.response.response,
+                message: routingResult.response.response.message + ' ' + routingResult.response.response.reasoning + ' Cependant, je peux vous aider pour toutes autres questions relatives à notre boutique.'
+              },
+            }
           }
-        })
+        } else {
+          finalResponse = routingResult
+        }
       }
-      return res.status(200).json(routingResult)
+
+      // Enregistrer la conversation de manière asynchrone (ne pas bloquer la réponse)
+      if (finalResponse) {
+        // Extraire le contenu de la réponse selon la structure
+        let botResponseContent: any = null
+        
+        if (finalResponse.response?.content) {
+          // Format RAG (ITEM)
+          botResponseContent = {
+            content: finalResponse.response.content,
+            metadata: finalResponse.response.metadata || {},
+            products: finalResponse.response.products || []
+          }
+        } else if (finalResponse.response?.response?.message) {
+          // Format Master avec nested response
+          botResponseContent = {
+            content: finalResponse.response.response.message,
+            metadata: finalResponse.response.response.metadata || {}
+          }
+        } else if (finalResponse.response?.message) {
+          // Format Master simple
+          botResponseContent = {
+            content: finalResponse.response.message,
+            metadata: finalResponse.response.metadata || {}
+          }
+        } else if (finalResponse.content) {
+          // Format direct
+          botResponseContent = {
+            content: finalResponse.content,
+            metadata: finalResponse.metadata || {}
+          }
+        }
+
+        if (botResponseContent) {
+          saveConversation(
+            chatbotId,
+            sessionId,
+            userId,
+            userMessage,
+            botResponseContent,
+            clientInfo,
+            req
+          ).catch(err => {
+            console.error('Erreur enregistrement conversation (non bloquant):', err)
+          })
+        }
+      }
+
+      return res.status(200).json(finalResponse)
     }
 
 

@@ -31,3 +31,10 @@ COMMENT ON COLUMN public.importations.metadata IS 'Métadonnées supplémentaire
 -- CREATE POLICY "Allow read access to authenticated users" ON public.importations FOR SELECT USING (auth.role() = 'authenticated');
 -- CREATE POLICY "Allow insert access to authenticated users" ON public.importations FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
+
+
+
+
+
+
+

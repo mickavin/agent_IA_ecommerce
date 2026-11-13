@@ -1,7 +1,7 @@
 import { supabase } from '../supabase'
 import { cleanData } from '@/utils/clean-data'
 import Papa from 'papaparse'
-import { ProductService, OrderService, ClientService, StockService } from './api.service'
+import { ProductService, OrderService, ClientService, StockService, FAQService } from './api.service'
 import type { TablesInsert } from '../supabase'
 
 export interface ImportResult {
@@ -516,6 +516,191 @@ export class AdvancedCSVImportService {
       '2',
       '123 Rue de la Paix, 75001 Paris',
       'Livraison rapide demandée'
+    ]
+
+    return [headers.join(','), sampleData.join(',')].join('\n')
+  }
+
+  // Import des FAQ
+  static async importFAQ(
+    file: File,
+    options: ImportOptions = { skipDuplicates: true, validateData: true, batchSize: 500 }
+  ): Promise<ImportResult> {
+    try {
+      const csvText = await file.text()
+      const { data, errors: parseErrors } = Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: (header: string) => header.trim().toLowerCase()
+      })
+
+      if (parseErrors.length > 0) {
+        return {
+          success: false,
+          imported: 0,
+          errors: parseErrors.map((e: any) => e.message),
+          duplicates: 0,
+          skipped: 0
+        }
+      }
+
+      const result: ImportResult = {
+        success: true,
+        imported: 0,
+        errors: [],
+        duplicates: 0,
+        skipped: 0
+      }
+
+      const validFAQs: Array<{
+        question: string
+        answer: string
+        category: string
+        status?: string
+        tags?: string[]
+        is_highlighted?: boolean
+        created_by?: string
+      }> = []
+      const seenQuestions = new Set<string>()
+
+      for (const row of data as any[]) {
+        try {
+          // Validation des champs obligatoires
+          if (!row.question || !row.answer) {
+            result.errors.push(`Ligne ignorée : question ou réponse manquante`)
+            result.skipped++
+            continue
+          }
+
+          // Normaliser la question pour la comparaison
+          const normalizedQuestion = row.question.trim().toLowerCase()
+
+          // Vérification des doublons
+          if (options.skipDuplicates && seenQuestions.has(normalizedQuestion)) {
+            result.duplicates++
+            continue
+          }
+          seenQuestions.add(normalizedQuestion)
+
+          // Normaliser la catégorie
+          const category = this.normalizeFAQCategory(row.category)
+          if (!category) {
+            result.errors.push(`Ligne ignorée : catégorie invalide "${row.category}"`)
+            result.skipped++
+            continue
+          }
+
+          // Normaliser le statut
+          const status = this.normalizeFAQStatus(row.status)
+
+          // Parser les tags
+          const tags = this.parseArray(row.tags)
+
+          const faq = {
+            question: row.question.trim(),
+            answer: row.answer.trim(),
+            category,
+            status,
+            tags,
+            is_highlighted: row.is_highlighted === 'true' || row.is_highlighted === '1' || row.highlighted === 'true',
+            created_by: row.created_by || 'Import CSV'
+          }
+
+          validFAQs.push(faq)
+
+        } catch (error: any) {
+          result.errors.push(`Erreur ligne ${result.imported + result.skipped + 1}: ${error.message}`)
+          result.skipped++
+        }
+      }
+
+      // Import par batches
+      for (let i = 0; i < validFAQs.length; i += options.batchSize) {
+        const batch = validFAQs.slice(i, i + options.batchSize)
+        try {
+          await FAQService.bulkInsert(batch)
+          result.imported += batch.length
+        } catch (error: any) {
+          result.errors.push(`Erreur batch ${Math.floor(i / options.batchSize) + 1}: ${error.message}`)
+        }
+      }
+
+      return result
+
+    } catch (error: any) {
+      return {
+        success: false,
+        imported: 0,
+        errors: [`Erreur générale: ${error.message}`],
+        duplicates: 0,
+        skipped: 0
+      }
+    }
+  }
+
+  // Méthodes utilitaires pour FAQ
+  private static normalizeFAQCategory(category: string | undefined): string | null {
+    if (!category) return 'Commandes' // Catégorie par défaut
+    
+    const normalized = category.trim()
+    const validCategories = ['Commandes', 'Livraison', 'Retours', 'Paiements', 'Produits', 'Compte', 'Technique']
+    
+    // Vérifier si c'est déjà une catégorie valide
+    if (validCategories.includes(normalized)) {
+      return normalized
+    }
+
+    // Normaliser les variations
+    const lower = normalized.toLowerCase()
+    if (lower.includes('commande') || lower.includes('order')) return 'Commandes'
+    if (lower.includes('livraison') || lower.includes('delivery') || lower.includes('shipping')) return 'Livraison'
+    if (lower.includes('retour') || lower.includes('return') || lower.includes('refund')) return 'Retours'
+    if (lower.includes('paiement') || lower.includes('payment') || lower.includes('pay')) return 'Paiements'
+    if (lower.includes('produit') || lower.includes('product')) return 'Produits'
+    if (lower.includes('compte') || lower.includes('account')) return 'Compte'
+    if (lower.includes('technique') || lower.includes('technical') || lower.includes('tech')) return 'Technique'
+    
+    return null
+  }
+
+  private static normalizeFAQStatus(status: string | undefined): string {
+    if (!status) return 'Brouillon'
+    
+    const normalized = status.trim()
+    const validStatuses = ['Publié', 'Brouillon', 'Archivé']
+    
+    if (validStatuses.includes(normalized)) {
+      return normalized
+    }
+
+    const lower = normalized.toLowerCase()
+    if (lower.includes('publi') || lower.includes('publish') || lower.includes('active')) return 'Publié'
+    if (lower.includes('brouillon') || lower.includes('draft')) return 'Brouillon'
+    if (lower.includes('archiv') || lower.includes('archive')) return 'Archivé'
+    
+    return 'Brouillon'
+  }
+
+  // Template CSV pour les FAQ
+  static getFAQTemplate(): string {
+    const headers = [
+      'question',
+      'answer',
+      'category',
+      'status',
+      'tags',
+      'is_highlighted',
+      'created_by'
+    ]
+    
+    const sampleData = [
+      'Comment puis-je suivre ma commande ?',
+      'Vous pouvez suivre votre commande en vous connectant à votre compte et en consultant la section "Mes commandes".',
+      'Commandes',
+      'Publié',
+      'commande,suivi,livraison',
+      'true',
+      'Admin'
     ]
 
     return [headers.join(','), sampleData.join(',')].join('\n')

@@ -9,8 +9,9 @@
  * - Respect total de l'anonymisation des utilisateurs
  */
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { PageHeader } from "@/components/page-header"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -164,10 +165,84 @@ const sentimentColors: Record<MessageSentiment, string> = {
 }
 
 export default function ConversationsPage() {
-  const [conversations] = useState<Conversation[]>(mockConversations)
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("toutes")
   const [sentimentFilter, setSentimentFilter] = useState<string>("tous")
+
+  // Charger les conversations depuis Supabase
+  const loadConversations = async () => {
+    try {
+      setLoading(true)
+      const filters: any = {}
+      if (statusFilter !== "toutes") {
+        filters.status = [statusFilter]
+      }
+      if (sentimentFilter !== "tous") {
+        filters.sentiment = [sentimentFilter]
+      }
+
+      const response = await fetch(
+        `/api/conversations?page=1&limit=1000${searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ''}${Object.keys(filters).length > 0 ? `&${new URLSearchParams(filters).toString()}` : ''}`
+      )
+      const result = await response.json()
+      
+      if (result.success) {
+        // Transformer les données Supabase en format Conversation
+        const transformedConversations: Conversation[] = (result.data || []).map((conv: any) => ({
+          id: conv.id,
+          chatbotId: conv.chatbot_id,
+          userId: conv.user_id,
+          sessionId: conv.session_id,
+          startedAt: conv.started_at,
+          endedAt: conv.ended_at,
+          status: conv.status as "Active" | "Fermée" | "Abandonnée",
+          satisfaction: conv.satisfaction,
+          sentiment: conv.sentiment as MessageSentiment,
+          resolvedIssue: conv.resolved_issue || false,
+          tags: conv.tags || [],
+          clientInfo: conv.client_info && Object.keys(conv.client_info).length > 0 ? {
+            anonymousId: conv.client_info.anonymousId || conv.user_id || '',
+            ipAddress: conv.client_info.ipAddress || '',
+            device: conv.client_info.device || '',
+            browser: conv.client_info.browser || ''
+          } : undefined,
+          messages: (conv.messages || []).map((msg: any) => ({
+            id: msg.id,
+            content: msg.content,
+            type: msg.type,
+            timestamp: msg.timestamp,
+            metadata: msg.metadata,
+            products: msg.products
+          }))
+        }))
+        setConversations(transformedConversations)
+      } else {
+        console.warn('Erreur chargement conversations, utilisation des données mock:', result.error)
+        setConversations(mockConversations)
+      }
+    } catch (error) {
+      console.error('Erreur chargement conversations:', error)
+      // Fallback vers les données mock
+      setConversations(mockConversations)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Charger les conversations au montage et lors des changements de filtres
+  useEffect(() => {
+    loadConversations()
+  }, [statusFilter, sentimentFilter])
+
+  // Recharger lors de la recherche (avec debounce)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadConversations()
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
   const filteredConversations = conversations.filter(conv => {
     const matchesSearch = conv.clientInfo?.anonymousId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -180,11 +255,13 @@ export default function ConversationsPage() {
 
   const totalConversations = conversations.length
   const activeConversations = conversations.filter(conv => conv.status === "Active").length
-  const averageSatisfaction = conversations
-    .filter(conv => conv.satisfaction)
-    .reduce((sum, conv) => sum + (conv.satisfaction || 0), 0) / 
-    conversations.filter(conv => conv.satisfaction).length || 0
-  const resolvedRate = (conversations.filter(conv => conv.resolvedIssue).length / conversations.length) * 100
+  const conversationsWithSatisfaction = conversations.filter(conv => conv.satisfaction)
+  const averageSatisfaction = conversationsWithSatisfaction.length > 0
+    ? conversationsWithSatisfaction.reduce((sum, conv) => sum + (conv.satisfaction || 0), 0) / conversationsWithSatisfaction.length
+    : 0
+  const resolvedRate = conversations.length > 0
+    ? (conversations.filter(conv => conv.resolvedIssue).length / conversations.length) * 100
+    : 0
 
   return (
     <div className="flex flex-col gap-6">
@@ -292,22 +369,37 @@ export default function ConversationsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Client Anonyme</TableHead>
-                <TableHead>Assistant IA</TableHead>
-                <TableHead>Début</TableHead>
-                <TableHead>Durée</TableHead>
-                <TableHead>Messages</TableHead>
-                <TableHead>Sentiment</TableHead>
-                <TableHead>Satisfaction</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredConversations.map((conversation) => (
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-muted-foreground">Chargement des conversations...</div>
+            </div>
+          ) : filteredConversations.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <MessageCircle className="h-12 w-12 text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">Aucune conversation trouvée</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                {searchTerm || statusFilter !== "toutes" || sentimentFilter !== "tous"
+                  ? "Essayez de modifier vos filtres"
+                  : "Les conversations apparaîtront ici une fois que les utilisateurs interagiront avec vos chatbots"}
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Client Anonyme</TableHead>
+                  <TableHead>Assistant IA</TableHead>
+                  <TableHead>Début</TableHead>
+                  <TableHead>Durée</TableHead>
+                  <TableHead>Messages</TableHead>
+                  <TableHead>Sentiment</TableHead>
+                  <TableHead>Satisfaction</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredConversations.map((conversation) => (
                 <TableRow key={conversation.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -396,9 +488,10 @@ export default function ConversationsPage() {
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -1,7 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { PageHeader } from "@/components/page-header"
+import { toast } from "sonner"
+import { FAQService } from "@/lib/services/api.service"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -42,8 +44,10 @@ import {
   TrendingUp,
   HelpCircle,
   FileText,
+  Upload,
 } from "lucide-react"
 import { FAQItem, FAQCategory, FAQStatus } from "@/lib/types"
+import { FAQCSVImporter } from "@/components/faq-csv-importer"
 
 // Données de test pour la FAQ
 const mockFAQItems: FAQItem[] = [
@@ -102,17 +106,186 @@ const statusColors: Record<FAQStatus, string> = {
 }
 
 export default function FAQPage() {
-  const [faqItems] = useState<FAQItem[]>(mockFAQItems)
+  const [faqItems, setFaqItems] = useState<FAQItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("toutes")
   const [statusFilter, setStatusFilter] = useState<string>("tous")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
   const [newFAQ, setNewFAQ] = useState({
     question: "",
     answer: "",
     category: "Commandes" as FAQCategory,
     tags: ""
   })
+
+  // Charger les FAQ depuis Supabase
+  const loadFAQs = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/faq?page=1&limit=1000')
+      const result = await response.json()
+      
+      if (result.success) {
+        // Transformer les données Supabase en format FAQItem
+        const transformedFAQs: FAQItem[] = result.data.map((faq: any) => ({
+          id: faq.id,
+          question: faq.question,
+          answer: faq.answer,
+          category: faq.category as FAQCategory,
+          status: faq.status as FAQStatus,
+          tags: faq.tags || [],
+          popularity: faq.popularity || 0,
+          lastUpdated: faq.updated_at || faq.created_at,
+          createdBy: faq.created_by || 'Système',
+          isHighlighted: faq.is_highlighted || false
+        }))
+        setFaqItems(transformedFAQs)
+      } else {
+        // Fallback vers les données mock si erreur
+        console.warn('Erreur chargement FAQ, utilisation des données mock:', result.error)
+        setFaqItems(mockFAQItems)
+      }
+    } catch (error) {
+      console.error('Erreur chargement FAQ:', error)
+      // Fallback vers les données mock
+      setFaqItems(mockFAQItems)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Charger les FAQ au montage
+  useEffect(() => {
+    loadFAQs()
+  }, [])
+
+  // Sauvegarder une nouvelle FAQ
+  const handleSaveFAQ = async (status: FAQStatus = 'Publié') => {
+    if (!newFAQ.question.trim() || !newFAQ.answer.trim()) {
+      toast.error('La question et la réponse sont obligatoires')
+      return
+    }
+
+    try {
+      setSaving(true)
+      
+      const tags = newFAQ.tags
+        ? newFAQ.tags.split(',').map(tag => tag.trim()).filter(Boolean)
+        : []
+
+      const response = await fetch('/api/faq', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          question: newFAQ.question.trim(),
+          answer: newFAQ.answer.trim(),
+          category: newFAQ.category,
+          status: status,
+          tags: tags,
+          created_by: 'Admin' // TODO: Récupérer depuis la session
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast.success(`FAQ ${status === 'Publié' ? 'publiée' : 'sauvegardée en brouillon'} avec succès`)
+        
+        // Réinitialiser le formulaire
+        setNewFAQ({
+          question: "",
+          answer: "",
+          category: "Commandes",
+          tags: ""
+        })
+        
+        // Fermer le dialog
+        setIsAddDialogOpen(false)
+        
+        // Recharger les FAQ
+        await loadFAQs()
+      } else {
+        toast.error('Erreur lors de la sauvegarde', {
+          description: result.error || result.details
+        })
+      }
+    } catch (error: any) {
+      toast.error('Erreur lors de la sauvegarde', {
+        description: error.message
+      })
+      console.error('Erreur sauvegarde FAQ:', error)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleImportComplete = async () => {
+    // Recharger les FAQ après import
+    await loadFAQs()
+    setIsImportDialogOpen(false)
+  }
+
+  // Supprimer une FAQ
+  const handleDeleteFAQ = async (id: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette FAQ ?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/faq?id=${id}`, {
+        method: 'DELETE'
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast.success('FAQ supprimée avec succès')
+        await loadFAQs()
+      } else {
+        toast.error('Erreur lors de la suppression', {
+          description: result.error || result.details
+        })
+      }
+    } catch (error: any) {
+      toast.error('Erreur lors de la suppression', {
+        description: error.message
+      })
+    }
+  }
+
+  // Toggle highlight d'une FAQ
+  const handleToggleHighlight = async (faq: FAQItem) => {
+    try {
+      const response = await fetch('/api/faq', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: faq.id,
+          is_highlighted: !faq.isHighlighted
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast.success(faq.isHighlighted ? 'Épingle retirée' : 'FAQ épinglée')
+        await loadFAQs()
+      } else {
+        toast.error('Erreur lors de la mise à jour')
+      }
+    } catch (error: any) {
+      toast.error('Erreur lors de la mise à jour', {
+        description: error.message
+      })
+    }
+  }
 
   const filteredFAQs = faqItems.filter(item => {
     const matchesSearch = item.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -126,7 +299,7 @@ export default function FAQPage() {
   const totalQuestions = faqItems.length
   const publishedQuestions = faqItems.filter(item => item.status === "Publié").length
   const totalViews = faqItems.reduce((sum, item) => sum + item.popularity, 0)
-  const avgViews = totalViews / faqItems.length
+  const avgViews = totalQuestions > 0 ? totalViews / totalQuestions : 0
 
   return (
     <div className="flex flex-col gap-6">
@@ -134,76 +307,102 @@ export default function FAQPage() {
         title="FAQ - Questions Fréquentes"
         description="Gérez les questions et réponses de votre centre d'aide"
       >
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Nouvelle Question
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Ajouter une nouvelle question FAQ</DialogTitle>
-              <DialogDescription>
-                Créez une nouvelle question fréquemment posée pour votre centre d'aide
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Question</Label>
-                <Input
-                  value={newFAQ.question}
-                  onChange={(e) => setNewFAQ({...newFAQ, question: e.target.value})}
-                  placeholder="Posez votre question..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Réponse</Label>
-                <Textarea
-                  value={newFAQ.answer}
-                  onChange={(e) => setNewFAQ({...newFAQ, answer: e.target.value})}
-                  placeholder="Rédigez la réponse détaillée..."
-                  rows={4}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+        <div className="flex gap-2">
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Nouvelle Question
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Ajouter une nouvelle question FAQ</DialogTitle>
+                <DialogDescription>
+                  Créez une nouvelle question fréquemment posée pour votre centre d'aide
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Catégorie</Label>
-                  <Select value={newFAQ.category} onValueChange={(value: FAQCategory) => setNewFAQ({...newFAQ, category: value})}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Commandes">Commandes</SelectItem>
-                      <SelectItem value="Livraison">Livraison</SelectItem>
-                      <SelectItem value="Retours">Retours</SelectItem>
-                      <SelectItem value="Paiements">Paiements</SelectItem>
-                      <SelectItem value="Produits">Produits</SelectItem>
-                      <SelectItem value="Compte">Compte</SelectItem>
-                      <SelectItem value="Technique">Technique</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Tags (séparés par des virgules)</Label>
+                  <Label className="text-sm font-medium">Question</Label>
                   <Input
-                    value={newFAQ.tags}
-                    onChange={(e) => setNewFAQ({...newFAQ, tags: e.target.value})}
-                    placeholder="tag1, tag2, tag3"
+                    value={newFAQ.question}
+                    onChange={(e) => setNewFAQ({...newFAQ, question: e.target.value})}
+                    placeholder="Posez votre question..."
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Réponse</Label>
+                  <Textarea
+                    value={newFAQ.answer}
+                    onChange={(e) => setNewFAQ({...newFAQ, answer: e.target.value})}
+                    placeholder="Rédigez la réponse détaillée..."
+                    rows={4}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Catégorie</Label>
+                    <Select value={newFAQ.category} onValueChange={(value: FAQCategory) => setNewFAQ({...newFAQ, category: value})}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Commandes">Commandes</SelectItem>
+                        <SelectItem value="Livraison">Livraison</SelectItem>
+                        <SelectItem value="Retours">Retours</SelectItem>
+                        <SelectItem value="Paiements">Paiements</SelectItem>
+                        <SelectItem value="Produits">Produits</SelectItem>
+                        <SelectItem value="Compte">Compte</SelectItem>
+                        <SelectItem value="Technique">Technique</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Tags (séparés par des virgules)</Label>
+                    <Input
+                      value={newFAQ.tags}
+                      onChange={(e) => setNewFAQ({...newFAQ, tags: e.target.value})}
+                      placeholder="tag1, tag2, tag3"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => handleSaveFAQ('Publié')}
+                    disabled={saving || !newFAQ.question.trim() || !newFAQ.answer.trim()}
+                  >
+                    {saving ? 'Sauvegarde...' : 'Publier la FAQ'}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => handleSaveFAQ('Brouillon')}
+                    disabled={saving || !newFAQ.question.trim() || !newFAQ.answer.trim()}
+                  >
+                    {saving ? 'Sauvegarde...' : 'Sauvegarder en brouillon'}
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button onClick={() => setIsAddDialogOpen(false)}>
-                  Publier la FAQ
-                </Button>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  Sauvegarder en brouillon
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Upload className="h-4 w-4 mr-2" />
+                Importer CSV
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Importer des FAQ depuis un fichier CSV</DialogTitle>
+                <DialogDescription>
+                  Importez plusieurs questions FAQ en une seule fois depuis un fichier CSV
+                </DialogDescription>
+              </DialogHeader>
+              <FAQCSVImporter onImportComplete={handleImportComplete} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </PageHeader>
 
       {/* Statistiques globales */}
@@ -309,20 +508,35 @@ export default function FAQPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Question</TableHead>
-                <TableHead>Catégorie</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead>Popularité</TableHead>
-                <TableHead>Mise à jour</TableHead>
-                <TableHead>Créé par</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredFAQs.map((faq) => (
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-muted-foreground">Chargement des FAQ...</div>
+            </div>
+          ) : filteredFAQs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <HelpCircle className="h-12 w-12 text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">Aucune FAQ trouvée</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                {searchTerm || categoryFilter !== "toutes" || statusFilter !== "tous"
+                  ? "Essayez de modifier vos filtres"
+                  : "Créez votre première question FAQ"}
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Question</TableHead>
+                  <TableHead>Catégorie</TableHead>
+                  <TableHead>Statut</TableHead>
+                  <TableHead>Popularité</TableHead>
+                  <TableHead>Mise à jour</TableHead>
+                  <TableHead>Créé par</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredFAQs.map((faq) => (
                 <TableRow key={faq.id}>
                   <TableCell className="max-w-md">
                     <div className="space-y-1">
@@ -380,11 +594,14 @@ export default function FAQPage() {
                           <Edit className="h-4 w-4 mr-2" />
                           Modifier
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleToggleHighlight(faq)}>
                           <Star className="h-4 w-4 mr-2" />
                           {faq.isHighlighted ? "Retirer l'épingle" : "Épingler"}
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem 
+                          className="text-destructive"
+                          onClick={() => handleDeleteFAQ(faq.id)}
+                        >
                           <Trash2 className="h-4 w-4 mr-2" />
                           Supprimer
                         </DropdownMenuItem>
@@ -392,9 +609,10 @@ export default function FAQPage() {
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

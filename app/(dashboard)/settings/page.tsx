@@ -2,7 +2,7 @@
 /**
  * Paramètres Assistant IA - Configuration Complète
  */
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -14,9 +14,10 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { Slider } from "@/components/ui/slider"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { toast } from "sonner"
 import { 
   Settings, Bot, Link, Shield, Bell, Zap, BookOpen, Save, RotateCcw, Eye,
-  Globe, MessageSquare, Database, Mail, AlertTriangle
+  Globe, MessageSquare, Database, Mail, AlertTriangle, CheckCircle, Loader2
 } from "lucide-react"
 
 export default function SettingsPage() {
@@ -31,10 +32,17 @@ export default function SettingsPage() {
   const [fallbackToHuman, setFallbackToHuman] = useState(true)
   const [chatbotName, setChatbotName] = useState("Assistant IA")
   const [welcomeMessage, setWelcomeMessage] = useState("Bonjour ! Comment puis-je vous aider aujourd'hui ?")
-  const [chatbotColor, setChatbotColor] = useState("#3B82F6")
+  const [chatbotColor, setChatbotColor] = useState("#ff6f61")
   const [chatbotPosition, setChatbotPosition] = useState("bottom-right")
+  // États pour la configuration Shopify
   const [shopifyIntegration, setShopifyIntegration] = useState(true)
+  const [shopifyShopName, setShopifyShopName] = useState("")
   const [shopifyApiKey, setShopifyApiKey] = useState("")
+  const [shopifyApiSecret, setShopifyApiSecret] = useState("")
+  const [shopifyAccessToken, setShopifyAccessToken] = useState("")
+  const [shopifyLoading, setShopifyLoading] = useState(false)
+  const [shopifyTesting, setShopifyTesting] = useState(false)
+  const [shopifyTestResult, setShopifyTestResult] = useState<{success: boolean, message?: string} | null>(null)
   const [gdprCompliance, setGdprCompliance] = useState(true)
   const [dataRetention, setDataRetention] = useState("30")
   const [adminEmail, setAdminEmail] = useState("admin@example.com")
@@ -44,12 +52,128 @@ export default function SettingsPage() {
   const [autoUpdate, setAutoUpdate] = useState(true)
   const [knowledgeBaseUrl, setKnowledgeBaseUrl] = useState("")
 
-  const handleSave = () => {
-    console.log("Saving settings...")
+  // Charger la configuration Shopify au montage
+  useEffect(() => {
+    loadShopifyConfig()
+  }, [])
+
+  const loadShopifyConfig = async () => {
+    try {
+      setShopifyLoading(true)
+      const response = await fetch('/api/shopify-config?active=true')
+      const result = await response.json()
+      
+      if (result.success && result.data) {
+        const config = result.data
+        setShopifyShopName(config.shop_name || "")
+        setShopifyApiKey(config.api_key || "")
+        setShopifyApiSecret(config.api_secret || "")
+        setShopifyAccessToken(config.access_token || "")
+        setShopifyIntegration(config.enabled ?? true)
+      }
+    } catch (error) {
+      console.error('Erreur chargement config Shopify:', error)
+    } finally {
+      setShopifyLoading(false)
+    }
+  }
+
+  const testShopifyConnection = async () => {
+    if (!shopifyShopName || !shopifyAccessToken) {
+      toast.error('Veuillez remplir le nom de la boutique et le token d\'accès')
+      return
+    }
+
+    try {
+      setShopifyTesting(true)
+      setShopifyTestResult(null)
+
+      const response = await fetch('/api/shopify-config?test=true', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          shop_name: shopifyShopName,
+          access_token: shopifyAccessToken,
+          api_key: shopifyApiKey,
+          api_secret: shopifyApiSecret,
+          enabled: shopifyIntegration
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setShopifyTestResult({ success: true, message: 'Connexion réussie !' })
+        toast.success('Connexion Shopify testée avec succès')
+      } else {
+        setShopifyTestResult({ success: false, message: result.error || result.details })
+        toast.error('Échec du test de connexion', {
+          description: result.error || result.details
+        })
+      }
+    } catch (error: any) {
+      setShopifyTestResult({ success: false, message: error.message })
+      toast.error('Erreur lors du test de connexion')
+    } finally {
+      setShopifyTesting(false)
+    }
+  }
+
+  const saveShopifyConfig = async () => {
+    if (!shopifyShopName || !shopifyAccessToken) {
+      toast.error('Le nom de la boutique et le token d\'accès sont requis')
+      return
+    }
+
+    try {
+      setShopifyLoading(true)
+
+      const response = await fetch('/api/shopify-config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          shop_name: shopifyShopName,
+          access_token: shopifyAccessToken,
+          api_key: shopifyApiKey || undefined,
+          api_secret: shopifyApiSecret || undefined,
+          enabled: shopifyIntegration
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        toast.success('Configuration Shopify sauvegardée avec succès')
+      } else {
+        toast.error('Erreur lors de la sauvegarde', {
+          description: result.error || result.details
+        })
+      }
+    } catch (error: any) {
+      toast.error('Erreur lors de la sauvegarde')
+      console.error('Erreur sauvegarde config Shopify:', error)
+    } finally {
+      setShopifyLoading(false)
+    }
+  }
+
+  const handleSave = async () => {
+    // Sauvegarder la configuration Shopify si elle est activée
+    if (shopifyIntegration) {
+      await saveShopifyConfig()
+    }
+    
+    // Sauvegarder les autres paramètres ici
+    toast.success('Paramètres sauvegardés avec succès')
   }
 
   const handleReset = () => {
     console.log("Resetting to defaults...")
+    loadShopifyConfig()
   }
 
   return (
@@ -310,7 +434,7 @@ export default function SettingsPage() {
                     <Input
                       value={chatbotColor}
                       onChange={(e) => setChatbotColor(e.target.value)}
-                      placeholder="#3B82F6"
+                      placeholder="#ff6f61"
                     />
                   </div>
                 </div>
@@ -366,15 +490,131 @@ export default function SettingsPage() {
                 </div>
 
                 {shopifyIntegration && (
-                  <div className="ml-11 space-y-2">
-                    <Label htmlFor="shopifyApiKey">Clé API Shopify</Label>
-                    <Input
-                      id="shopifyApiKey"
-                      type="password"
-                      value={shopifyApiKey}
-                      onChange={(e) => setShopifyApiKey(e.target.value)}
-                      placeholder="shpat_xxxxxxxxxxxxx"
-                    />
+                  <div className="ml-11 space-y-4 p-4 border rounded-lg bg-muted/30">
+                    {shopifyLoading && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Chargement de la configuration...
+                      </div>
+                    )}
+                    
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="shopifyShopName">
+                          Nom de la boutique <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="shopifyShopName"
+                          value={shopifyShopName}
+                          onChange={(e) => setShopifyShopName(e.target.value)}
+                          placeholder="votre-boutique (sans .myshopify.com)"
+                          disabled={shopifyLoading}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Le nom de votre boutique Shopify sans l'extension .myshopify.com
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="shopifyAccessToken">
+                          Token d'accès <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="shopifyAccessToken"
+                          type="password"
+                          value={shopifyAccessToken}
+                          onChange={(e) => setShopifyAccessToken(e.target.value)}
+                          placeholder="shpat_xxxxxxxxxxxxx"
+                          disabled={shopifyLoading}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Token d'accès privé Shopify (Admin API access token)
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="shopifyApiKey">Clé API (optionnel)</Label>
+                          <Input
+                            id="shopifyApiKey"
+                            type="password"
+                            value={shopifyApiKey}
+                            onChange={(e) => setShopifyApiKey(e.target.value)}
+                            placeholder="Clé API publique"
+                            disabled={shopifyLoading}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="shopifyApiSecret">Secret API (optionnel)</Label>
+                          <Input
+                            id="shopifyApiSecret"
+                            type="password"
+                            value={shopifyApiSecret}
+                            onChange={(e) => setShopifyApiSecret(e.target.value)}
+                            placeholder="Secret API"
+                            disabled={shopifyLoading}
+                          />
+                        </div>
+                      </div>
+
+                      {shopifyTestResult && (
+                        <div className={`flex items-center gap-2 p-3 rounded-lg ${
+                          shopifyTestResult.success 
+                            ? 'bg-green-50 border border-green-200' 
+                            : 'bg-red-50 border border-red-200'
+                        }`}>
+                          {shopifyTestResult.success ? (
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <AlertTriangle className="h-4 w-4 text-red-600" />
+                          )}
+                          <span className={`text-sm ${
+                            shopifyTestResult.success ? 'text-green-800' : 'text-red-800'
+                          }`}>
+                            {shopifyTestResult.message}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={testShopifyConnection}
+                          disabled={shopifyTesting || !shopifyShopName || !shopifyAccessToken}
+                        >
+                          {shopifyTesting ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Test en cours...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Tester la connexion
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={saveShopifyConfig}
+                          disabled={shopifyLoading || !shopifyShopName || !shopifyAccessToken}
+                        >
+                          {shopifyLoading ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Sauvegarde...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="mr-2 h-4 w-4" />
+                              Sauvegarder
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 )}
 

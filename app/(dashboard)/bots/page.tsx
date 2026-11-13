@@ -80,7 +80,7 @@ const mockChatbots: Chatbot[] = [
       proactivity: "Proactif"
     },
     visualConfig: {
-      primaryColor: "#3B82F6",
+      primaryColor: "#ff6f61",
       secondaryColor: "#EFF6FF",
       textColor: "#1F2937",
       backgroundColor: "#FFFFFF",

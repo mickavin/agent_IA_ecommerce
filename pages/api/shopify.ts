@@ -3,23 +3,53 @@ import { Readable } from 'stream'
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { supabase } from '@/lib/supabase';
+import { ShopifyConfigService } from '@/lib/services/shopify-config.service';
 
 const Shopify = require('shopify-api-node');
 
-// Configuration Shopify avec vérification des variables d'environnement
-if (!process.env.SHOPIFY_API_KEY || !process.env.SHOPIFY_API_SECRET || !process.env.SHOPIFY_SHOP_NAME) {
-  console.error('❌ Variables d\'environnement Shopify manquantes:')
-  console.error('- SHOPIFY_API_KEY:', !!process.env.SHOPIFY_API_KEY)
-  console.error('- SHOPIFY_API_SECRET:', !!process.env.SHOPIFY_API_SECRET)
-  console.error('- SHOPIFY_SHOP_NAME:', !!process.env.SHOPIFY_SHOP_NAME)
+/**
+ * Récupère la configuration Shopify active
+ */
+async function getShopifyConfig() {
+  // Essayer d'abord de récupérer depuis Supabase
+  const config = await ShopifyConfigService.getActiveConfig()
+  
+  if (config) {
+    console.log('✅ Configuration Shopify chargée depuis Supabase:', config.shop_name)
+    return {
+      shopName: config.shop_name,
+      accessToken: config.access_token,
+      apiKey: config.api_key,
+      apiSecret: config.api_secret
+    }
+  }
+
+  // Fallback vers les variables d'environnement pour compatibilité
+  console.warn('⚠️ Aucune configuration Shopify active trouvée, utilisation des variables d\'environnement')
+  
+  if (!process.env.SHOPIFY_ACCESS_TOKEN) {
+    throw new Error('Configuration Shopify manquante: aucune configuration active dans Supabase et SHOPIFY_ACCESS_TOKEN non défini')
+  }
+
+  return {
+    shopName: process.env.SHOPIFY_SHOP_NAME || 'younzee-prod',
+    accessToken: process.env.SHOPIFY_ACCESS_TOKEN,
+    apiKey: process.env.SHOPIFY_API_KEY,
+    apiSecret: process.env.SHOPIFY_API_SECRET
+  }
 }
 
-const shopName = 'younzee-prod';
-
-const shopify = new Shopify({
-    shopName,
-    accessToken: process.env.SHOPIFY_ACCESS_TOKEN!
-});
+/**
+ * Crée une instance Shopify avec la configuration
+ */
+async function createShopifyClient() {
+  const config = await getShopifyConfig()
+  
+  return new Shopify({
+    shopName: config.shopName,
+    accessToken: config.accessToken
+  })
+}
 
 interface ShopifyProduct {
   id: number
@@ -334,7 +364,7 @@ function validateCSVLine(line: string, expectedFieldCount: number): boolean {
 /**
  * Convertit les produits en format CSV avec validation robuste
  */
-function convertProductsToCSV(products: FormattedProduct[]): string {
+async function convertProductsToCSV(products: FormattedProduct[]): Promise<string> {
   if (products.length === 0) {
     console.warn('⚠️ Aucun produit à convertir en CSV')
     return ''
@@ -651,7 +681,7 @@ async function saveProductsAsCSV(products: FormattedProduct[]): Promise<{
     }
 
     // Convertir en CSV avec validation
-    const csvContent = convertProductsToCSV(validProducts)
+    const csvContent = await convertProductsToCSV(validProducts)
     if (!csvContent || csvContent.trim() === '') {
       const error = 'Échec de la génération du contenu CSV'
       console.error(`❌ ${error}`)
@@ -753,6 +783,7 @@ async function saveProductsAsCSV(products: FormattedProduct[]): Promise<{
  */
 async function testShopifyConnection(): Promise<{success: boolean, error?: string, shopInfo?: any}> {
   try {
+    const shopify = await createShopifyClient()
     // Test simple avec les informations de la boutique
     const shop = await shopify.shop.get()
     console.log('✅ Connexion Shopify réussie:', shop.name)
@@ -815,6 +846,7 @@ async function getProductsPage(limit: number, sinceId: number, attempt: number =
     async () => {
       console.log(`📦 Récupération des produits depuis ID: ${sinceId} (Page ${attempt})`)
       
+      const shopify = await createShopifyClient()
       const products = await shopify.product.list({
         limit: limit,
         since_id: sinceId,
@@ -995,34 +1027,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Méthode non autorisée' })
   }
 
-  // Vérification des variables d'environnement
-  const requiredEnvVars = {
-    SHOPIFY_API_KEY: process.env.SHOPIFY_API_KEY,
-    SHOPIFY_API_SECRET: process.env.SHOPIFY_API_SECRET,
-    SHOPIFY_SHOP_NAME: process.env.SHOPIFY_SHOP_NAME
-  }
-
-  const missingVars = Object.entries(requiredEnvVars)
-    .filter(([key, value]) => !value)
-    .map(([key]) => key)
-
-  if (missingVars.length > 0) {
-    console.error('❌ Variables d\'environnement manquantes:', missingVars)
-    return res.status(500).json({
-      success: false,
-      error: 'Configuration Shopify incomplète',
-      details: `Variables manquantes: ${missingVars.join(', ')}`,
-      required: 'Ajoutez SHOPIFY_API_KEY, SHOPIFY_API_SECRET, et SHOPIFY_SHOP_NAME dans .env.local'
-    })
-  }
-
   try {
-    console.log('🚀 Début récupération produits Shopify...')
-    console.log('🔧 Configuration:', {
-      shopName: process.env.SHOPIFY_SHOP_NAME,
-      hasApiKey: !!process.env.SHOPIFY_API_KEY,
-      hasApiSecret: !!process.env.SHOPIFY_API_SECRET
-    })
+    // Récupérer la configuration Shopify
+    let shopifyConfig
+    try {
+      shopifyConfig = await getShopifyConfig()
+      console.log('🚀 Début récupération produits Shopify...')
+      console.log('🔧 Configuration:', {
+        shopName: shopifyConfig.shopName,
+        hasAccessToken: !!shopifyConfig.accessToken,
+        source: 'Supabase'
+      })
+    } catch (configError: any) {
+      console.error('❌ Erreur récupération configuration Shopify:', configError)
+      return res.status(500).json({
+        success: false,
+        error: 'Configuration Shopify manquante',
+        details: configError.message,
+        required: 'Configurez Shopify dans les paramètres ou définissez SHOPIFY_ACCESS_TOKEN dans .env.local'
+      })
+    }
 
     // Test de connexion d'abord
     console.log('🔍 Test de connexion Shopify...')
@@ -1095,11 +1119,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     // Sauvegarder dans Supabase
     if (supabase) {
+      const config = await getShopifyConfig()
       await supabase?.from('importations').insert({
         doc_url: "https://eu-west-3.console.aws.amazon.com/s3/object/younzee?region=eu-west-3&bucketType=general&prefix=" + csvResult.filename,
         created_at: new Date().toISOString(),
         filename: csvResult.filename,
-        access_token: process.env.SHOPIFY_ACCESS_TOKEN,
+        access_token: config.accessToken,
       })
     }
 

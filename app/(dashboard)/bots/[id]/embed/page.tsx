@@ -27,9 +27,11 @@ import {
   MessageSquare,
   Globe,
   Shield,
-  Zap
+  Zap,
+  RefreshCw
 } from "lucide-react"
-import { Chatbot } from "@/lib/types"
+import { Chatbot, ChatbotStatus } from "@/lib/types"
+import { ChatbotService } from "@/lib/services/chatbot.service"
 import { toast } from "sonner"
 
 // Configuration par défaut du widget
@@ -37,7 +39,7 @@ const defaultConfig = {
   theme: 'light',
   position: 'bottom-right',
   size: 'standard',
-  primaryColor: '#3B82F6',
+  primaryColor: '#ff6f61',
   textColor: '#1F2937',
   backgroundColor: '#FFFFFF',
   showBranding: true,
@@ -49,67 +51,86 @@ const defaultConfig = {
   animation: 'smooth'
 }
 
-// Simulation de données du chatbot
-const mockChatbot: Chatbot = {
-  id: "1",
-  name: "Assistant Wikzy",
-  description: "Chatbot intelligent avec recommandations produits",
-  status: "Actif",
-  createdAt: "2024-01-15",
-  updatedAt: "2024-01-20",
-  personality: {
-    tone: "Amical",
-    formality: "Tutoiement",
-    verbosity: "Détaillé",
-    empathy: "Élevée",
-    proactivity: "Proactif"
-  },
-  visualConfig: {
-    primaryColor: "#3B82F6",
-    secondaryColor: "#EFF6FF",
-    textColor: "#1F2937",
-    backgroundColor: "#FFFFFF",
-    borderRadius: "Arrondi",
-    position: "Bas droite",
-    size: "Standard",
-    welcomeMessage: "Salut ! Comment puis-je t'aider avec tes achats aujourd'hui ?",
-    placeholder: "Tape ton message..."
-  },
-  dataSources: [],
-  conversationsCount: 0,
-  avgResponseTime: 850,
-  satisfactionRate: 0
-}
-
 export default function ChatbotEmbedPage() {
   const params = useParams()
   const botId = params?.id as string
-  const [chatbot] = useState<Chatbot>(mockChatbot)
+  const [chatbot, setChatbot] = useState<Chatbot | null>(null)
   const [config, setConfig] = useState(defaultConfig)
+  const [isLoading, setIsLoading] = useState(true)
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop')
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('configure')
 
+  useEffect(() => {
+    const fetchChatbot = async () => {
+      try {
+        setIsLoading(true)
+        const data = await ChatbotService.getById(botId)
+        if (data) {
+          setChatbot(data)
+          // Mettre à jour la config locale avec les valeurs du bot si elles existent
+          if (data.generatorConfig) {
+            setConfig(prev => ({
+              ...prev,
+              primaryColor: data.generatorConfig?.primaryColor || prev.primaryColor,
+              backgroundColor: data.generatorConfig?.backgroundColor || prev.backgroundColor,
+              textColor: data.generatorConfig?.textColor || prev.textColor,
+              welcomeMessage: data.generatorConfig?.welcomeMessage || prev.welcomeMessage,
+              placeholder: data.generatorConfig?.placeholder || prev.placeholder,
+            }))
+          }
+        }
+      } catch (error) {
+        console.error("Erreur lors du chargement du chatbot:", error)
+        toast.error("Erreur lors du chargement des données")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchChatbot()
+  }, [botId])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (!chatbot) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-xl font-semibold">Chatbot non trouvé</h2>
+        <Button variant="link" onClick={() => window.history.back()}>Retour</Button>
+      </div>
+    )
+  }
+
   // Générer l'URL du widget
   const generateWidgetUrl = () => {
-    const baseUrl = window.location.origin
-    const params = new URLSearchParams()
-    
-    Object.entries(config).forEach(([key, value]) => {
-      if (value !== defaultConfig[key as keyof typeof defaultConfig]) {
-        params.set(key, value.toString())
-      }
-    })
-    
-    return `${baseUrl}/widget/${botId}${params.toString() ? '?' + params.toString() : ''}`
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
+    return `${baseUrl}/widget/${botId}`
+  }
+
+  // Générer le code d'intégration du script (Recommandé)
+  const generateScriptCode = () => {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
+    return `<!-- Wikzy Chatbot Widget - Script Integration -->
+<script 
+  src="${baseUrl}/chatbot-generator.js" 
+  data-bot-id="${botId}"
+  async
+></script>`
   }
 
   // Générer le code d'intégration iframe
   const generateIframeCode = () => {
-    const url = generateWidgetUrl()
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
+    const url = `${baseUrl}/widget/${botId}`
     const sizeProps = getSizeProperties()
     
-    return `<!-- Wikzy Chatbot Widget -->
+    return `<!-- Wikzy Chatbot Widget - Iframe Integration -->
 <iframe 
   src="${url}"
   width="${sizeProps.width}"
@@ -119,76 +140,6 @@ export default function ChatbotEmbedPage() {
   style="position: fixed; ${getPositionStyles()}; z-index: 9999; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.12);"
   title="Assistant Wikzy"
 ></iframe>`
-  }
-
-  // Générer le code JavaScript avancé
-  const generateJavaScriptCode = () => {
-    const url = generateWidgetUrl()
-    
-    return `<!-- Wikzy Chatbot Widget - JavaScript Integration -->
-<script>
-(function() {
-  var chatbotConfig = ${JSON.stringify(config, null, 2)};
-  
-  function loadWikzyChatbot() {
-    var iframe = document.createElement('iframe');
-    iframe.src = '${url}';
-    iframe.width = '${getSizeProperties().width}';
-    iframe.height = '${getSizeProperties().height}';
-    iframe.frameBorder = '0';
-    iframe.allow = 'microphone';
-    iframe.style.cssText = 'position: fixed; ${getPositionStyles()}; z-index: 9999; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.12);';
-    iframe.title = 'Assistant Wikzy';
-    
-    document.body.appendChild(iframe);
-    
-    // Communication avec le widget
-    window.addEventListener('message', function(event) {
-      if (event.origin !== '${window.location.origin}') return;
-      
-      // Gérer les événements du chatbot
-      switch(event.data.type) {
-        case 'chatbot-ready':
-          console.log('Wikzy Chatbot: Widget prêt');
-          break;
-        case 'chatbot-message-sent':
-          console.log('Wikzy Chatbot: Message envoyé', event.data.message);
-          break;
-        case 'chatbot-conversation-started':
-          console.log('Wikzy Chatbot: Conversation démarrée');
-          break;
-      }
-    });
-  }
-  
-  // Charger le chatbot quand le DOM est prêt
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadWikzyChatbot);
-  } else {
-    loadWikzyChatbot();
-  }
-})();
-</script>`
-  }
-
-  // Générer le code WordPress
-  const generateWordPressCode = () => {
-    return `<!-- Pour WordPress: Ajoutez ce code dans Apparence > Personnaliser > HTML/CSS personnalisé -->
-<!-- Ou utilisez le plugin "Insert Headers and Footers" -->
-
-${generateIframeCode()}
-
-<!-- Alternative avec shortcode WordPress -->
-<!-- Ajoutez ce code dans functions.php de votre thème : -->
-
-<?php
-function wikzy_chatbot_shortcode() {
-    return '${generateIframeCode().replace(/'/g, "\\'")}';
-}
-add_shortcode('wikzy_chatbot', 'wikzy_chatbot_shortcode');
-?>
-
-<!-- Puis utilisez [wikzy_chatbot] dans vos pages/articles -->`
   }
 
   const getSizeProperties = () => {
@@ -501,17 +452,19 @@ add_shortcode('wikzy_chatbot', 'wikzy_chatbot_shortcode');
                   >
                     <Monitor className="h-4 w-4" />
                   </Button>
-                  <Button
+                  {/* <Button
                     variant={previewDevice === 'tablet' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setPreviewDevice('tablet')}
                   >
                     <Tablet className="h-4 w-4" />
-                  </Button>
+                  </Button> */}
                   <Button
-                    variant={previewDevice === 'mobile' ? 'default' : 'outline'}
+                    //variant={previewDevice === 'mobile' ? 'default' : 'outline'}
+                    variant={previewDevice === 'tablet' ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => setPreviewDevice('mobile')}
+                    //onClick={() => setPreviewDevice('mobile')}
+                    onClick={() => setPreviewDevice('tablet')}
                   >
                     <Smartphone className="h-4 w-4" />
                   </Button>
@@ -540,15 +493,51 @@ add_shortcode('wikzy_chatbot', 'wikzy_chatbot_shortcode');
         {/* Intégration */}
         <TabsContent value="integrate" className="space-y-6">
           <div className="grid grid-cols-1 gap-6">
-            {/* Code iframe simple */}
+            {/* Code Script (Recommandé) */}
+            <Card className="border-primary/20 shadow-md">
+              <CardHeader className="bg-primary/5">
+                <CardTitle className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-primary" />
+                  Script intelligent (Recommandé)
+                </CardTitle>
+                <CardDescription>
+                  La méthode la plus simple et la plus performante. Ajoute un bouton flottant sur votre site.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="space-y-4">
+                  <div className="relative">
+                    <Textarea
+                      value={generateScriptCode()}
+                      readOnly
+                      className="font-mono text-sm min-h-[100px] bg-slate-900 text-slate-100 border-none"
+                    />
+                    <Button
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={() => copyToClipboard(generateScriptCode(), 'script')}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      {copiedCode === 'script' ? 'Copié !' : 'Copier'}
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted p-2 rounded">
+                    <Globe className="h-3 w-3" />
+                    Placez ce code juste avant la balise &lt;/body&gt; de votre site.
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Code Iframe */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Code className="h-5 w-5" />
-                  Code iframe (Recommandé)
+                  Code Iframe (Standard)
                 </CardTitle>
                 <CardDescription>
-                  Code HTML simple à copier-coller sur votre site
+                  Intégrez le chatbot directement dans une zone spécifique de votre site.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -567,90 +556,6 @@ add_shortcode('wikzy_chatbot', 'wikzy_chatbot_shortcode');
                       <Copy className="h-4 w-4 mr-2" />
                       {copiedCode === 'iframe' ? 'Copié !' : 'Copier'}
                     </Button>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => downloadFile(generateIframeCode(), 'wikzy-chatbot.html')}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Télécharger HTML
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Code JavaScript avancé */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-5 w-5" />
-                  Code JavaScript avancé
-                </CardTitle>
-                <CardDescription>
-                  Intégration avancée avec communication bidirectionnelle
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="relative">
-                    <Textarea
-                      value={generateJavaScriptCode()}
-                      readOnly
-                      className="font-mono text-sm min-h-[200px] bg-gray-50"
-                    />
-                    <Button
-                      size="sm"
-                      className="absolute top-2 right-2"
-                      onClick={() => copyToClipboard(generateJavaScriptCode(), 'javascript')}
-                    >
-                      <Copy className="h-4 w-4 mr-2" />
-                      {copiedCode === 'javascript' ? 'Copié !' : 'Copier'}
-                    </Button>
-                  </div>
-                  <div className="bg-blue-50 p-3 rounded border border-blue-200">
-                    <p className="text-sm text-blue-800">
-                      <strong>Fonctionnalités avancées :</strong> Communication avec le parent, événements personnalisés, chargement dynamique
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Code WordPress */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  Code WordPress
-                </CardTitle>
-                <CardDescription>
-                  Intégration spécialement conçue pour WordPress
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="relative">
-                    <Textarea
-                      value={generateWordPressCode()}
-                      readOnly
-                      className="font-mono text-sm min-h-[180px] bg-gray-50"
-                    />
-                    <Button
-                      size="sm"
-                      className="absolute top-2 right-2"
-                      onClick={() => copyToClipboard(generateWordPressCode(), 'wordpress')}
-                    >
-                      <Copy className="h-4 w-4 mr-2" />
-                      {copiedCode === 'wordpress' ? 'Copié !' : 'Copier'}
-                    </Button>
-                  </div>
-                  <div className="bg-purple-50 p-3 rounded border border-purple-200">
-                    <p className="text-sm text-purple-800">
-                      <strong>Instructions :</strong> Utilisez le shortcode [wikzy_chatbot] ou ajoutez le code directement dans votre thème
-                    </p>
                   </div>
                 </div>
               </CardContent>

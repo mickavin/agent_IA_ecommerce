@@ -40,7 +40,7 @@ interface ChatMessage {
 }
 
 const defaultVisualConfig: ChatbotVisualConfig = {
-  primaryColor: "#3b82f6",
+  primaryColor: "#ff6f61",
   secondaryColor: "#f3f4f6",
   textColor: "#1f2937",
   backgroundColor: "#ffffff",

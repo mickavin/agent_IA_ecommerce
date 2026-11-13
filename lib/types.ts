@@ -184,7 +184,7 @@ export type ChatbotVisualConfig = {
   textColor: string
   backgroundColor: string
   borderRadius: "Carré" | "Arrondi" | "Très arrondi"
-  position: "Bas droite" | "Bas gauche" | "Flottant centre"
+  position: "Bas droite" | "Bas gauche" | "Haut droite" | "Haut gauche" | "Flottant centre"
   size: "Compact" | "Standard" | "Large"
   avatar?: string // URL de l'avatar
   welcomeMessage: string
@@ -198,6 +198,115 @@ export type ChatbotDataSource = {
   isEnabled: boolean
   priority: number
   lastSync?: string
+}
+
+// Type pour la configuration avancée
+export type ChatbotAdvancedConfig = {
+  animation: string
+  soundEffect: string
+  enableTypingIndicator: boolean
+  enableReadReceipts: boolean
+  enableQuickReplies: boolean
+  maxConversationLength: number
+  responseDelay: number
+  customCSS: string
+  customAvatar?: string
+  brandLogo?: string
+  headerGradient: boolean
+  shadowIntensity: number
+  borderWidth: number
+  fontFamily: string
+  fontSize: number
+  lineHeight: number
+  messageSpacing: number
+  enableEmojis: boolean
+  enableFileUpload: boolean
+  enableVoiceMessages: boolean
+  customGreetings: string[]
+  workingHours: {
+    enabled: boolean
+    start: string
+    end: string
+    timezone: string
+    offlineMessage: string
+  }
+}
+
+// Type pour la configuration du générateur (chatbot-generator.js)
+export type ChatbotGeneratorConfig = {
+  chatbotId: string
+  title: string
+  subtitle: string
+  apiEndpoint: string
+  position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
+  primaryColor: string
+  secondaryColor: string
+  accentColor: string
+  textColor: string
+  backgroundColor: string
+  borderRadius: string
+  size: 'compact' | 'standard' | 'large'
+  showTypingIndicator: boolean
+  enableSound: boolean
+  autoOpen: boolean
+  autoOpenDelay: number
+  welcomeMessage: string
+  placeholder: string
+  personality: ChatbotPersonality
+  fontFamily: string
+  fontSize: number
+  buttonSize: number
+  borderWidth: number
+  borderColor: string
+  headerBackgroundColor?: string
+  headerTextColor?: string
+  headerPadding?: number
+  headerTitleFontSize?: number
+  buttonBackgroundColor?: string
+  buttonIconColor?: string
+  closeButtonColor?: string
+  avatarType?: 'image' | 'none'
+  avatarValue?: string
+  shadowEffect: 'none' | 'light' | 'medium' | 'strong' | 'neumorphic'
+  animationStyle: string
+  customIcon: string | null
+  attentionText: {
+    enabled: boolean
+    messages: string[]
+    color: string
+    backgroundColor: string
+    animation: string
+    duration: number
+    delay: number
+    repeatInterval: number
+    particleEffect: boolean
+    trailEffect: boolean
+    orbitRadius: number
+    orbitSpeed: number
+    orbitDirection: 'clockwise' | 'counter-clockwise'
+    curveIntensity: number
+  }
+  theme: 'light' | 'dark' | 'auto'
+  quickReplies: string[]
+  enableQuickReplies?: boolean
+  enableEmojis?: boolean
+  enableFileUpload?: boolean
+  maxConversationLength?: number
+  responseDelay?: number
+  enableReadReceipts?: boolean
+  workingHours?: {
+    enabled: boolean
+    start: string
+    end: string
+    timezone: string
+    offlineMessage: string
+  }
+  customCSS?: string
+  enableMarkdown?: boolean
+  showTimestamps?: boolean
+  showAvatars?: boolean
+  enableFeedback?: boolean
+  gdprCompliant?: boolean
 }
 
 // Type correspondant exactement à la structure Supabase
@@ -215,6 +324,8 @@ export type ChatbotDB = {
   satisfaction_rate: number
   created_at: string
   updated_at: string
+  advanced_config?: ChatbotAdvancedConfig
+  generator_config?: ChatbotGeneratorConfig
 }
 
 // Type pour l'interface utilisateur avec des noms plus lisibles
@@ -232,6 +343,8 @@ export type Chatbot = {
   satisfactionRate: number
   createdAt: string
   updatedAt: string
+  advancedConfig?: ChatbotAdvancedConfig
+  generatorConfig?: ChatbotGeneratorConfig
 }
 
 // Types pour la création/mise à jour (sans les champs auto-générés)

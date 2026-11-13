@@ -25,7 +25,8 @@ import {
   ThumbsUp,
   ThumbsDown,
   Copy,
-  Sparkles
+  Sparkles,
+  RefreshCw
 } from "lucide-react"
 import { ChatMessage, Chatbot, Product } from "@/lib/types"
 import { IntelligentChatbot } from "@/components/intelligent-chatbot"
@@ -49,7 +50,7 @@ const mockChatbot: Chatbot = {
     proactivity: "Proactif"
   },
   visualConfig: {
-    primaryColor: "#3B82F6",
+    primaryColor: "#ff6f61",
     secondaryColor: "#EFF6FF",
     textColor: "#1F2937",
     backgroundColor: "#FFFFFF",
@@ -65,24 +66,19 @@ const mockChatbot: Chatbot = {
   satisfactionRate: 0
 }
 
+import { ChatbotService } from "@/lib/services/chatbot.service"
+
 export default function TestBotPage() {
   const params = useParams()
   const botId = params?.id as string
-  const [chatbot] = useState<Chatbot>(mockChatbot)
+  const [chatbot, setChatbot] = useState<Chatbot | null>(null)
   const [suggestions, setSuggestions] = useState<string[]>([
     "Auriez-vous des trenchs noirs en S ?", 
     "Je cherche des bottines marrons en 44", 
     "Je cherche une veste noire en M ?", 
     "Je voudrais un pantalon noir pour femme taille 38 ?"
   ])
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "welcome",
-      content: "🤖 Bonjour, Je suis votre Styliste Personnel. Comment je peux vous aider aujourd'hui ? Donnez moi une catégorie de produit, une couleur et votre taille pour que je puisse vous proposer des articles adaptés à vous.",
-      type: "bot",
-      timestamp: new Date().toISOString()
-    }
-  ])
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputMessage, setInputMessage] = useState("")
   const [dataProducts, setDataProducts] = useState<Product[]>([])
   const [isTyping, setIsTyping] = useState(false)
@@ -94,36 +90,56 @@ export default function TestBotPage() {
     intentAccuracy: 0
   })
   const [debugLogs, setDebugLogs] = useState<string[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   
   useEffect(() => {
     const fetchChatbot = async () => {
       if (!botId) return
-      if (supabase) {
-        const { data, error } = await supabase?.from('chatbots')
-          .select('*')
-          .eq('id', botId)
-          .single()
-        
-        if (error) {
-          // Si la table n'existe pas, ignorer silencieusement
-          if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
-            console.warn('⚠️ Table chatbots non trouvée.')
-            return
-          }
-          console.error('Erreur lors de la récupération du chatbot:', error)
-          return
-        }
-        
+      try {
+        setIsLoading(true)
+        const data = await ChatbotService.getById(botId)
         if (data) {
-          // Traiter les données du chatbot si nécessaire
-          // setChatbot(data)
+          setChatbot(data)
+          
+          // Initialiser le premier message avec le message de bienvenue du bot
+          const welcomeMsg = data.generatorConfig?.welcomeMessage || 
+                            data.visualConfig?.welcomeMessage || 
+                            "🤖 Bonjour, Je suis votre Styliste Personnel. Comment je peux vous aider aujourd'hui ?"
+          
+          setMessages([
+            {
+              id: "welcome",
+              content: welcomeMsg,
+              type: "bot",
+              timestamp: new Date().toISOString()
+            }
+          ])
         }
+      } catch (error) {
+        console.error('Erreur lors de la récupération du chatbot:', error)
+      } finally {
+        setIsLoading(false)
       }
     }
     fetchChatbot()
-  }, [])
+  }, [botId])
 
+  if (!chatbot && !isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <h2 className="text-xl font-semibold">Chatbot non trouvé</h2>
+        <Button variant="link" onClick={() => window.history.back()}>Retour</Button>
+      </div>
+    )
+  }
+
+  if (isLoading && !chatbot) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   const handleSendMessage = async (message: string) => {
     if (!message.trim() || isLoading) return
@@ -192,9 +208,13 @@ export default function TestBotPage() {
   }
 
     const resetConversation = () => {
+    const welcomeMsg = chatbot?.generatorConfig?.welcomeMessage || 
+                      chatbot?.visualConfig?.welcomeMessage || 
+                      "🤖 Nouvelle session démarrée ! Je suis votre assistant IA mode."
+    
     setMessages([{
-      id: "welcome-reset",
-      content: "🔄 Nouvelle session démarrée ! Je suis votre assistant IA mode. N'hésitez pas à me poser des questions sur nos produits, demander des conseils de style ou des recommandations personnalisées !",
+      id: `welcome-${Date.now()}`,
+      content: welcomeMsg,
       type: "bot",
       timestamp: new Date().toISOString()    
     }])
@@ -236,20 +256,32 @@ export default function TestBotPage() {
         {/* Interface de chat IA */}
         <div>
           <Card className="h-[600px] flex flex-col overflow-y-auto">
-            <CardHeader className="sticky top-0 bg-stone-900" style={{zIndex: 50}}>
+            <CardHeader className="sticky top-0 bg-stone-900" style={{
+              zIndex: 50,
+              background: chatbot?.generatorConfig?.headerBackgroundColor || chatbot?.visualConfig?.primaryColor || undefined,
+              color: chatbot?.generatorConfig?.headerTextColor || '#FFFFFF'
+            }}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Avatar className="h-8 w-8 bg-gradient-to-br from-blue-500 to-purple-600">
-                    <AvatarFallback>
-                      <Bot className="h-4 w-4 text-white" />
-                    </AvatarFallback>
-                  </Avatar>
+                  {chatbot?.generatorConfig?.avatarType === 'image' && chatbot?.generatorConfig?.avatarValue ? (
+                    <Avatar className="h-8 w-8">
+                      <img src={chatbot.generatorConfig.avatarValue} alt="Avatar" className="w-full h-full object-cover rounded-full" />
+                    </Avatar>
+                  ) : (
+                    <Avatar className="h-8 w-8 bg-gradient-to-br from-blue-500 to-purple-600">
+                      <AvatarFallback>
+                        <Bot className="h-4 w-4 text-white" />
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
                   <div>
                     <CardTitle className="text-lg flex items-center gap-2">
-                      {chatbot.name}
+                      {chatbot?.name}
                       <Sparkles className="h-4 w-4 text-purple-500" />
                     </CardTitle>
-                    <CardDescription>Propulsé par Wikzy - Agent IA expert en mode</CardDescription>
+                    <CardDescription style={{ color: 'inherit', opacity: 0.8 }}>
+                      {chatbot?.generatorConfig?.subtitle || "Propulsé par Wikzy - Agent IA expert en mode"}
+                    </CardDescription>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -284,11 +316,19 @@ export default function TestBotPage() {
                         <div 
                           className={`rounded-lg px-4 py-3 ${
                             message.type === 'user' 
-                              ? 'text-white ml-auto bg-gradient-to-r from-blue-500 to-purple-600' 
-                              : 'text-gray-800 bg-gray-100'
+                              ? 'text-white ml-auto bg-gradient-to-r' 
+                              : 'bg-gray-100'
                           }`}
+                          style={{
+                            background: message.type === 'user' 
+                              ? (chatbot?.generatorConfig?.buttonBackgroundColor || `linear-gradient(135deg, ${chatbot?.visualConfig?.primaryColor || '#3b82f6'}, ${chatbot?.visualConfig?.secondaryColor || '#8b5cf6'})`)
+                              : undefined,
+                            color: message.type === 'user'
+                              ? (chatbot?.generatorConfig?.buttonIconColor || '#FFFFFF')
+                              : (chatbot?.generatorConfig?.textColor || '#1f2937')
+                          }}
                         >
-                          <p id="message-content" className="text-sm whitespace-pre-wrap">
+                          <div id="message-content" className="text-sm whitespace-pre-wrap">
                             <ReactMarkdown   
                             components={{
                               img: ({ node, ...props }) => (
@@ -304,7 +344,7 @@ export default function TestBotPage() {
                             {message.type === 'bot' && isStreaming && message.content && (
                               <span className="inline-block w-2 h-4 bg-blue-500 ml-1 animate-pulse"></span>
                             )}
-                          </p>
+                          </div>
                           <div className="flex items-center justify-between mt-2 text-xs opacity-70">
                             <span>{getMessageTime(message.timestamp)}</span>
                             

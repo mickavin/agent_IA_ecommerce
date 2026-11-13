@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS public.chatbots (
   
   -- Configuration visuelle (JSONB pour flexibilité)
   visual_config JSONB NOT NULL DEFAULT '{
-    "primaryColor": "#3B82F6",
+    "primaryColor": "#ff6f61",
     "secondaryColor": "#EFF6FF",
     "textColor": "#1F2937",
     "backgroundColor": "#FFFFFF",
@@ -90,4 +90,11 @@ COMMENT ON COLUMN public.chatbots.satisfaction_rate IS 'Taux de satisfaction en 
 -- CREATE POLICY "Allow insert access to authenticated users" ON public.chatbots FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 -- CREATE POLICY "Allow update access to authenticated users" ON public.chatbots FOR UPDATE USING (auth.role() = 'authenticated');
 -- CREATE POLICY "Allow delete access to authenticated users" ON public.chatbots FOR DELETE USING (auth.role() = 'authenticated');
+
+
+
+
+
+
+
 

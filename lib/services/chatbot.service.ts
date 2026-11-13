@@ -31,15 +31,15 @@ export class ChatbotService {
         proactivity: "Proactif"
       },
       visual_config: {
-        primaryColor: "#3B82F6",
-        secondaryColor: "#EFF6FF",
+        primaryColor: "#ff6f61",
+        secondaryColor: "#FEF3C7",
         textColor: "#1F2937",
         backgroundColor: "#FFFFFF",
         borderRadius: "Arrondi",
         position: "Bas droite",
         size: "Standard",
-        welcomeMessage: "👋 Salut ! Je suis votre assistant mode personnel ! Comment puis-je vous aider à trouver le produit parfait aujourd'hui ?",
-        placeholder: "Décrivez ce que vous cherchez..."
+        welcomeMessage: "👋 Hey ! Ton styliste personnel est là ! Prêt(e) pour un nouveau look ? Essayez \"robes\", \"chaussures\" ou \"nouveau style\" !",
+        placeholder: "Dis-moi ton style..."
       },
       data_sources: [
         { id: "1", type: "faq", name: "FAQ Générale", isEnabled: true, priority: 1 },
@@ -140,7 +140,9 @@ export class ChatbotService {
       avgResponseTime: chatbotDB.avg_response_time,
       satisfactionRate: chatbotDB.satisfaction_rate,
       createdAt: chatbotDB.created_at,
-      updatedAt: chatbotDB.updated_at
+      updatedAt: chatbotDB.updated_at,
+      advancedConfig: chatbotDB.advanced_config,
+      generatorConfig: chatbotDB.generator_config
     }
   }
 
@@ -161,7 +163,9 @@ export class ChatbotService {
       avg_response_time: chatbot.avgResponseTime,
       satisfaction_rate: chatbot.satisfactionRate,
       created_at: chatbot.createdAt,
-      updated_at: chatbot.updatedAt
+      updated_at: chatbot.updatedAt,
+      advanced_config: chatbot.advancedConfig,
+      generator_config: chatbot.generatorConfig
     }
   }
 
@@ -179,7 +183,9 @@ export class ChatbotService {
       data_sources: input.data_sources,
       conversations_count: input.conversations_count,
       avg_response_time: input.avg_response_time,
-      satisfaction_rate: input.satisfaction_rate
+      satisfaction_rate: input.satisfaction_rate,
+      advanced_config: input.advanced_config,
+      generator_config: input.generator_config
     }
   }
 

@@ -27,7 +27,7 @@ export function ProductCarousel({
   title = "Produits recommandés",
   className = "",
   onProductClick,
-  primaryColor = "#3B82F6"
+  primaryColor = "#ff6f61"
 }: ProductCarouselProps) {
   if (!products || products.length === 0) {
     return null
